@@ -3,6 +3,7 @@ import inspect
 from typing import Any, Callable, Dict, Optional, Type, TypeVar, List
 from jinja2 import Environment, BaseLoader
 
+from context.context_manager import ContextManager
 from llm.models import ModelManager
 from .llm_client import LLMClientManager
 from dotenv import load_dotenv
@@ -78,6 +79,8 @@ class PromptDecorator:
             final_api_key = self.override_api_key or (model_config.get_api_key() if model_config else None)
             final_base_url = self.override_base_url or (model_config.base_url if model_config else None)
             final_model_name = model_config.model_name if model_config else None # 这是要传给API的真正model name
+
+            max_window = getattr(model_config, 'max_window_size', 50000)
             
             # 1. 绑定所有参数，包括默认值
             bound_args = sig.bind(*args, **kwargs)
@@ -126,10 +129,17 @@ class PromptDecorator:
             # 构建最终的LLM消息列表
             # 将渲染后的prompt作为最后一轮的用户消息
             llm_messages = conversation_history + [{"role": "user", "content": rendered_prompt}]
+
+            context_manager = ContextManager(
+                model_name=final_model_name, 
+                max_window_size=max_window
+            )
+
+            pruned_messages = context_manager.prune(llm_messages)
             
             # 调用LLM API
             llm_result = self._call_llm_api(
-                messages = llm_messages, 
+                messages = pruned_messages, 
                 model = final_model_name,
                 api_key = final_api_key,
                 base_url = final_base_url

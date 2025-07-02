@@ -21,7 +21,7 @@ class FileIndex(pydantic.BaseModel):
     dependencies: Optional[List[str]] = pydantic.Field(default_factory=list, description="List of modules this file depends on.")
     is_aggregated: bool = pydantic.Field(default=False, description="Indicates if this index is an aggregation of multiple chunks.")
     chunk_count: Optional[int] = pydantic.Field(None, description="Number of chunks if aggregated.")
-    tokens: Optional[int] = pydantic.Field(description="file tokens.")
+    tokens: Optional[int] = pydantic.Field(None, description="file tokens.")
 
 class ProjectIndex(pydantic.BaseModel):
     """
