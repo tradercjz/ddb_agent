@@ -1,0 +1,18 @@
+[
+  {
+    "name": "deepseek",
+    "model_type": "deepseek",
+    "model_name": "deepseek-chat",
+    "base_url": "https://api.deepseek.com/v1",
+    "api_key": "sk-e43ce0aab45f43f38032df9568d3e508",
+    "description": "Default DeepSeek model for general tasks."
+  },
+  {
+    "name": "openai-gpt4o",
+    "model_type": "openai",
+    "model_name": "openai/gpt-4o-mini",
+    "base_url": "https://openrouter.ai/api/v1",
+    "api_key": "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",
+    "description": "OpenAI's GPT-4o model for complex reasoning."
+  }
+]
