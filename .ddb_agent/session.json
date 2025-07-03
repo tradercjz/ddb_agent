@@ -1,0 +1,24 @@
+{
+  "session_id": "sid_8c9b59a53aa64d1c9bd966eb1cf00282",
+  "created_at": "2025-07-03T06:52:54.427279+00:00",
+  "updated_at": "2025-07-03T07:07:33.163322+00:00",
+  "conversation_history": [
+    {
+      "role": "user",
+      "content": "dolphindb中，如何清理所有流订阅"
+    },
+    {
+      "role": "assistant",
+      "content": "在DolphinDB中，可以通过以下方式清理所有流数据订阅：\n\n1. 使用`getStreamingStat()`查看当前所有订阅\n2. 使用`unsubscribeTable`取消特定订阅\n3. 使用以下脚本批量取消所有订阅：\n\n```python\n// 取消所有订阅者\nsubs = getStreamingStat().pubTables\nfor (sub in subs) {\n    unsubscribeTable(sub.subscriber, sub.tableName, sub.actionName)\n}\n\n// 取消所有发布表\npubs = getStreamingStat().subWorkers\nfor (pub in pubs) {\n    unsubscribeTable(pub.subscriber, pub.tableName, pub.actionName)\n}\n```\n\n或者更简洁的方式：\n\n```python\n// 取消所有流订阅\ncancelAllSubscriptions()\n```\n\n注意：这些操作需要相应的权限才能执行。"
+    },
+    {
+      "role": "user",
+      "content": "dolphindb中，如何清理所有流订阅"
+    },
+    {
+      "role": "assistant",
+      "content": "在 DolphinDB 中清理所有流订阅，可以使用以下方法：\n\n### 1. **查看当前所有订阅**\n```python\n// 查看所有订阅信息\ngetStreamingStat().subWorkers\n```\n\n### 2. **取消所有订阅**\n#### **方法 1：使用 `cancelAllSubscriptions()`（推荐）**\n```python\n// 一键取消所有订阅（包括发布端和订阅端）\ncancelAllSubscriptions()\n```\n\n#### **方法 2：手动遍历取消**\n```python\n// 取消所有订阅端（subscriber）的订阅\nsubs = getStreamingStat().subWorkers\nfor (sub in subs) {\n    unsubscribeTable(\n        subscriber=sub.subscriber,  // 订阅节点名\n        tableName=sub.tableName,    // 订阅的表名\n        actionName=sub.actionName   // 订阅的处理函数名\n    )\n}\n```\n\n### 3. **清理发布端（如果需要）**\n```python\n// 取消所有发布端（pubTables）\npubs = getStreamingStat().pubTables\nfor (pub in pubs) {\n    dropStreamTable(pub.tableName)  // 删除流表（谨慎操作！）\n}\n```\n\n### **注意事项**\n- `cancelAllSubscriptions()` 会直接清理所有订阅，适用于快速重置环境。\n- `unsubscribeTable` 需要明确指定 `subscriber`, `tableName`, 和 `actionName`。\n- 如果是分布式环境，确保在正确的节点执行命令。\n\n需要进一步帮助吗？ 😊"
+    }
+  ],
+  "metadata": {}
+}

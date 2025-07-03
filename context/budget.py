@@ -43,19 +43,13 @@ class ContextBudget:
         remaining_budget = total_safe_zone - self.system_prompt_tokens
         
         # 3. 根据权重分配剩余预算
-        weights = CONTEXT_WEIGHTS[task_type]
-        self.history_budget = int(remaining_budget * weights["conversation_history"])
-        self.file_context_budget = int(remaining_budget * weights["file_context"])
+        self.weights = CONTEXT_WEIGHTS[task_type]
+        self.history_budget = int(remaining_budget * self.weights["conversation_history"])
+        self.file_context_budget = int(remaining_budget * self.weights["file_context"])
 
         # 4. 调整以确保总和精确
         self._adjust_budgets(remaining_budget)
         
-        print(f"Context budget allocated for task type '{task_type}':")
-        print(f"  - System Prompt (reserved): {self.system_prompt_tokens} tokens")
-        print(f"  - Conversation History Budget: {self.history_budget} tokens")
-        print(f"  - File Context Budget: {self.file_context_budget} tokens")
-        print(f"  - Total Allocated: {self.system_prompt_tokens + self.history_budget + self.file_context_budget} / {total_safe_zone}")
-
     def _adjust_budgets(self, remaining_budget: int):
         """Adjusts budgets to ensure they sum up to the remaining budget."""
         current_sum = self.history_budget + self.file_context_budget

@@ -16,7 +16,7 @@ class DDBRAG:
     def __init__(self, project_path: str, index_file: str = None):
         self.project_path = project_path
         self.index_file = index_file or os.path.join(project_path, ".ddb_agent", "index.json")
-        self.index_manager = DDBIndexManager( project_path=project_path, index_file = index_file)
+        self.index_manager = DDBIndexManager(project_path=project_path, index_file = self.index_file)
 
     @llm.prompt()
     def _chat_prompt(self, user_query: str, context_files: str) -> str:
@@ -87,85 +87,25 @@ class DDBRAG:
                 print(f"Warning: Could not read file {file_path}: {e}")
         return sources
 
-    def chat(self, query: str):
+    def retrieve(self, query: str, top_k: int = 5) -> List[SourceCode]:
         """
-        Handles a user query using the RAG pipeline.
+        Retrieves the most relevant source code files for a given query.
+
+        Args:
+            query: The user's query string.
+            top_k: The maximum number of relevant files to return.
+
+        Returns:
+            A list of SourceCode objects containing the content of the relevant files.
         """
-        print("Step 1: Retrieving relevant files...")
-        relevant_files = self.index_manager.get_relevant_files(query)
+        print("Step 1: Retrieving relevant file paths...")
+        relevant_file_paths = self.index_manager.get_relevant_files(query, top_k=top_k)
         
-        if not relevant_files:
-            print("No relevant files found in the index. Answering based on general knowledge.")
-            # Fallback: answer without context
-            return self._chat_without_context(query)
+        if not relevant_file_paths:
+            print("No relevant files found in the index.")
+            return []
 
-        print(f"Step 2: Found {len(relevant_files)} relevant files: {', '.join(relevant_files)}")
+        print(f"Step 2: Found {len(relevant_file_paths)} relevant files: {', '.join(relevant_file_paths)}")
 
-        # Step 3: Augment the context by reading file contents
-        context_str = ""
-        for file_path in relevant_files:
-            full_path = os.path.join(self.project_path, file_path)
-            try:
-                with open(full_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                context_str += f"--- File: {file_path} ---\n{content}\n\n"
-            except Exception as e:
-                print(f"Warning: Could not read file {file_path}: {e}")
-        
-        current_sources = self._get_files_content(relevant_files)
-
-        # 3. 迭代式剪枝循环
-        pruning_attempts = 0
-        max_pruning_attempts = 5 # 防止无限循环
-
-        max_context_tokens = ModelManager.get_model_config('deepseek').max_context_tokens or 50000
-
-        # 获取 pruner 实例
-        # 我们在这里硬编码使用 'extract' 策略，因为这是需求
-        pruner = get_pruner(
-            strategy='extract',
-            max_tokens = max_context_tokens
-        )
-        
-        while pruning_attempts < max_pruning_attempts:
-            pruning_attempts += 1
-            print(f"\n--- Pruning Attempt #{pruning_attempts} ---")
-            
-            # 计算当前上下文总token
-            total_tokens = sum(s.tokens for s in current_sources)
-            print(f"Current context size: {total_tokens} tokens.")
-            
-            if total_tokens <= max_context_tokens:
-                print("Context size is within limit. No more pruning needed.")
-                break
-            
-            print(f"Context size ({total_tokens}) exceeds limit ({max_context_tokens}). Applying 'extract' pruner...")
-            
-            # 调用 pruner
-            # todo:设计全局的conversation管理器
-            current_sources = pruner.prune(current_sources, [])
-
-            if not current_sources:
-                print("Warning: Pruning resulted in an empty context.")
-                break
-        
-        if sum(s.tokens for s in current_sources) > max_context_tokens:
-            print(f"Warning: Could not prune context to fit within the limit after {max_pruning_attempts} attempts.")
-            # 这里可以采取最终策略，比如只保留第一个文件
-            current_sources = current_sources[:1]
-
-
-        print("Step 3: Generating final answer with augmented context...")
-
-        # 需要计算各个相关文件的大小
-
-        # todo: 这里可能内容很多，需要进行裁剪
-        # 裁剪方式1：多文件大模型并行裁剪
-        # 2：暴力裁剪，直接截断
-        
-        # Step 5: Generate the final response
-        response = self._chat_with_context(
-            user_query=query,
-            context_files=context_str
-        )
-        return response
+        # Step 3: Read file contents and return as SourceCode objects
+        return self._get_files_content(relevant_file_paths)

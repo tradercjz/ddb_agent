@@ -58,8 +58,8 @@ def get_tokenizer(model_name: str) -> Optional[transformers.PreTrainedTokenizer]
 
     config = TOKENIZER_CONFIGS.get(model_name)
     if not config:
-        print(f"Warning: No tokenizer configuration found for model '{model_name}'. "
-              f"Token counting may be inaccurate.")
+        #print(f"Warning: No tokenizer configuration found for model '{model_name}'. "
+             # f"Token counting may be inaccurate.")
         return None
 
     loader_func = config["loader"]

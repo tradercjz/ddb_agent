@@ -206,7 +206,7 @@ class ExtractPruner(BasePruner):
             else:
                 large_files.append(source)
         
-        print(f"Split files: {len(small_files)} small files (kept whole), {len(large_files)} large files (to be processed).")
+        # print(f"Split files: {len(small_files)} small files (kept whole), {len(large_files)} large files (to be processed).")
         
 
         # 测试
