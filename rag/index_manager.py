@@ -48,6 +48,21 @@ class DDBIndexManager:
         with open(self.index_path, 'w', encoding='utf-8') as f:
             f.write(self.project_index.model_dump_json(indent=2))
 
+    def get_index_by_filepath(self, file_path: str) -> Optional[FileIndex]:
+        """
+        Retrieves the FileIndex object for a given file path.
+
+        Args:
+            file_path: The relative path of the file.
+
+        Returns:
+            The FileIndex object if found, otherwise None.
+        """
+        # 为了提高查找效率，我们可以构建一个临时的字典映射
+        # 如果频繁调用，可以将这个映射作为 DDBIndexManager 的一个属性
+        index_map = {f.module_name: f for f in self.project_index.files}
+        return index_map.get(file_path)
+
     def _update_and_save_single_index(self, file_index: FileIndex):
         """
         Thread-safely updates the main project index with a single new FileIndex
@@ -85,6 +100,7 @@ class DDBIndexManager:
                     file_path=file_path, file_content=content
                 )
                 json_content = parse_json_string(response_str)
+                json_content["tokens"] = count_tokens(content)
                 final_file_index = FileIndex(**json_content)
             else:
                 chunks = self._split_code_into_chunks(content)

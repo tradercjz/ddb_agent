@@ -14,6 +14,7 @@ class ModelConfig(BaseModel):
     api_key_env_var: Optional[str] = Field(None, description="Environment variable name for the API key (recommended).")
     model_type: Optional[str] = Field(None, description="Type of the model provider (e.g., 'openai', 'deepseek').")
     description: Optional[str] = Field(None, description="A brief description of the model.")
+    max_context_tokens: Optional[int] = Field(None, description="Maximum number of tokens the model can handle in a single request. If not set, defaults to 50000.")
 
     def get_api_key(self) -> str:
         """

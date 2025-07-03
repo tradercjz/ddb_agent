@@ -2,7 +2,7 @@
   "files": [
     {
       "module_name": "ops/src/ops.dos",
-      "file_summary": "A module providing utility functions for cluster maintenance and operations in DolphinDB.",
+      "file_summary": "A module providing utility functions for cluster maintenance, monitoring, and administration in DolphinDB.",
       "symbols": [
         {
           "name": "ops",
@@ -119,11 +119,12 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 12228
     },
     {
       "module_name": "DDBLogAnalyser/src/alertGenerator.dos",
-      "file_summary": "This module handles alert generation and email notifications for log analysis results in DolphinDB.",
+      "file_summary": "This module provides functionality for filtering and alerting on log messages in DolphinDB, including email notifications.",
       "symbols": [
         {
           "name": "DDBLogAnalyser::alertGenerator",
@@ -148,44 +149,12 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
-    },
-    {
-      "module_name": "DDBLogAnalyser/src/config.dos",
-      "file_summary": "Provides configuration management and environment setup for the DolphinDB log analyzer, including validation, initialization, and cleanup functions.",
-      "symbols": [
-        {
-          "name": "DDBLogAnalyser::config",
-          "type": "module"
-        },
-        {
-          "name": "checkConfig",
-          "type": "function"
-        },
-        {
-          "name": "initConfig",
-          "type": "function"
-        },
-        {
-          "name": "customGenerateEmailFunc",
-          "type": "function"
-        },
-        {
-          "name": "getExampleConfig",
-          "type": "function"
-        },
-        {
-          "name": "clearEnv",
-          "type": "function"
-        }
-      ],
-      "dependencies": [],
-      "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 863
     },
     {
       "module_name": "DDBLogAnalyser/src/logParser/projects/controller/parseTransactionsInfo.dos",
-      "file_summary": "This file contains functions to parse and extract transaction-related information from DolphinDB log entries.",
+      "file_summary": "This script provides functions to parse and extract transaction-related information from DolphinDB log entries.",
       "symbols": [
         {
           "name": "DDBLogAnalyser::logParser::projects::controller::parseTransactionsInfo",
@@ -214,12 +183,17 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 1237
     },
     {
       "module_name": "DDBLogAnalyser/src/logParser/logParser.dos",
-      "file_summary": "A DolphinDB script for parsing and analyzing log files, including functions for log line parsing, database table creation, and log processing handlers.",
+      "file_summary": "A log parsing module that processes DolphinDB log files, extracts relevant information, and stores results in either shared tables or DFS tables.",
       "symbols": [
+        {
+          "name": "DDBLogAnalyser::logParser::logParser",
+          "type": "module"
+        },
         {
           "name": "createDfs",
           "type": "function"
@@ -255,23 +229,86 @@
         {
           "name": "parseLog",
           "type": "function"
-        },
+        }
+      ],
+      "dependencies": [],
+      "is_aggregated": false,
+      "chunk_count": null,
+      "tokens": 3289
+    },
+    {
+      "module_name": "DDBLogAnalyser/src/config.dos",
+      "file_summary": "Provides configuration management and environment cleanup functions for the DolphinDB log analyzer.",
+      "symbols": [
         {
-          "name": "DDBLogAnalyser::logParser::logParser",
+          "name": "DDBLogAnalyser::config",
           "type": "module"
         },
         {
+          "name": "checkConfig",
+          "type": "function"
+        },
+        {
+          "name": "initConfig",
+          "type": "function"
+        },
+        {
+          "name": "customGenerateEmailFunc",
+          "type": "function"
+        },
+        {
+          "name": "getExampleConfig",
+          "type": "function"
+        },
+        {
+          "name": "clearEnv",
+          "type": "function"
+        },
+        {
           "name": "logAnalyserConfig",
+          "type": "global_variable"
+        },
+        {
+          "name": "errors",
+          "type": "global_variable"
+        },
+        {
+          "name": "warnings",
+          "type": "global_variable"
+        },
+        {
+          "name": "rolledBackTransactions",
+          "type": "global_variable"
+        },
+        {
+          "name": "longestTransactions",
+          "type": "global_variable"
+        },
+        {
+          "name": "auditReport",
+          "type": "global_variable"
+        },
+        {
+          "name": "metricsReport",
+          "type": "global_variable"
+        },
+        {
+          "name": "datanodeBeginClosedReport",
+          "type": "global_variable"
+        },
+        {
+          "name": "controllerNewCompletedReport",
           "type": "global_variable"
         }
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 1166
     },
     {
       "module_name": "DDBLogAnalyser/src/demo.dos",
-      "file_summary": "Main script for DolphinDB log analysis, handling both batch and streaming modes with configurable processing and reporting.",
+      "file_summary": "A demo script for log analysis that loads required modules, initializes configuration, and processes logs either in batch or streaming mode.",
       "symbols": [
         {
           "name": "loadPlugin",
@@ -344,11 +381,98 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 167
+    },
+    {
+      "module_name": "DDBLogAnalyser/src/logReader.dos",
+      "file_summary": "Provides functionality for reading and parsing DolphinDB log files in both batch and streaming modes.",
+      "symbols": [
+        {
+          "name": "initLogReader",
+          "type": "function"
+        },
+        {
+          "name": "parseLogFilesInfo",
+          "type": "function"
+        },
+        {
+          "name": "logTimeLessThan",
+          "type": "function"
+        },
+        {
+          "name": "logTimeGreaterThan",
+          "type": "function"
+        },
+        {
+          "name": "getNodeAliasFromLogFilenameOld",
+          "type": "function"
+        },
+        {
+          "name": "getNodeAliasFromLogFilenameNew",
+          "type": "function"
+        },
+        {
+          "name": "getNodeAliasFromLogFilename",
+          "type": "function"
+        },
+        {
+          "name": "readLogFileToStreamTable",
+          "type": "function"
+        },
+        {
+          "name": "readLogBatchMode",
+          "type": "function"
+        },
+        {
+          "name": "reconnectXdbPool",
+          "type": "function"
+        },
+        {
+          "name": "createXdbPool",
+          "type": "function"
+        },
+        {
+          "name": "readLogStreamModeClusterInner",
+          "type": "function"
+        },
+        {
+          "name": "readLogStreamModeCluster",
+          "type": "function"
+        },
+        {
+          "name": "readLogStreamModeSingleInner",
+          "type": "function"
+        },
+        {
+          "name": "readLogStreamModeSingle",
+          "type": "function"
+        },
+        {
+          "name": "readLogStreamMode",
+          "type": "function"
+        },
+        {
+          "name": "readLog",
+          "type": "function"
+        },
+        {
+          "name": "DDBLogAnalyser::logReader",
+          "type": "module"
+        },
+        {
+          "name": "DDBLogAnalyser::util",
+          "type": "module"
+        }
+      ],
+      "dependencies": [],
+      "is_aggregated": false,
+      "chunk_count": null,
+      "tokens": 4265
     },
     {
       "module_name": "DDBLogAnalyser/src/util.dos",
-      "file_summary": "Provides utility functions for log analysis in DolphinDB, including querying log data by time range or limit, filtering by log level, and managing configuration.",
+      "file_summary": "Provides utility functions for log analysis in DolphinDB, including querying log data by time range, level, and version comparison.",
       "symbols": [
         {
           "name": "selectResultTableViaLimit",
@@ -421,92 +545,12 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
-    },
-    {
-      "module_name": "DDBLogAnalyser/src/logReader.dos",
-      "file_summary": "Provides functionality for reading and parsing DolphinDB log files in both batch and streaming modes.",
-      "symbols": [
-        {
-          "name": "DDBLogAnalyser::logReader",
-          "type": "module"
-        },
-        {
-          "name": "initLogReader",
-          "type": "function"
-        },
-        {
-          "name": "parseLogFilesInfo",
-          "type": "function"
-        },
-        {
-          "name": "logTimeLessThan",
-          "type": "function"
-        },
-        {
-          "name": "logTimeGreaterThan",
-          "type": "function"
-        },
-        {
-          "name": "getNodeAliasFromLogFilenameOld",
-          "type": "function"
-        },
-        {
-          "name": "getNodeAliasFromLogFilenameNew",
-          "type": "function"
-        },
-        {
-          "name": "getNodeAliasFromLogFilename",
-          "type": "function"
-        },
-        {
-          "name": "readLogFileToStreamTable",
-          "type": "function"
-        },
-        {
-          "name": "readLogBatchMode",
-          "type": "function"
-        },
-        {
-          "name": "reconnectXdbPool",
-          "type": "function"
-        },
-        {
-          "name": "createXdbPool",
-          "type": "function"
-        },
-        {
-          "name": "readLogStreamModeClusterInner",
-          "type": "function"
-        },
-        {
-          "name": "readLogStreamModeCluster",
-          "type": "function"
-        },
-        {
-          "name": "readLogStreamModeSingleInner",
-          "type": "function"
-        },
-        {
-          "name": "readLogStreamModeSingle",
-          "type": "function"
-        },
-        {
-          "name": "readLogStreamMode",
-          "type": "function"
-        },
-        {
-          "name": "readLog",
-          "type": "function"
-        }
-      ],
-      "dependencies": [],
-      "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 2218
     },
     {
       "module_name": "DDBLogAnalyser/src/reportGenerator/reportGenerator.dos",
-      "file_summary": "This script provides functionality to initialize and execute report generation processes for log analysis.",
+      "file_summary": "This module provides functionality to generate reports by processing errors and warnings from logs.",
       "symbols": [
         {
           "name": "DDBLogAnalyser::reportGenerator::reportGenerator",
@@ -519,23 +563,16 @@
         {
           "name": "generateReport",
           "type": "function"
-        },
-        {
-          "name": "errors",
-          "type": "variable"
-        },
-        {
-          "name": "warnings",
-          "type": "variable"
         }
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 254
     },
     {
       "module_name": "DDBLogAnalyser/src/logParser/projects/datanode/parseTransactionsInfo.dos",
-      "file_summary": "This script provides functions to parse and extract transaction-related information from various types of DolphinDB log entries.",
+      "file_summary": "This file contains functions for parsing different types of transaction-related logs in DolphinDB, including transaction metrics, DB audit logs, and transaction lifecycle events (begin, closed, rolled back).",
       "symbols": [
         {
           "name": "DDBLogAnalyser::logParser::projects::datanode::parseTransactionsInfo",
@@ -568,11 +605,30 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 1971
+    },
+    {
+      "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/createDbAndTb/createDB.dos",
+      "file_summary": "Provides functions for creating databases with specific configurations for different types of financial data.",
+      "symbols": [
+        {
+          "name": "createDb",
+          "type": "function"
+        },
+        {
+          "name": "createDB",
+          "type": "function"
+        }
+      ],
+      "dependencies": [],
+      "is_aggregated": false,
+      "chunk_count": null,
+      "tokens": 600
     },
     {
       "module_name": "DolphinDBModules/easyNSQ/script/startup.dos",
-      "file_summary": "Initializes the NSQ environment and sets up subscriptions for market data topics (orders, trade, snapshot) from specified exchanges (sh, sz).",
+      "file_summary": "Initializes the NSQ environment and sets up subscriptions for market data topics (orders, trade, snapshot) from specified exchanges (sh, sz) with optional DFS storage.",
       "symbols": [
         {
           "name": "login",
@@ -587,29 +643,56 @@
           "type": "function"
         },
         {
-          "name": "DolphinDBModules::easyNSQ",
-          "type": "module"
-        },
-        {
-          "name": "configFilePath",
-          "type": "variable"
-        },
-        {
           "name": "iniNsqEnv",
           "type": "function"
         },
         {
           "name": "subscribeNsq",
           "type": "function"
+        },
+        {
+          "name": "configFilePath",
+          "type": "variable"
+        },
+        {
+          "name": "DolphinDBModules::easyNSQ",
+          "type": "module"
         }
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 173
+    },
+    {
+      "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadTLData.dos",
+      "file_summary": "Facilitates automatic loading of trading data from DataYes into DolphinDB databases with configurable parameters.",
+      "symbols": [
+        {
+          "name": "autoLoadTongLianData",
+          "type": "function"
+        },
+        {
+          "name": "getTLJobStatus",
+          "type": "function"
+        },
+        {
+          "name": "getTLJobDetails",
+          "type": "function"
+        },
+        {
+          "name": "TLDataImportStatusTable",
+          "type": "global_variable"
+        }
+      ],
+      "dependencies": [],
+      "is_aggregated": false,
+      "chunk_count": null,
+      "tokens": 2530
     },
     {
       "module_name": "DDBLogAnalyser/src/reportGenerator/projects/generateTransactionsReport.dos",
-      "file_summary": "Generates various transaction reports from log data including rolled back transactions, longest transactions, audit logs, metrics, and node-specific transaction details.",
+      "file_summary": "Generates various transaction-related reports from log data including rolled back transactions, longest transactions, audit logs, metrics, and node-specific transaction details.",
       "symbols": [
         {
           "name": "DDBLogAnalyser::reportGenerator::projects::generateTransactionsReport",
@@ -658,119 +741,12 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
-    },
-    {
-      "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadTLData.dos",
-      "file_summary": "The module facilitates automatic loading of trading data from DataYes into DolphinDB databases with various configuration options.",
-      "symbols": [
-        {
-          "name": "autoLoadTongLianData",
-          "type": "function"
-        },
-        {
-          "name": "getTLJobStatus",
-          "type": "function"
-        },
-        {
-          "name": "getTLJobDetails",
-          "type": "function"
-        },
-        {
-          "name": "TLDataImportStatusTable",
-          "type": "global_variable"
-        }
-      ],
-      "dependencies": [],
-      "is_aggregated": false,
-      "chunk_count": null
-    },
-    {
-      "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/createDbAndTb/createDB.dos",
-      "file_summary": "Provides functions for creating and managing databases for different types of financial data.",
-      "symbols": [
-        {
-          "name": "createDb",
-          "type": "function"
-        },
-        {
-          "name": "createDB",
-          "type": "function"
-        }
-      ],
-      "dependencies": [],
-      "is_aggregated": false,
-      "chunk_count": null
-    },
-    {
-      "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/createDbAndTb/createTB.dos",
-      "file_summary": "Provides functionality to create and manage tables in DolphinDB databases for different market data types (snapshot, entrust, trade) with configurable market and time handling.",
-      "symbols": [
-        {
-          "name": "createTb",
-          "type": "function"
-        },
-        {
-          "name": "createTB",
-          "type": "function"
-        },
-        {
-          "name": "DolphinDBModules::easyTLDataImport::createDbAndTb::createDB",
-          "type": "module"
-        },
-        {
-          "name": "DolphinDBModules::easyTLDataImport::tbSchema::dfsSchema::snapshotSchema",
-          "type": "module"
-        },
-        {
-          "name": "DolphinDBModules::easyTLDataImport::tbSchema::dfsSchema::entrustSchema",
-          "type": "module"
-        },
-        {
-          "name": "DolphinDBModules::easyTLDataImport::tbSchema::dfsSchema::tradeSchema",
-          "type": "module"
-        }
-      ],
-      "dependencies": [],
-      "is_aggregated": false,
-      "chunk_count": null
-    },
-    {
-      "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadData/loadData.dos",
-      "file_summary": "This module provides functions for loading and processing trading data from CSV files into DolphinDB databases, with support for date filtering and market-specific handling.",
-      "symbols": [
-        {
-          "name": "printLog",
-          "type": "function"
-        },
-        {
-          "name": "myFiles",
-          "type": "function"
-        },
-        {
-          "name": "getFileDate",
-          "type": "function"
-        },
-        {
-          "name": "loadDaysData",
-          "type": "function"
-        },
-        {
-          "name": "DolphinDBModules::easyTLDataImport::loadData::loadData",
-          "type": "module"
-        },
-        {
-          "name": "DolphinDBModules::easyTLDataImport::loadData::loadOneDayData",
-          "type": "module"
-        }
-      ],
-      "dependencies": [],
-      "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 3206
     },
     {
       "module_name": "DolphinDBModules/easyNSQ/src/easyNSQ.dos",
-      "file_summary": "A module for subscribing to and managing NSQ real-time market data (orders, trades, snapshots) with options for stream and DFS table storage.",
+      "file_summary": "A module for subscribing to and managing NSQ real-time market data (orders, trades, snapshots) with options for stream tables and DFS storage.",
       "symbols": [
         {
           "name": "easyNsqLog",
@@ -827,19 +803,126 @@
         {
           "name": "closeNsqConnection",
           "type": "function"
+        }
+      ],
+      "dependencies": [],
+      "is_aggregated": false,
+      "chunk_count": null,
+      "tokens": 10536
+    },
+    {
+      "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/createDbAndTb/createTB.dos",
+      "file_summary": "Provides functionality to create and manage tables in DolphinDB for different market data types (snapshot, entrust, trade) with configurable market specifications.",
+      "symbols": [
+        {
+          "name": "createTb",
+          "type": "function"
         },
         {
-          "name": "DolphinDBModules::easyNSQ",
+          "name": "createTB",
+          "type": "function"
+        },
+        {
+          "name": "DolphinDBModules::easyTLDataImport::createDbAndTb::createDB",
+          "type": "module"
+        },
+        {
+          "name": "DolphinDBModules::easyTLDataImport::tbSchema::dfsSchema::snapshotSchema",
+          "type": "module"
+        },
+        {
+          "name": "DolphinDBModules::easyTLDataImport::tbSchema::dfsSchema::entrustSchema",
+          "type": "module"
+        },
+        {
+          "name": "DolphinDBModules::easyTLDataImport::tbSchema::dfsSchema::tradeSchema",
           "type": "module"
         }
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 1544
+    },
+    {
+      "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadData/loadData.dos",
+      "file_summary": "Provides functions for loading and processing trading data files into DolphinDB databases.",
+      "symbols": [
+        {
+          "name": "printLog",
+          "type": "function"
+        },
+        {
+          "name": "myFiles",
+          "type": "function"
+        },
+        {
+          "name": "getFileDate",
+          "type": "function"
+        },
+        {
+          "name": "loadDaysData",
+          "type": "function"
+        },
+        {
+          "name": "DolphinDBModules::easyTLDataImport::loadData::loadData",
+          "type": "module"
+        },
+        {
+          "name": "DolphinDBModules::easyTLDataImport::loadData::loadOneDayData",
+          "type": "module"
+        }
+      ],
+      "dependencies": [],
+      "is_aggregated": false,
+      "chunk_count": null,
+      "tokens": 2174
+    },
+    {
+      "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadData/loadOneDayData.dos",
+      "file_summary": "Provides functions to load one day's worth of trading data for Shanghai and Shenzhen markets from CSV files into specified databases and tables.",
+      "symbols": [
+        {
+          "name": "DolphinDBModules::easyTLDataImport::loadData::loadOneDayData",
+          "type": "module"
+        },
+        {
+          "name": "loadOneDayDataSH",
+          "type": "function"
+        },
+        {
+          "name": "loadOneDayDataSZ",
+          "type": "function"
+        },
+        {
+          "name": "loadOneDayEntrust",
+          "type": "module"
+        },
+        {
+          "name": "loadOneDayTrade",
+          "type": "module"
+        },
+        {
+          "name": "loadOneDayTradeEntrust",
+          "type": "module"
+        },
+        {
+          "name": "loadOneDaySnapshot",
+          "type": "module"
+        },
+        {
+          "name": "TLDataImportStatusTable",
+          "type": "global_variable"
+        }
+      ],
+      "dependencies": [],
+      "is_aggregated": false,
+      "chunk_count": null,
+      "tokens": 2343
     },
     {
       "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadData/loadOneDayData/loadOneDayEntrust.dos",
-      "file_summary": "This module provides functions for transforming and loading entrust (order) data from Shanghai and Shenzhen stock exchanges into a standardized format in DolphinDB.",
+      "file_summary": "This module provides functions for transforming and loading entrust data from Shanghai and Shenzhen markets into a standardized format in DolphinDB.",
       "symbols": [
         {
           "name": "transformEntrustSH",
@@ -872,73 +955,8 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
-    },
-    {
-      "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadData/loadOneDayData.dos",
-      "file_summary": "Provides functions to load one day's worth of trading data for Shanghai and Shenzhen markets from CSV files into specified databases and tables.",
-      "symbols": [
-        {
-          "name": "loadOneDayDataSH",
-          "type": "function"
-        },
-        {
-          "name": "loadOneDayDataSZ",
-          "type": "function"
-        },
-        {
-          "name": "DolphinDBModules::easyTLDataImport::loadData::loadOneDayData",
-          "type": "module"
-        },
-        {
-          "name": "DolphinDBModules::easyTLDataImport::loadData::loadOneDayData::loadOneDayEntrust",
-          "type": "module"
-        },
-        {
-          "name": "DolphinDBModules::easyTLDataImport::loadData::loadOneDayData::loadOneDayTrade",
-          "type": "module"
-        },
-        {
-          "name": "DolphinDBModules::easyTLDataImport::loadData::loadOneDayData::loadOneDayTradeEntrust",
-          "type": "module"
-        },
-        {
-          "name": "DolphinDBModules::easyTLDataImport::loadData::loadOneDayData::loadOneDaySnapshot",
-          "type": "module"
-        }
-      ],
-      "dependencies": [],
-      "is_aggregated": false,
-      "chunk_count": null
-    },
-    {
-      "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadData/loadOneDayData/loadOneDayTradeEntrust.dos",
-      "file_summary": "This module provides functions to transform and load Shanghai market trade and entrust data from CSV files into DolphinDB tables, with options for merging, duplicate handling, and time concatenation.",
-      "symbols": [
-        {
-          "name": "transformTradeSH",
-          "type": "function"
-        },
-        {
-          "name": "transformEntrustSH",
-          "type": "function"
-        },
-        {
-          "name": "appendTradeEntrust",
-          "type": "function"
-        },
-        {
-          "name": "loadOneDayTradeEntrustSH",
-          "type": "function"
-        },
-        {
-          "name": "DolphinDBModules::easyTLDataImport::tbSchema::csvSchema::tradeEntrustCsvSchema",
-          "type": "module"
-        }
-      ],
-      "dependencies": [],
-      "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 3538
     },
     {
       "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/csvSchema/entrustCsvSchema.dos",
@@ -955,11 +973,46 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 450
+    },
+    {
+      "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadData/loadOneDayData/loadOneDayTradeEntrust.dos",
+      "file_summary": "This module provides functions for transforming and loading Shanghai market trade and entrust data from CSV files into standardized database tables.",
+      "symbols": [
+        {
+          "name": "DolphinDBModules::easyTLDataImport::loadData::loadOneDayData::loadOneDayTradeEntrust",
+          "type": "module"
+        },
+        {
+          "name": "DolphinDBModules::easyTLDataImport::tbSchema::csvSchema::tradeEntrustCsvSchema",
+          "type": "module"
+        },
+        {
+          "name": "transformTradeSH",
+          "type": "function"
+        },
+        {
+          "name": "transformEntrustSH",
+          "type": "function"
+        },
+        {
+          "name": "appendTradeEntrust",
+          "type": "function"
+        },
+        {
+          "name": "loadOneDayTradeEntrustSH",
+          "type": "function"
+        }
+      ],
+      "dependencies": [],
+      "is_aggregated": false,
+      "chunk_count": null,
+      "tokens": 2799
     },
     {
       "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadData/loadOneDayData/loadOneDayTrade.dos",
-      "file_summary": "This module provides functions to transform and load trade data from Shanghai and Shenzhen stock exchanges into a standardized format in DolphinDB.",
+      "file_summary": "This module provides functions to transform and load trade data from Shanghai and Shenzhen markets into a standardized format in DolphinDB.",
       "symbols": [
         {
           "name": "transformTradeSH",
@@ -992,28 +1045,12 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
-    },
-    {
-      "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/csvSchema/snapshotCsvSchema.dos",
-      "file_summary": "Defines schema structures for snapshot CSV data from Shenzhen and Shanghai stock markets based on trading dates.",
-      "symbols": [
-        {
-          "name": "snapshotCsvSchemaSZ",
-          "type": "function"
-        },
-        {
-          "name": "snapshotCsvSchemaSH",
-          "type": "function"
-        }
-      ],
-      "dependencies": [],
-      "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 3787
     },
     {
       "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadData/loadOneDayData/loadOneDaySnapshot.dos",
-      "file_summary": "This module provides functions to transform and load one day's worth of stock market snapshot and order queue data for Shanghai and Shenzhen markets into a standardized format in DolphinDB.",
+      "file_summary": "Provides functions for transforming and loading one day's worth of snapshot and order queue data for Shanghai and Shenzhen stock markets.",
       "symbols": [
         {
           "name": "transformOrderQueueSH",
@@ -1044,21 +1081,48 @@
           "type": "function"
         },
         {
-          "name": "snapshotCsvSchema",
+          "name": "DolphinDBModules::easyTLDataImport::loadData::loadOneDayData::loadOneDaySnapshot",
           "type": "module"
         },
         {
-          "name": "orderQueueCsvSchema",
+          "name": "DolphinDBModules::easyTLDataImport::tbSchema::csvSchema::snapshotCsvSchema",
+          "type": "module"
+        },
+        {
+          "name": "DolphinDBModules::easyTLDataImport::tbSchema::csvSchema::orderQueueCsvSchema",
           "type": "module"
         }
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 10832
+    },
+    {
+      "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/csvSchema/snapshotCsvSchema.dos",
+      "file_summary": "Defines schema structures for snapshot CSV data from Shenzhen and Shanghai markets, with different schemas based on trading dates.",
+      "symbols": [
+        {
+          "name": "DolphinDBModules::easyTLDataImport::tbSchema::csvSchema::snapshotCsvSchema",
+          "type": "module"
+        },
+        {
+          "name": "snapshotCsvSchemaSZ",
+          "type": "function"
+        },
+        {
+          "name": "snapshotCsvSchemaSH",
+          "type": "function"
+        }
+      ],
+      "dependencies": [],
+      "is_aggregated": false,
+      "chunk_count": null,
+      "tokens": 2717
     },
     {
       "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/csvSchema/orderQueueCsvSchema.dos",
-      "file_summary": "Defines the schema for order queue CSV data with specific column names and data types.",
+      "file_summary": "Defines the schema for order queue CSV data with specific column names and types.",
       "symbols": [
         {
           "name": "DolphinDBModules::easyTLDataImport::tbSchema::csvSchema::orderQueueCsvSchema",
@@ -1071,16 +1135,13 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 364
     },
     {
       "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/csvSchema/tradeEntrustCsvSchema.dos",
       "file_summary": "Defines the schema for trade and entrust CSV data for the Shanghai market.",
       "symbols": [
-        {
-          "name": "DolphinDBModules::easyTLDataImport::tbSchema::csvSchema::tradeEntrustCsvSchema",
-          "type": "module"
-        },
         {
           "name": "tradeEntrustCsvSchemaSH",
           "type": "function"
@@ -1088,7 +1149,162 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 195
+    },
+    {
+      "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/dfsSchema/entrustSchema.dos",
+      "file_summary": "Defines table schemas for entrust data in Shenzhen and Shanghai markets, with options to concatenate or separate trade date and time.",
+      "symbols": [
+        {
+          "name": "entrustSchemaTb",
+          "type": "function"
+        },
+        {
+          "name": "entrustSchemaTbSZ",
+          "type": "function"
+        },
+        {
+          "name": "entrustSchemaTbSH",
+          "type": "function"
+        }
+      ],
+      "dependencies": [],
+      "is_aggregated": false,
+      "chunk_count": null,
+      "tokens": 1000
+    },
+    {
+      "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/dfsSchema/tradeSchema.dos",
+      "file_summary": "Defines table schemas for trade data in Shenzhen and Shanghai markets with options for time representation.",
+      "symbols": [
+        {
+          "name": "tradeSchemaTb",
+          "type": "function"
+        },
+        {
+          "name": "tradeSchemaTbSZ",
+          "type": "function"
+        },
+        {
+          "name": "tradeSchemaTbSH",
+          "type": "function"
+        }
+      ],
+      "dependencies": [],
+      "is_aggregated": false,
+      "chunk_count": null,
+      "tokens": 1106
+    },
+    {
+      "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/dfsSchema/snapshotSchema.dos",
+      "file_summary": "Defines table schemas for snapshot data of Shenzhen and Shanghai markets, with options to concatenate or separate trade date and time.",
+      "symbols": [
+        {
+          "name": "snapshotSchemaTb",
+          "type": "function"
+        },
+        {
+          "name": "snapshotSchemaTbSZ",
+          "type": "function"
+        },
+        {
+          "name": "snapshotSchemaTbSH",
+          "type": "function"
+        }
+      ],
+      "dependencies": [],
+      "is_aggregated": false,
+      "chunk_count": null,
+      "tokens": 4155
+    },
+    {
+      "module_name": "alphalens/testing/test_alphalens_function_create_information_tear_sheet.dos",
+      "file_summary": "This file contains test cases for the alphalens function create_information_tear_sheet, verifying its functionality with different parameters.",
+      "symbols": [
+        {
+          "name": "testData",
+          "type": "variable"
+        },
+        {
+          "name": "prices",
+          "type": "variable"
+        },
+        {
+          "name": "factor",
+          "type": "variable"
+        },
+        {
+          "name": "groupData",
+          "type": "variable"
+        },
+        {
+          "name": "factor_data",
+          "type": "variable"
+        },
+        {
+          "name": "checkAllTables",
+          "type": "function"
+        },
+        {
+          "name": "create_information_tear_sheet",
+          "type": "function"
+        },
+        {
+          "name": "alphalens",
+          "type": "module"
+        }
+      ],
+      "dependencies": [],
+      "is_aggregated": false,
+      "chunk_count": null,
+      "tokens": 546
+    },
+    {
+      "module_name": "alphalens/testing/test_alphalens_function_create_turnover_tear_sheet.dos",
+      "file_summary": "This file tests the create_turnover_tear_sheet function in the alphalens module by validating its output structure and behavior with different parameters.",
+      "symbols": [
+        {
+          "name": "testData",
+          "type": "variable"
+        },
+        {
+          "name": "prices",
+          "type": "variable"
+        },
+        {
+          "name": "factor",
+          "type": "variable"
+        },
+        {
+          "name": "groupData",
+          "type": "variable"
+        },
+        {
+          "name": "factor_data",
+          "type": "variable"
+        },
+        {
+          "name": "checkAllTables",
+          "type": "function"
+        },
+        {
+          "name": "res",
+          "type": "variable"
+        },
+        {
+          "name": "alphalens",
+          "type": "module"
+        },
+        {
+          "name": "create_turnover_tear_sheet",
+          "type": "function"
+        }
+      ],
+      "dependencies": [],
+      "is_aggregated": false,
+      "chunk_count": null,
+      "tokens": 453
     },
     {
       "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/csvSchema/tradeCsvSchema.dos",
@@ -1109,160 +1325,12 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
-    },
-    {
-      "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/dfsSchema/tradeSchema.dos",
-      "file_summary": "Defines table schemas for trade data in Shenzhen and Shanghai markets, with options to concatenate or separate date and time fields.",
-      "symbols": [
-        {
-          "name": "tradeSchemaTb",
-          "type": "function"
-        },
-        {
-          "name": "tradeSchemaTbSZ",
-          "type": "function"
-        },
-        {
-          "name": "tradeSchemaTbSH",
-          "type": "function"
-        }
-      ],
-      "dependencies": [],
-      "is_aggregated": false,
-      "chunk_count": null
-    },
-    {
-      "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/dfsSchema/snapshotSchema.dos",
-      "file_summary": "Defines table schemas for snapshot data of Shenzhen and Shanghai markets with options for time format.",
-      "symbols": [
-        {
-          "name": "snapshotSchemaTb",
-          "type": "function"
-        },
-        {
-          "name": "snapshotSchemaTbSZ",
-          "type": "function"
-        },
-        {
-          "name": "snapshotSchemaTbSH",
-          "type": "function"
-        }
-      ],
-      "dependencies": [],
-      "is_aggregated": false,
-      "chunk_count": null
-    },
-    {
-      "module_name": "DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/dfsSchema/entrustSchema.dos",
-      "file_summary": "Defines table schemas for entrust data in Shenzhen and Shanghai markets with options for time format.",
-      "symbols": [
-        {
-          "name": "DolphinDBModules::easyTLDataImport::tbSchema::dfsSchema::entrustSchema",
-          "type": "module"
-        },
-        {
-          "name": "entrustSchemaTb",
-          "type": "function"
-        },
-        {
-          "name": "entrustSchemaTbSZ",
-          "type": "function"
-        },
-        {
-          "name": "entrustSchemaTbSH",
-          "type": "function"
-        }
-      ],
-      "dependencies": [],
-      "is_aggregated": false,
-      "chunk_count": null
-    },
-    {
-      "module_name": "alphalens/testing/test_alphalens_function_create_information_tear_sheet.dos",
-      "file_summary": "This script tests the create_information_tear_sheet function from the alphalens module with different parameters and configurations.",
-      "symbols": [
-        {
-          "name": "testData",
-          "type": "variable"
-        },
-        {
-          "name": "prices",
-          "type": "variable"
-        },
-        {
-          "name": "factor",
-          "type": "variable"
-        },
-        {
-          "name": "groupData",
-          "type": "variable"
-        },
-        {
-          "name": "factor_data",
-          "type": "variable"
-        },
-        {
-          "name": "checkAllTables",
-          "type": "function"
-        },
-        {
-          "name": "alphalens",
-          "type": "module"
-        },
-        {
-          "name": "create_information_tear_sheet",
-          "type": "function"
-        }
-      ],
-      "dependencies": [],
-      "is_aggregated": false,
-      "chunk_count": null
-    },
-    {
-      "module_name": "alphalens/testing/test_alphalens_function_create_turnover_tear_sheet.dos",
-      "file_summary": "This script tests the create_turnover_tear_sheet function in the alphalens module by verifying its output structure and behavior with different parameters.",
-      "symbols": [
-        {
-          "name": "testData",
-          "type": "variable"
-        },
-        {
-          "name": "prices",
-          "type": "variable"
-        },
-        {
-          "name": "factor",
-          "type": "variable"
-        },
-        {
-          "name": "groupData",
-          "type": "variable"
-        },
-        {
-          "name": "factor_data",
-          "type": "variable"
-        },
-        {
-          "name": "checkAllTables",
-          "type": "function"
-        },
-        {
-          "name": "create_turnover_tear_sheet",
-          "type": "function"
-        },
-        {
-          "name": "alphalens",
-          "type": "module"
-        }
-      ],
-      "dependencies": [],
-      "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 607
     },
     {
       "module_name": "alphalens/testing/test_alphalens_function_get_clean_factor_and_forward_returns.dos",
-      "file_summary": "This file contains test cases for the alphalens function get_clean_factor_and_forward_returns, verifying its behavior with different parameters and configurations.",
+      "file_summary": "This file contains test cases for the alphalens function get_clean_factor_and_forward_returns, verifying its functionality with different parameters and scenarios.",
       "symbols": [
         {
           "name": "testData",
@@ -1299,52 +1367,12 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
-    },
-    {
-      "module_name": "alphalens/testing/test_alphalens_function_plot_create_returns_tear_sheet.dos",
-      "file_summary": "This script tests the plot_create_returns_tear_sheet function in the alphalens module with various parameter combinations.",
-      "symbols": [
-        {
-          "name": "testData",
-          "type": "variable"
-        },
-        {
-          "name": "prices",
-          "type": "variable"
-        },
-        {
-          "name": "factor",
-          "type": "variable"
-        },
-        {
-          "name": "groupData",
-          "type": "variable"
-        },
-        {
-          "name": "factor_data",
-          "type": "variable"
-        },
-        {
-          "name": "checkAllTables",
-          "type": "function"
-        },
-        {
-          "name": "plot_create_returns_tear_sheet",
-          "type": "function"
-        },
-        {
-          "name": "alphalens",
-          "type": "module"
-        }
-      ],
-      "dependencies": [],
-      "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 855
     },
     {
       "module_name": "alphalens/testing/test_alphalens_function_plot_create_full_tear_sheet.dos",
-      "file_summary": "Test script for verifying the functionality of plot_create_full_tear_sheet in the alphalens module.",
+      "file_summary": "This script tests the plot_create_full_tear_sheet function in the alphalens module with various configurations.",
       "symbols": [
         {
           "name": "testData",
@@ -1381,11 +1409,12 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 1207
     },
     {
       "module_name": "alphalens/testing/test_alphalens_function_plot_quantile_statistics_table.dos",
-      "file_summary": "Tests the plot_quantile_statistics_table function from the alphalens module by generating quantile statistics from factor data and verifying the output.",
+      "file_summary": "Tests the plot_quantile_statistics_table function from the alphalens module by analyzing factor data and verifying output structure and values.",
       "symbols": [
         {
           "name": "testData",
@@ -1426,48 +1455,50 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 254
     },
     {
-      "module_name": "gtja191Alpha/helper/gtja191StreamTest.dos",
-      "file_summary": "Implementation of real-time GTJA 191 alpha computation using stream engines in DolphinDB.",
+      "module_name": "alphalens/testing/test_alphalens_function_plot_create_returns_tear_sheet.dos",
+      "file_summary": "This script tests the plot_create_returns_tear_sheet function in the alphalens module with various configurations.",
       "symbols": [
         {
-          "name": "dropAllStreamEngines",
+          "name": "testData",
+          "type": "variable"
+        },
+        {
+          "name": "prices",
+          "type": "variable"
+        },
+        {
+          "name": "factor",
+          "type": "variable"
+        },
+        {
+          "name": "groupData",
+          "type": "variable"
+        },
+        {
+          "name": "factor_data",
+          "type": "variable"
+        },
+        {
+          "name": "checkAllTables",
           "type": "function"
         },
         {
-          "name": "hisData",
-          "type": "variable"
+          "name": "plot_create_returns_tear_sheet",
+          "type": "function"
         },
         {
-          "name": "inputSchema",
-          "type": "variable"
-        },
-        {
-          "name": "resultStream",
-          "type": "variable"
-        },
-        {
-          "name": "metrics",
-          "type": "variable"
-        },
-        {
-          "name": "streamEngine",
-          "type": "variable"
-        },
-        {
-          "name": "data",
-          "type": "variable"
-        },
-        {
-          "name": "res",
-          "type": "variable"
+          "name": "alphalens",
+          "type": "module"
         }
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 712
     },
     {
       "module_name": "gtja191Alpha/helper/gtja191AlphaRes.dos",
@@ -1548,168 +1579,12 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
-    },
-    {
-      "module_name": "alphalens/src/alphalens.dos",
-      "file_summary": "A comprehensive DolphinDB module for factor analysis and performance evaluation in quantitative finance.",
-      "symbols": [
-        {
-          "name": "common_start_returns",
-          "type": "function"
-        },
-        {
-          "name": "average_cumulative_return",
-          "type": "function"
-        },
-        {
-          "name": "common_start_returns_by_one_quantile",
-          "type": "function"
-        },
-        {
-          "name": "average_cumulative_return_by_quantile",
-          "type": "function"
-        },
-        {
-          "name": "get_forward_returns_columns",
-          "type": "function"
-        },
-        {
-          "name": "demean_forward_returns",
-          "type": "function"
-        },
-        {
-          "name": "rate_of_return",
-          "type": "function"
-        },
-        {
-          "name": "rate_of_return_tb",
-          "type": "function"
-        },
-        {
-          "name": "aggfunc",
-          "type": "function"
-        },
-        {
-          "name": "std_conversion",
-          "type": "function"
-        },
-        {
-          "name": "cutbybins",
-          "type": "function"
-        },
-        {
-          "name": "quantile_calc",
-          "type": "function"
-        },
-        {
-          "name": "quantize_factor",
-          "type": "function"
-        },
-        {
-          "name": "compute_forward_returns",
-          "type": "function"
-        },
-        {
-          "name": "get_clean_factor",
-          "type": "function"
-        },
-        {
-          "name": "get_clean_factor_and_forward_returns",
-          "type": "function"
-        },
-        {
-          "name": "factor_information_coefficient",
-          "type": "function"
-        },
-        {
-          "name": "mean_information_coefficient",
-          "type": "function"
-        },
-        {
-          "name": "factor_weights",
-          "type": "function"
-        },
-        {
-          "name": "factor_returns",
-          "type": "function"
-        },
-        {
-          "name": "factor_alpha_beta",
-          "type": "function"
-        },
-        {
-          "name": "cumulative_returns",
-          "type": "function"
-        },
-        {
-          "name": "positions",
-          "type": "function"
-        },
-        {
-          "name": "mean_return_by_quantile",
-          "type": "function"
-        },
-        {
-          "name": "compute_mean_returns_spread",
-          "type": "function"
-        },
-        {
-          "name": "quantile_turnover",
-          "type": "function"
-        },
-        {
-          "name": "factor_rank_autocorrelation",
-          "type": "function"
-        },
-        {
-          "name": "create_returns_tear_sheet",
-          "type": "function"
-        },
-        {
-          "name": "create_information_tear_sheet",
-          "type": "function"
-        },
-        {
-          "name": "create_turnover_tear_sheet",
-          "type": "function"
-        },
-        {
-          "name": "create_full_tear_sheet",
-          "type": "function"
-        },
-        {
-          "name": "factorAnalysis",
-          "type": "function"
-        },
-        {
-          "name": "plot_create_returns_tear_sheet",
-          "type": "function"
-        },
-        {
-          "name": "plot_create_full_tear_sheet",
-          "type": "function"
-        },
-        {
-          "name": "plot_factorAnalysis",
-          "type": "function"
-        },
-        {
-          "name": "extractTables",
-          "type": "function"
-        },
-        {
-          "name": "reframeSomeTable",
-          "type": "function"
-        }
-      ],
-      "dependencies": [],
-      "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 810
     },
     {
       "module_name": "gtja191Alpha/testing/gtja191AlphaRes.dos",
-      "file_summary": "This script implements and calculates the GTJA 191 alpha factors using DolphinDB modules gtja191Alpha and gtja191Prepare for a specific set of securities and time period.",
+      "file_summary": "This script implements the GTJA 191 alpha factors using DolphinDB modules gtja191Alpha and gtja191Prepare, calculates them for a set of securities, and saves the results.",
       "symbols": [
         {
           "name": "idList",
@@ -1786,7 +1661,8 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 810
     },
     {
       "module_name": "wq101alpha/helper/infoDataScript.dos",
@@ -1811,109 +1687,548 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 355
     },
     {
-      "module_name": "wq101alpha/helper/wq101alphaScript.dos",
-      "file_summary": "This script calculates and saves all 101 alpha factors into a database.",
+      "module_name": "alphalens/src/alphalens.dos",
+      "file_summary": "A DolphinDB implementation of the Alphalens library for performance analysis of alpha factors.",
       "symbols": [
         {
-          "name": "createFactorWideDbTable",
+          "name": "common_start_returns",
           "type": "function"
         },
         {
-          "name": "writePanelInWideTable",
+          "name": "average_cumulative_return",
           "type": "function"
         },
         {
-          "name": "wq101alpha",
-          "type": "module"
+          "name": "common_start_returns_by_one_quantile",
+          "type": "function"
         },
         {
-          "name": "prepare101",
-          "type": "module"
+          "name": "average_cumulative_return_by_quantile",
+          "type": "function"
         },
         {
-          "name": "rawData",
-          "type": "variable"
+          "name": "get_forward_returns_columns",
+          "type": "function"
         },
         {
-          "name": "infoData",
-          "type": "variable"
+          "name": "demean_forward_returns",
+          "type": "function"
         },
         {
-          "name": "startTime",
-          "type": "variable"
+          "name": "rate_of_return",
+          "type": "function"
         },
         {
-          "name": "endTime",
-          "type": "variable"
+          "name": "rate_of_return_tb",
+          "type": "function"
         },
         {
-          "name": "data",
-          "type": "variable"
+          "name": "aggfunc",
+          "type": "function"
+        },
+        {
+          "name": "std_conversion",
+          "type": "function"
+        },
+        {
+          "name": "cutbybins",
+          "type": "function"
+        },
+        {
+          "name": "quantile_calc",
+          "type": "function"
+        },
+        {
+          "name": "quantize_factor",
+          "type": "function"
+        },
+        {
+          "name": "compute_forward_returns_by_asset_oneperiod",
+          "type": "function"
+        },
+        {
+          "name": "compute_forward_returns",
+          "type": "function"
+        },
+        {
+          "name": "get_clean_factor",
+          "type": "function"
+        },
+        {
+          "name": "get_clean_factor_and_forward_returns",
+          "type": "function"
+        },
+        {
+          "name": "factor_information_coefficient",
+          "type": "function"
+        },
+        {
+          "name": "mean_information_coefficient",
+          "type": "function"
+        },
+        {
+          "name": "calc_Information_Analysis",
+          "type": "function"
+        },
+        {
+          "name": "turnover_statistics_Analysis",
+          "type": "function"
+        },
+        {
+          "name": "quantile_statistics_Analysis",
+          "type": "function"
+        },
+        {
+          "name": "to_weights",
+          "type": "function"
+        },
+        {
+          "name": "factor_weights",
+          "type": "function"
+        },
+        {
+          "name": "factor_returns",
+          "type": "function"
+        },
+        {
+          "name": "factor_alpha_beta",
+          "type": "function"
+        },
+        {
+          "name": "cumulative_returns",
+          "type": "function"
+        },
+        {
+          "name": "positions",
+          "type": "function"
+        },
+        {
+          "name": "mean_return_by_quantile",
+          "type": "function"
+        },
+        {
+          "name": "compute_mean_returns_spread",
+          "type": "function"
+        },
+        {
+          "name": "period_quantile_turnover",
+          "type": "function"
+        },
+        {
+          "name": "concat_asset",
+          "type": "function"
+        },
+        {
+          "name": "quantile_turnover",
+          "type": "function"
+        },
+        {
+          "name": "factor_rank_autocorrelation",
+          "type": "function"
+        },
+        {
+          "name": "winsorize_data",
+          "type": "function"
+        },
+        {
+          "name": "standardize_data",
+          "type": "function"
+        },
+        {
+          "name": "fillnan_data",
+          "type": "function"
+        },
+        {
+          "name": "plot_returns_table",
+          "type": "function"
+        },
+        {
+          "name": "plot_quantile_statistics_table",
+          "type": "function"
+        },
+        {
+          "name": "get_tp",
+          "type": "function"
+        },
+        {
+          "name": "plot_information_table",
+          "type": "function"
+        },
+        {
+          "name": "plot_turnover_table_turnover",
+          "type": "function"
+        },
+        {
+          "name": "plot_turnover_table_autocorr",
+          "type": "function"
+        },
+        {
+          "name": "plot_turnover_table",
+          "type": "function"
+        },
+        {
+          "name": "plot_top_bottom_quantile_turnover",
+          "type": "function"
+        },
+        {
+          "name": "plot_factor_rank_auto_correlation",
+          "type": "function"
+        },
+        {
+          "name": "plot_ic_ts",
+          "type": "function"
+        },
+        {
+          "name": "plot_ic_hist",
+          "type": "function"
+        },
+        {
+          "name": "plot_ic_qq",
+          "type": "function"
+        },
+        {
+          "name": "plot_monthly_ic_heatmap",
+          "type": "function"
+        },
+        {
+          "name": "plot_ic_by_group",
+          "type": "function"
+        },
+        {
+          "name": "plot_quantile_returns_bar",
+          "type": "function"
+        },
+        {
+          "name": "plot_quantile_returns_violin",
+          "type": "function"
+        },
+        {
+          "name": "plot_cumulative_returns",
+          "type": "function"
+        },
+        {
+          "name": "plot_cumulative_returns_by_quantile",
+          "type": "function"
+        },
+        {
+          "name": "plot_mean_quantile_returns_spread_time_series",
+          "type": "function"
+        },
+        {
+          "name": "SaveFactorAnalysisToTable_stat_indicator",
+          "type": "function"
+        },
+        {
+          "name": "SaveFactorAnalysisToTable",
+          "type": "function"
+        },
+        {
+          "name": "create_returns_tear_sheet",
+          "type": "function"
+        },
+        {
+          "name": "create_information_tear_sheet",
+          "type": "function"
+        },
+        {
+          "name": "create_turnover_tear_sheet",
+          "type": "function"
+        },
+        {
+          "name": "create_full_tear_sheet",
+          "type": "function"
+        },
+        {
+          "name": "factorAnalysis",
+          "type": "function"
+        },
+        {
+          "name": "plot_create_returns_tear_sheet",
+          "type": "function"
+        },
+        {
+          "name": "plot_create_full_tear_sheet",
+          "type": "function"
+        },
+        {
+          "name": "plot_factorAnalysis",
+          "type": "function"
+        },
+        {
+          "name": "extractTables",
+          "type": "function"
+        },
+        {
+          "name": "reframeSomeTable",
+          "type": "function"
         }
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 33813
     },
     {
-      "module_name": "wq101alpha/helper/wq101alphaScript_2.00.8.dos",
-      "file_summary": "This script calculates and saves all 101 alpha factors into a database.",
+      "module_name": "ta/helper/1.10.3/ta.dos",
+      "file_summary": "A DolphinDB module containing technical analysis indicators for financial time series data.",
       "symbols": [
         {
-          "name": "createFactorWideDbTable",
+          "name": "var",
           "type": "function"
         },
         {
-          "name": "writePanelInWideTable",
+          "name": "stddev",
           "type": "function"
         },
         {
-          "name": "writeLongInWideTable",
+          "name": "beta",
           "type": "function"
         },
         {
-          "name": "wq101alpha",
-          "type": "module"
+          "name": "sma",
+          "type": "function"
         },
         {
-          "name": "prepare101",
-          "type": "module"
+          "name": "ema",
+          "type": "function"
         },
         {
-          "name": "rawData",
-          "type": "variable"
+          "name": "wma",
+          "type": "function"
         },
         {
-          "name": "infoData",
-          "type": "variable"
+          "name": "dema",
+          "type": "function"
         },
         {
-          "name": "startTime",
-          "type": "variable"
+          "name": "tema",
+          "type": "function"
         },
         {
-          "name": "endTime",
-          "type": "variable"
+          "name": "trima",
+          "type": "function"
         },
         {
-          "name": "data",
-          "type": "variable"
+          "name": "kama",
+          "type": "function"
         },
         {
-          "name": "rtnTable",
-          "type": "variable"
+          "name": "t3",
+          "type": "function"
+        },
+        {
+          "name": "ma",
+          "type": "function"
+        },
+        {
+          "name": "bBands",
+          "type": "function"
+        },
+        {
+          "name": "rsi",
+          "type": "function"
+        },
+        {
+          "name": "stochf",
+          "type": "function"
+        },
+        {
+          "name": "stoch",
+          "type": "function"
+        },
+        {
+          "name": "stochRsi",
+          "type": "function"
+        },
+        {
+          "name": "trix",
+          "type": "function"
+        },
+        {
+          "name": "correl",
+          "type": "function"
+        },
+        {
+          "name": "linearreg_slope",
+          "type": "function"
+        },
+        {
+          "name": "linearreg_intercept",
+          "type": "function"
+        },
+        {
+          "name": "linearreg_angle",
+          "type": "function"
+        },
+        {
+          "name": "linearreg",
+          "type": "function"
+        },
+        {
+          "name": "tsf",
+          "type": "function"
+        },
+        {
+          "name": "bop",
+          "type": "function"
+        },
+        {
+          "name": "cci",
+          "type": "function"
+        },
+        {
+          "name": "trange",
+          "type": "function"
+        },
+        {
+          "name": "plus_dm",
+          "type": "function"
+        },
+        {
+          "name": "plus_di",
+          "type": "function"
+        },
+        {
+          "name": "minus_dm",
+          "type": "function"
+        },
+        {
+          "name": "minus_di",
+          "type": "function"
+        },
+        {
+          "name": "dx",
+          "type": "function"
+        },
+        {
+          "name": "adx",
+          "type": "function"
+        },
+        {
+          "name": "adxr",
+          "type": "function"
+        },
+        {
+          "name": "cmo",
+          "type": "function"
+        },
+        {
+          "name": "macd",
+          "type": "function"
+        },
+        {
+          "name": "macdExt",
+          "type": "function"
+        },
+        {
+          "name": "macdFix",
+          "type": "function"
+        },
+        {
+          "name": "midPrice",
+          "type": "function"
+        },
+        {
+          "name": "midPoint",
+          "type": "function"
+        },
+        {
+          "name": "mom",
+          "type": "function"
+        },
+        {
+          "name": "roc",
+          "type": "function"
+        },
+        {
+          "name": "rocp",
+          "type": "function"
+        },
+        {
+          "name": "rocr",
+          "type": "function"
+        },
+        {
+          "name": "rocr100",
+          "type": "function"
+        },
+        {
+          "name": "ppo",
+          "type": "function"
+        },
+        {
+          "name": "mavp",
+          "type": "function"
+        },
+        {
+          "name": "apo",
+          "type": "function"
+        },
+        {
+          "name": "aroon",
+          "type": "function"
+        },
+        {
+          "name": "aroonOsc",
+          "type": "function"
+        },
+        {
+          "name": "ultOsc",
+          "type": "function"
+        },
+        {
+          "name": "willr",
+          "type": "function"
+        },
+        {
+          "name": "ad",
+          "type": "function"
+        },
+        {
+          "name": "obv",
+          "type": "function"
+        },
+        {
+          "name": "avgPrice",
+          "type": "function"
+        },
+        {
+          "name": "medPrice",
+          "type": "function"
+        },
+        {
+          "name": "typPrice",
+          "type": "function"
+        },
+        {
+          "name": "wclPrice",
+          "type": "function"
+        },
+        {
+          "name": "atr",
+          "type": "function"
+        },
+        {
+          "name": "natr",
+          "type": "function"
+        },
+        {
+          "name": "mfi",
+          "type": "function"
         }
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 8364
     },
     {
       "module_name": "mytt/src/mytt.dos",
-      "file_summary": "A DolphinDB module implementing technical analysis indicators similar to Tongdaxin's MyTT library for financial market analysis.",
+      "file_summary": "A DolphinDB module implementing technical analysis indicators from Tongdaxin (通达信) for financial market analysis.",
       "symbols": [
         {
           "name": "myttCompare",
@@ -2178,268 +2493,12 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
-    },
-    {
-      "module_name": "ta/helper/1.10.3/ta.dos",
-      "file_summary": "A DolphinDB module providing technical analysis functions for financial time series data.",
-      "symbols": [
-        {
-          "name": "ta",
-          "type": "module"
-        },
-        {
-          "name": "var",
-          "type": "function"
-        },
-        {
-          "name": "stddev",
-          "type": "function"
-        },
-        {
-          "name": "beta",
-          "type": "function"
-        },
-        {
-          "name": "sma",
-          "type": "function"
-        },
-        {
-          "name": "ema",
-          "type": "function"
-        },
-        {
-          "name": "wma",
-          "type": "function"
-        },
-        {
-          "name": "dema",
-          "type": "function"
-        },
-        {
-          "name": "tema",
-          "type": "function"
-        },
-        {
-          "name": "trima",
-          "type": "function"
-        },
-        {
-          "name": "kama",
-          "type": "function"
-        },
-        {
-          "name": "t3",
-          "type": "function"
-        },
-        {
-          "name": "ma",
-          "type": "function"
-        },
-        {
-          "name": "bBands",
-          "type": "function"
-        },
-        {
-          "name": "rsi",
-          "type": "function"
-        },
-        {
-          "name": "stochf",
-          "type": "function"
-        },
-        {
-          "name": "stoch",
-          "type": "function"
-        },
-        {
-          "name": "stochRsi",
-          "type": "function"
-        },
-        {
-          "name": "trix",
-          "type": "function"
-        },
-        {
-          "name": "correl",
-          "type": "function"
-        },
-        {
-          "name": "linearreg_slope",
-          "type": "function"
-        },
-        {
-          "name": "linearreg_intercept",
-          "type": "function"
-        },
-        {
-          "name": "linearreg_angle",
-          "type": "function"
-        },
-        {
-          "name": "linearreg",
-          "type": "function"
-        },
-        {
-          "name": "tsf",
-          "type": "function"
-        },
-        {
-          "name": "bop",
-          "type": "function"
-        },
-        {
-          "name": "cci",
-          "type": "function"
-        },
-        {
-          "name": "trange",
-          "type": "function"
-        },
-        {
-          "name": "plus_dm",
-          "type": "function"
-        },
-        {
-          "name": "plus_di",
-          "type": "function"
-        },
-        {
-          "name": "minus_dm",
-          "type": "function"
-        },
-        {
-          "name": "minus_di",
-          "type": "function"
-        },
-        {
-          "name": "dx",
-          "type": "function"
-        },
-        {
-          "name": "adx",
-          "type": "function"
-        },
-        {
-          "name": "adxr",
-          "type": "function"
-        },
-        {
-          "name": "cmo",
-          "type": "function"
-        },
-        {
-          "name": "macd",
-          "type": "function"
-        },
-        {
-          "name": "macdExt",
-          "type": "function"
-        },
-        {
-          "name": "macdFix",
-          "type": "function"
-        },
-        {
-          "name": "midPrice",
-          "type": "function"
-        },
-        {
-          "name": "midPoint",
-          "type": "function"
-        },
-        {
-          "name": "mom",
-          "type": "function"
-        },
-        {
-          "name": "roc",
-          "type": "function"
-        },
-        {
-          "name": "rocp",
-          "type": "function"
-        },
-        {
-          "name": "rocr",
-          "type": "function"
-        },
-        {
-          "name": "rocr100",
-          "type": "function"
-        },
-        {
-          "name": "ppo",
-          "type": "function"
-        },
-        {
-          "name": "mavp",
-          "type": "function"
-        },
-        {
-          "name": "apo",
-          "type": "function"
-        },
-        {
-          "name": "aroon",
-          "type": "function"
-        },
-        {
-          "name": "aroonOsc",
-          "type": "function"
-        },
-        {
-          "name": "ultOsc",
-          "type": "function"
-        },
-        {
-          "name": "willr",
-          "type": "function"
-        },
-        {
-          "name": "ad",
-          "type": "function"
-        },
-        {
-          "name": "obv",
-          "type": "function"
-        },
-        {
-          "name": "avgPrice",
-          "type": "function"
-        },
-        {
-          "name": "medPrice",
-          "type": "function"
-        },
-        {
-          "name": "typPrice",
-          "type": "function"
-        },
-        {
-          "name": "wclPrice",
-          "type": "function"
-        },
-        {
-          "name": "atr",
-          "type": "function"
-        },
-        {
-          "name": "natr",
-          "type": "function"
-        },
-        {
-          "name": "mfi",
-          "type": "function"
-        }
-      ],
-      "dependencies": [],
-      "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 5774
     },
     {
       "module_name": "ta/src/ta.dos",
-      "file_summary": "A DolphinDB module implementing technical analysis indicators similar to Python's TA-Lib, including various moving averages, oscillators, and momentum indicators.",
+      "file_summary": "A DolphinDB module implementing various technical analysis indicators similar to Python's TA-Lib.",
       "symbols": [
         {
           "name": "var",
@@ -2696,7 +2755,8 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 6265
     },
     {
       "module_name": "wq101alpha/helper/wq101alphaStreamTest.dos",
@@ -2737,12 +2797,121 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 22514
+    },
+    {
+      "module_name": "wq101alpha/helper/wq101alphaScript.dos",
+      "file_summary": "This script calculates and saves all 101 alpha factors into a database.",
+      "symbols": [
+        {
+          "name": "createFactorWideDbTable",
+          "type": "function"
+        },
+        {
+          "name": "writePanelInWideTable",
+          "type": "function"
+        },
+        {
+          "name": "wq101alpha",
+          "type": "module"
+        },
+        {
+          "name": "prepare101",
+          "type": "module"
+        },
+        {
+          "name": "rawData",
+          "type": "variable"
+        },
+        {
+          "name": "infoData",
+          "type": "variable"
+        },
+        {
+          "name": "startTime",
+          "type": "variable"
+        },
+        {
+          "name": "endTime",
+          "type": "variable"
+        },
+        {
+          "name": "data",
+          "type": "variable"
+        }
+      ],
+      "dependencies": [],
+      "is_aggregated": false,
+      "chunk_count": null,
+      "tokens": 706
+    },
+    {
+      "module_name": "wq101alpha/helper/wq101alphaScript_2.00.8.dos",
+      "file_summary": "This script calculates and saves all 101 alpha factors into a database using DolphinDB.",
+      "symbols": [
+        {
+          "name": "createFactorWideDbTable",
+          "type": "function"
+        },
+        {
+          "name": "writePanelInWideTable",
+          "type": "function"
+        },
+        {
+          "name": "writeLongInWideTable",
+          "type": "function"
+        },
+        {
+          "name": "wq101alpha",
+          "type": "module"
+        },
+        {
+          "name": "prepare101",
+          "type": "module"
+        },
+        {
+          "name": "rawData",
+          "type": "variable"
+        },
+        {
+          "name": "infoData",
+          "type": "variable"
+        },
+        {
+          "name": "startTime",
+          "type": "variable"
+        },
+        {
+          "name": "endTime",
+          "type": "variable"
+        },
+        {
+          "name": "data",
+          "type": "variable"
+        },
+        {
+          "name": "rtnTable",
+          "type": "variable"
+        }
+      ],
+      "dependencies": [],
+      "is_aggregated": false,
+      "chunk_count": null,
+      "tokens": 810
     },
     {
       "module_name": "wq101alpha/test/wq101alphaDDBTime.dos",
       "file_summary": "This script tests the performance of WorldQuant 101 alpha implementations in DolphinDB by measuring execution times for each alpha.",
       "symbols": [
+        {
+          "name": "wq101alpha",
+          "type": "module"
+        },
+        {
+          "name": "prepare101",
+          "type": "module"
+        },
         {
           "name": "times",
           "type": "variable"
@@ -2788,21 +2957,18 @@
           "type": "function"
         },
         {
-          "name": "wq101alpha",
-          "type": "module"
-        },
-        {
-          "name": "prepare101",
-          "type": "module"
+          "name": "res",
+          "type": "variable"
         }
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 408
     },
     {
       "module_name": "wq101alpha/test/wqAlphaDDBRes.dos",
-      "file_summary": "This script verifies the correctness of WorldQuant 101 alpha implementations in DolphinDB by testing specified alpha functions on stock data.",
+      "file_summary": "This script verifies the correctness of WorldQuant 101 alpha implementations in DolphinDB by testing specific alpha functions on stock data.",
       "symbols": [
         {
           "name": "idList",
@@ -2867,11 +3033,12 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 499
     },
     {
       "module_name": "wq101alpha/testing/wqAlphaDDBRes.dos",
-      "file_summary": "This script verifies the correctness of WorldQuant 101 alpha implementations in DolphinDB by testing specific alpha factors on stock data.",
+      "file_summary": "This script verifies the correctness of WorldQuant 101 alpha implementation in DolphinDB by testing specific alpha factors on stock data.",
       "symbols": [
         {
           "name": "idList",
@@ -2936,16 +3103,13 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 499
     },
     {
       "module_name": "wq101alpha/src/wq101alpha.dos",
-      "file_summary": "Implements 101 alpha formulas from '101 Formulaic Alphas' in DolphinDB, categorized into factors without industry neutralization and those with industry classification.",
+      "file_summary": "Implements 101 alpha formulas from '101 Formulaic Alphas' in DolphinDB, categorized into factors with and without industry neutralization.",
       "symbols": [
-        {
-          "name": "wq101alpha",
-          "type": "module"
-        },
         {
           "name": "WQAlpha1",
           "type": "function"
@@ -3353,756 +3517,790 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 12688
     },
     {
-      "module_name": "prepare101",
-      "file_summary": "This script provides functions to prepare panel data and calculate 101 alpha factors for the wq101alpha module.",
+      "module_name": "gtja191Alpha/src/gtja191Alpha.dos",
+      "file_summary": "This module implements 191 alpha formulas from GuotaiJunan Securities in DolphinDB, categorized by their features and designed for day-level data analysis.",
       "symbols": [
         {
-          "name": "prepareData",
+          "name": "gtja191Alpha",
+          "type": "module"
+        },
+        {
+          "name": "gtjaAlpha1",
+          "type": "function"
+        },
+        {
+          "name": "gtjaAlpha2",
+          "type": "function"
+        },
+        {
+          "name": "gtjaAlpha3",
+          "type": "function"
+        },
+        {
+          "name": "gtjaAlpha4",
+          "type": "function"
+        },
+        {
+          "name": "gtjaAlpha5",
+          "type": "function"
+        },
+        {
+          "name": "gtjaAlpha6",
+          "type": "function"
+        },
+        {
+          "name": "gtjaAlpha7",
+          "type": "function"
+        },
+        {
+          "name": "gtjaAlpha8",
           "type": "function"
         },
         {
-          "name": "prepare1",
+          "name": "gtjaAlpha9",
           "type": "function"
         },
         {
-          "name": "prepare2",
+          "name": "gtjaAlpha10",
           "type": "function"
         },
         {
-          "name": "prepare3",
+          "name": "gtjaAlpha11",
           "type": "function"
         },
         {
-          "name": "prepare4",
+          "name": "gtjaAlpha12",
           "type": "function"
         },
         {
-          "name": "prepare5",
+          "name": "gtjaAlpha13",
           "type": "function"
         },
         {
-          "name": "prepare6",
+          "name": "gtjaAlpha14",
           "type": "function"
         },
         {
-          "name": "prepare7",
+          "name": "gtjaAlpha15",
           "type": "function"
         },
         {
-          "name": "prepare8",
+          "name": "gtjaAlpha16",
           "type": "function"
         },
         {
-          "name": "prepare9",
+          "name": "gtjaAlpha17",
           "type": "function"
         },
         {
-          "name": "prepare10",
+          "name": "gtjaAlpha18",
           "type": "function"
         },
         {
-          "name": "prepare11",
+          "name": "gtjaAlpha19",
           "type": "function"
         },
         {
-          "name": "prepare12",
+          "name": "gtjaAlpha20",
           "type": "function"
         },
         {
-          "name": "prepare13",
+          "name": "gtjaAlpha21",
           "type": "function"
         },
         {
-          "name": "prepare14",
+          "name": "gtjaAlpha22",
           "type": "function"
         },
         {
-          "name": "prepare15",
+          "name": "gtjaAlpha23",
           "type": "function"
         },
         {
-          "name": "prepare16",
+          "name": "gtjaAlpha24",
           "type": "function"
         },
         {
-          "name": "prepare17",
+          "name": "gtjaAlpha25",
           "type": "function"
         },
         {
-          "name": "prepare18",
+          "name": "gtjaAlpha26",
           "type": "function"
         },
         {
-          "name": "prepare19",
+          "name": "gtjaAlpha27",
           "type": "function"
         },
         {
-          "name": "prepare20",
+          "name": "gtjaAlpha28",
           "type": "function"
         },
         {
-          "name": "prepare21",
+          "name": "gtjaAlpha29",
           "type": "function"
         },
         {
-          "name": "prepare22",
+          "name": "gtjaAlpha30",
           "type": "function"
         },
         {
-          "name": "prepare23",
+          "name": "gtjaAlpha31",
           "type": "function"
         },
         {
-          "name": "prepare24",
+          "name": "gtjaAlpha32",
           "type": "function"
         },
         {
-          "name": "prepare25",
+          "name": "gtjaAlpha33",
           "type": "function"
         },
         {
-          "name": "prepare26",
+          "name": "gtjaAlpha34",
           "type": "function"
         },
         {
-          "name": "prepare27",
+          "name": "gtjaAlpha35",
           "type": "function"
         },
         {
-          "name": "prepare28",
+          "name": "gtjaAlpha36",
           "type": "function"
         },
         {
-          "name": "prepare29",
+          "name": "gtjaAlpha37",
           "type": "function"
         },
         {
-          "name": "prepare30",
+          "name": "gtjaAlpha38",
           "type": "function"
         },
         {
-          "name": "prepare31",
+          "name": "gtjaAlpha39",
           "type": "function"
         },
         {
-          "name": "prepare32",
+          "name": "gtjaAlpha40",
           "type": "function"
         },
         {
-          "name": "prepare33",
+          "name": "gtjaAlpha41",
           "type": "function"
         },
         {
-          "name": "prepare34",
+          "name": "gtjaAlpha42",
           "type": "function"
         },
         {
-          "name": "prepare35",
+          "name": "gtjaAlpha43",
           "type": "function"
         },
         {
-          "name": "prepare36",
+          "name": "gtjaAlpha44",
           "type": "function"
         },
         {
-          "name": "prepare37",
+          "name": "gtjaAlpha45",
           "type": "function"
         },
         {
-          "name": "prepare38",
+          "name": "gtjaAlpha46",
           "type": "function"
         },
         {
-          "name": "prepare39",
+          "name": "gtjaAlpha47",
           "type": "function"
         },
         {
-          "name": "prepare40",
+          "name": "gtjaAlpha48",
           "type": "function"
         },
         {
-          "name": "prepare41",
+          "name": "gtjaAlpha49",
           "type": "function"
         },
         {
-          "name": "prepare42",
+          "name": "gtjaAlpha50",
           "type": "function"
         },
         {
-          "name": "prepare43",
+          "name": "gtjaAlpha51",
           "type": "function"
         },
         {
-          "name": "prepare44",
+          "name": "gtjaAlpha52",
           "type": "function"
         },
         {
-          "name": "prepare45",
+          "name": "gtjaAlpha53",
           "type": "function"
         },
         {
-          "name": "prepare46",
+          "name": "gtjaAlpha54",
           "type": "function"
         },
         {
-          "name": "prepare47",
+          "name": "gtjaAlpha55",
           "type": "function"
         },
         {
-          "name": "prepare49",
+          "name": "gtjaAlpha56",
           "type": "function"
         },
         {
-          "name": "prepare50",
+          "name": "gtjaAlpha57",
           "type": "function"
         },
         {
-          "name": "prepare51",
+          "name": "gtjaAlpha58",
           "type": "function"
         },
         {
-          "name": "prepare52",
+          "name": "gtjaAlpha59",
           "type": "function"
         },
         {
-          "name": "prepare53",
+          "name": "gtjaAlpha60",
           "type": "function"
         },
         {
-          "name": "prepare54",
+          "name": "gtjaAlpha61",
           "type": "function"
         },
         {
-          "name": "prepare55",
+          "name": "gtjaAlpha62",
           "type": "function"
         },
         {
-          "name": "prepare57",
+          "name": "gtjaAlpha63",
           "type": "function"
         },
         {
-          "name": "prepare60",
+          "name": "gtjaAlpha64",
           "type": "function"
         },
         {
-          "name": "prepare61",
+          "name": "gtjaAlpha65",
           "type": "function"
         },
         {
-          "name": "prepare62",
+          "name": "gtjaAlpha66",
           "type": "function"
         },
         {
-          "name": "prepare64",
+          "name": "gtjaAlpha67",
           "type": "function"
         },
         {
-          "name": "prepare65",
+          "name": "gtjaAlpha68",
           "type": "function"
         },
         {
-          "name": "prepare66",
+          "name": "gtjaAlpha69",
           "type": "function"
         },
         {
-          "name": "prepare68",
+          "name": "gtjaAlpha70",
           "type": "function"
         },
         {
-          "name": "prepare71",
+          "name": "gtjaAlpha71",
           "type": "function"
         },
         {
-          "name": "prepare72",
+          "name": "gtjaAlpha72",
           "type": "function"
         },
         {
-          "name": "prepare73",
+          "name": "gtjaAlpha73",
           "type": "function"
         },
         {
-          "name": "prepare74",
+          "name": "gtjaAlpha74",
           "type": "function"
         },
         {
-          "name": "prepare75",
+          "name": "gtjaAlpha75",
           "type": "function"
         },
         {
-          "name": "prepare77",
+          "name": "gtjaAlpha76",
           "type": "function"
         },
         {
-          "name": "prepare78",
+          "name": "gtjaAlpha77",
           "type": "function"
         },
         {
-          "name": "prepare81",
+          "name": "gtjaAlpha78",
           "type": "function"
         },
         {
-          "name": "prepare83",
+          "name": "gtjaAlpha79",
           "type": "function"
         },
         {
-          "name": "prepare84",
+          "name": "gtjaAlpha80",
           "type": "function"
         },
         {
-          "name": "prepare85",
+          "name": "gtjaAlpha81",
           "type": "function"
         },
         {
-          "name": "prepare86",
+          "name": "gtjaAlpha82",
           "type": "function"
         },
         {
-          "name": "prepare88",
+          "name": "gtjaAlpha83",
           "type": "function"
         },
         {
-          "name": "prepare92",
+          "name": "gtjaAlpha84",
           "type": "function"
         },
         {
-          "name": "prepare94",
+          "name": "gtjaAlpha85",
           "type": "function"
         },
         {
-          "name": "prepare95",
+          "name": "gtjaAlpha86",
           "type": "function"
         },
         {
-          "name": "prepare96",
+          "name": "gtjaAlpha87",
           "type": "function"
         },
         {
-          "name": "prepare98",
+          "name": "gtjaAlpha88",
           "type": "function"
         },
         {
-          "name": "prepare99",
+          "name": "gtjaAlpha89",
           "type": "function"
         },
         {
-          "name": "prepare101",
+          "name": "gtjaAlpha90",
           "type": "function"
         },
         {
-          "name": "calAlpha1",
+          "name": "gtjaAlpha91",
           "type": "function"
         },
         {
-          "name": "calAlpha2",
+          "name": "gtjaAlpha92",
           "type": "function"
         },
         {
-          "name": "calAlpha3",
+          "name": "gtjaAlpha93",
           "type": "function"
         },
         {
-          "name": "calAlpha4",
+          "name": "gtjaAlpha94",
           "type": "function"
         },
         {
-          "name": "calAlpha5",
+          "name": "gtjaAlpha95",
           "type": "function"
         },
         {
-          "name": "calAlpha6",
+          "name": "gtjaAlpha96",
           "type": "function"
         },
         {
-          "name": "calAlpha7",
+          "name": "gtjaAlpha97",
           "type": "function"
         },
         {
-          "name": "calAlpha8",
+          "name": "gtjaAlpha98",
           "type": "function"
         },
         {
-          "name": "calAlpha9",
+          "name": "gtjaAlpha99",
           "type": "function"
         },
         {
-          "name": "calAlpha10",
+          "name": "gtjaAlpha100",
           "type": "function"
         },
         {
-          "name": "calAlpha11",
+          "name": "gtjaAlpha101",
           "type": "function"
         },
         {
-          "name": "calAlpha12",
+          "name": "gtjaAlpha102",
           "type": "function"
         },
         {
-          "name": "calAlpha13",
+          "name": "gtjaAlpha103",
           "type": "function"
         },
         {
-          "name": "calAlpha14",
+          "name": "gtjaAlpha104",
           "type": "function"
         },
         {
-          "name": "calAlpha15",
+          "name": "gtjaAlpha105",
           "type": "function"
         },
         {
-          "name": "calAlpha16",
+          "name": "gtjaAlpha106",
           "type": "function"
         },
         {
-          "name": "calAlpha17",
+          "name": "gtjaAlpha107",
           "type": "function"
         },
         {
-          "name": "calAlpha18",
+          "name": "gtjaAlpha108",
           "type": "function"
         },
         {
-          "name": "calAlpha19",
+          "name": "gtjaAlpha109",
           "type": "function"
         },
         {
-          "name": "calAlpha20",
+          "name": "gtjaAlpha110",
           "type": "function"
         },
         {
-          "name": "calAlpha21",
+          "name": "gtjaAlpha111",
           "type": "function"
         },
         {
-          "name": "calAlpha22",
+          "name": "gtjaAlpha112",
           "type": "function"
         },
         {
-          "name": "calAlpha23",
+          "name": "gtjaAlpha113",
           "type": "function"
         },
         {
-          "name": "calAlpha24",
+          "name": "gtjaAlpha114",
           "type": "function"
         },
         {
-          "name": "calAlpha25",
+          "name": "gtjaAlpha115",
           "type": "function"
         },
         {
-          "name": "calAlpha26",
+          "name": "gtjaAlpha116",
           "type": "function"
         },
         {
-          "name": "calAlpha27",
+          "name": "gtjaAlpha117",
           "type": "function"
         },
         {
-          "name": "calAlpha28",
+          "name": "gtjaAlpha118",
           "type": "function"
         },
         {
-          "name": "calAlpha29",
+          "name": "gtjaAlpha119",
           "type": "function"
         },
         {
-          "name": "calAlpha30",
+          "name": "gtjaAlpha120",
           "type": "function"
         },
         {
-          "name": "calAlpha31",
+          "name": "gtjaAlpha121",
           "type": "function"
         },
         {
-          "name": "calAlpha32",
+          "name": "gtjaAlpha122",
           "type": "function"
         },
         {
-          "name": "calAlpha33",
+          "name": "gtjaAlpha123",
           "type": "function"
         },
         {
-          "name": "calAlpha34",
+          "name": "gtjaAlpha124",
           "type": "function"
         },
         {
-          "name": "calAlpha35",
+          "name": "gtjaAlpha125",
           "type": "function"
         },
         {
-          "name": "calAlpha36",
+          "name": "gtjaAlpha126",
           "type": "function"
         },
         {
-          "name": "calAlpha37",
+          "name": "gtjaAlpha127",
           "type": "function"
         },
         {
-          "name": "calAlpha38",
+          "name": "gtjaAlpha128",
           "type": "function"
         },
         {
-          "name": "calAlpha39",
+          "name": "gtjaAlpha129",
           "type": "function"
         },
         {
-          "name": "calAlpha40",
+          "name": "gtjaAlpha130",
           "type": "function"
         },
         {
-          "name": "calAlpha41",
+          "name": "gtjaAlpha131",
           "type": "function"
         },
         {
-          "name": "calAlpha42",
+          "name": "gtjaAlpha132",
           "type": "function"
         },
         {
-          "name": "calAlpha43",
+          "name": "gtjaAlpha133",
           "type": "function"
         },
         {
-          "name": "calAlpha44",
+          "name": "gtjaAlpha134",
           "type": "function"
         },
         {
-          "name": "calAlpha45",
+          "name": "gtjaAlpha135",
           "type": "function"
         },
         {
-          "name": "calAlpha46",
+          "name": "gtjaAlpha136",
           "type": "function"
         },
         {
-          "name": "calAlpha47",
+          "name": "gtjaAlpha137",
           "type": "function"
         },
         {
-          "name": "calAlpha48",
+          "name": "gtjaAlpha138",
           "type": "function"
         },
         {
-          "name": "calAlpha49",
+          "name": "gtjaAlpha139",
           "type": "function"
         },
         {
-          "name": "calAlpha50",
+          "name": "gtjaAlpha140",
           "type": "function"
         },
         {
-          "name": "calAlpha51",
+          "name": "gtjaAlpha141",
           "type": "function"
         },
         {
-          "name": "calAlpha52",
+          "name": "gtjaAlpha142",
           "type": "function"
         },
         {
-          "name": "calAlpha53",
+          "name": "gtjaAlpha143",
           "type": "function"
         },
         {
-          "name": "calAlpha54",
+          "name": "gtjaAlpha144",
           "type": "function"
         },
         {
-          "name": "calAlpha55",
+          "name": "gtjaAlpha145",
           "type": "function"
         },
         {
-          "name": "calAlpha56",
+          "name": "gtjaAlpha146",
           "type": "function"
         },
         {
-          "name": "calAlpha57",
+          "name": "gtjaAlpha147",
           "type": "function"
         },
         {
-          "name": "calAlpha58",
+          "name": "gtjaAlpha148",
           "type": "function"
         },
         {
-          "name": "calAlpha59",
+          "name": "gtjaAlpha149",
           "type": "function"
         },
         {
-          "name": "calAlpha60",
+          "name": "gtjaAlpha150",
           "type": "function"
         },
         {
-          "name": "calAlpha61",
+          "name": "gtjaAlpha151",
           "type": "function"
         },
         {
-          "name": "calAlpha62",
+          "name": "gtjaAlpha152",
           "type": "function"
         },
         {
-          "name": "calAlpha63",
+          "name": "gtjaAlpha153",
           "type": "function"
         },
         {
-          "name": "calAlpha64",
+          "name": "gtjaAlpha154",
           "type": "function"
         },
         {
-          "name": "calAlpha65",
+          "name": "gtjaAlpha155",
           "type": "function"
         },
         {
-          "name": "calAlpha66",
+          "name": "gtjaAlpha156",
           "type": "function"
         },
         {
-          "name": "calAlpha67",
+          "name": "gtjaAlpha157",
           "type": "function"
         },
         {
-          "name": "calAlpha68",
+          "name": "gtjaAlpha158",
           "type": "function"
         },
         {
-          "name": "calAlpha69",
+          "name": "gtjaAlpha159",
           "type": "function"
         },
         {
-          "name": "calAlpha70",
+          "name": "gtjaAlpha160",
           "type": "function"
         },
         {
-          "name": "calAlpha71",
+          "name": "gtjaAlpha161",
           "type": "function"
         },
         {
-          "name": "calAlpha72",
+          "name": "gtjaAlpha162",
           "type": "function"
         },
         {
-          "name": "calAlpha73",
+          "name": "gtjaAlpha163",
           "type": "function"
         },
         {
-          "name": "calAlpha74",
+          "name": "gtjaAlpha164",
           "type": "function"
         },
         {
-          "name": "calAlpha75",
+          "name": "gtjaAlpha165",
           "type": "function"
         },
         {
-          "name": "calAlpha76",
+          "name": "gtjaAlpha166",
           "type": "function"
         },
         {
-          "name": "calAlpha77",
+          "name": "gtjaAlpha167",
           "type": "function"
         },
         {
-          "name": "calAlpha78",
+          "name": "gtjaAlpha168",
           "type": "function"
         },
         {
-          "name": "calAlpha79",
+          "name": "gtjaAlpha169",
           "type": "function"
         },
         {
-          "name": "calAlpha80",
+          "name": "gtjaAlpha170",
           "type": "function"
         },
         {
-          "name": "calAlpha81",
+          "name": "gtjaAlpha171",
           "type": "function"
         },
         {
-          "name": "calAlpha82",
+          "name": "gtjaAlpha172",
           "type": "function"
         },
         {
-          "name": "calAlpha83",
+          "name": "gtjaAlpha173",
           "type": "function"
         },
         {
-          "name": "calAlpha84",
+          "name": "gtjaAlpha174",
           "type": "function"
         },
         {
-          "name": "calAlpha85",
+          "name": "gtjaAlpha175",
           "type": "function"
         },
         {
-          "name": "calAlpha86",
+          "name": "gtjaAlpha176",
           "type": "function"
         },
         {
-          "name": "calAlpha87",
+          "name": "gtjaAlpha177",
           "type": "function"
         },
         {
-          "name": "calAlpha88",
+          "name": "gtjaAlpha178",
           "type": "function"
         },
         {
-          "name": "calAlpha89",
+          "name": "gtjaAlpha179",
           "type": "function"
         },
         {
-          "name": "calAlpha90",
+          "name": "gtjaAlpha180",
           "type": "function"
         },
         {
-          "name": "calAlpha91",
+          "name": "gtjaAlpha181",
           "type": "function"
         },
         {
-          "name": "calAlpha92",
+          "name": "gtjaAlpha182",
           "type": "function"
         },
         {
-          "name": "calAlpha93",
+          "name": "gtjaAlpha183",
           "type": "function"
         },
         {
-          "name": "calAlpha94",
+          "name": "gtjaAlpha184",
           "type": "function"
         },
         {
-          "name": "calAlpha95",
+          "name": "gtjaAlpha185",
           "type": "function"
         },
         {
-          "name": "calAlpha96",
+          "name": "gtjaAlpha186",
           "type": "function"
         },
         {
-          "name": "calAlpha97",
+          "name": "gtjaAlpha187",
           "type": "function"
         },
         {
-          "name": "calAlpha98",
+          "name": "gtjaAlpha188",
           "type": "function"
         },
         {
-          "name": "calAlpha99",
+          "name": "gtjaAlpha189",
           "type": "function"
         },
         {
-          "name": "calAlpha100",
+          "name": "gtjaAlpha190",
           "type": "function"
         },
         {
-          "name": "calAlpha101",
+          "name": "gtjaAlpha191",
           "type": "function"
         }
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 18590
     },
     {
       "module_name": "gtja191Alpha/helper/gtja191Prepare.dos",
-      "file_summary": "This script provides helper functions to prepare panel data and calculate alpha factors for the gtja191Alpha module.",
+      "file_summary": "This script provides helper functions to prepare panel data and calculate 191 alpha factors for the gtja191Alpha module.",
       "symbols": [
         {
           "name": "gtja191Prepare",
@@ -4883,784 +5081,754 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 10915
     },
     {
-      "module_name": "gtja191Alpha/src/gtja191Alpha.dos",
-      "file_summary": "This module implements 191 alpha formulas from GuotaiJunan Securities, categorized into three types based on their features, designed for day-level data analysis.",
+      "module_name": "prepare101",
+      "file_summary": "This script provides functions to prepare panel data and calculate 101 alpha factors for the wq101alpha module.",
       "symbols": [
         {
-          "name": "gtja191Alpha",
-          "type": "module"
-        },
-        {
-          "name": "gtjaAlpha1",
-          "type": "function"
-        },
-        {
-          "name": "gtjaAlpha2",
-          "type": "function"
-        },
-        {
-          "name": "gtjaAlpha3",
-          "type": "function"
-        },
-        {
-          "name": "gtjaAlpha4",
-          "type": "function"
-        },
-        {
-          "name": "gtjaAlpha5",
-          "type": "function"
-        },
-        {
-          "name": "gtjaAlpha6",
-          "type": "function"
-        },
-        {
-          "name": "gtjaAlpha7",
-          "type": "function"
-        },
-        {
-          "name": "gtjaAlpha8",
+          "name": "prepareData",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha9",
+          "name": "prepare1",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha10",
+          "name": "prepare2",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha11",
+          "name": "prepare3",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha12",
+          "name": "prepare4",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha13",
+          "name": "prepare5",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha14",
+          "name": "prepare6",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha15",
+          "name": "prepare7",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha16",
+          "name": "prepare8",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha17",
+          "name": "prepare9",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha18",
+          "name": "prepare10",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha19",
+          "name": "prepare11",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha20",
+          "name": "prepare12",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha21",
+          "name": "prepare13",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha22",
+          "name": "prepare14",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha23",
+          "name": "prepare15",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha24",
+          "name": "prepare16",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha25",
+          "name": "prepare17",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha26",
+          "name": "prepare18",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha27",
+          "name": "prepare19",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha28",
+          "name": "prepare20",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha29",
+          "name": "prepare21",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha30",
+          "name": "prepare22",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha31",
+          "name": "prepare23",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha32",
+          "name": "prepare24",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha33",
+          "name": "prepare25",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha34",
+          "name": "prepare26",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha35",
+          "name": "prepare27",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha36",
+          "name": "prepare28",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha37",
+          "name": "prepare29",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha38",
+          "name": "prepare30",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha39",
+          "name": "prepare31",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha40",
+          "name": "prepare32",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha41",
+          "name": "prepare33",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha42",
+          "name": "prepare34",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha43",
+          "name": "prepare35",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha44",
+          "name": "prepare36",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha45",
+          "name": "prepare37",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha46",
+          "name": "prepare38",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha47",
+          "name": "prepare39",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha48",
+          "name": "prepare40",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha49",
+          "name": "prepare41",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha50",
+          "name": "prepare42",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha51",
+          "name": "prepare43",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha52",
+          "name": "prepare44",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha53",
+          "name": "prepare45",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha54",
+          "name": "prepare46",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha55",
+          "name": "prepare47",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha56",
+          "name": "prepare49",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha57",
+          "name": "prepare50",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha58",
+          "name": "prepare51",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha59",
+          "name": "prepare52",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha60",
+          "name": "prepare53",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha61",
+          "name": "prepare54",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha62",
+          "name": "prepare55",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha63",
+          "name": "prepare57",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha64",
+          "name": "prepare60",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha65",
+          "name": "prepare61",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha66",
+          "name": "prepare62",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha67",
+          "name": "prepare64",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha68",
+          "name": "prepare65",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha69",
+          "name": "prepare66",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha70",
+          "name": "prepare68",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha71",
+          "name": "prepare71",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha72",
+          "name": "prepare72",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha73",
+          "name": "prepare73",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha74",
+          "name": "prepare74",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha75",
+          "name": "prepare75",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha76",
+          "name": "prepare77",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha77",
+          "name": "prepare78",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha78",
+          "name": "prepare81",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha79",
+          "name": "prepare83",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha80",
+          "name": "prepare84",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha81",
+          "name": "prepare85",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha82",
+          "name": "prepare86",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha83",
+          "name": "prepare88",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha84",
+          "name": "prepare92",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha85",
+          "name": "prepare94",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha86",
+          "name": "prepare95",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha87",
+          "name": "prepare96",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha88",
+          "name": "prepare98",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha89",
+          "name": "prepare99",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha90",
+          "name": "prepare101",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha91",
+          "name": "calAlpha1",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha92",
+          "name": "calAlpha2",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha93",
+          "name": "calAlpha3",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha94",
+          "name": "calAlpha4",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha95",
+          "name": "calAlpha5",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha96",
+          "name": "calAlpha6",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha97",
+          "name": "calAlpha7",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha98",
+          "name": "calAlpha8",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha99",
+          "name": "calAlpha9",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha100",
+          "name": "calAlpha10",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha101",
+          "name": "calAlpha11",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha102",
+          "name": "calAlpha12",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha103",
+          "name": "calAlpha13",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha104",
+          "name": "calAlpha14",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha105",
+          "name": "calAlpha15",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha106",
+          "name": "calAlpha16",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha107",
+          "name": "calAlpha17",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha108",
+          "name": "calAlpha18",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha109",
+          "name": "calAlpha19",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha110",
+          "name": "calAlpha20",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha111",
+          "name": "calAlpha21",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha112",
+          "name": "calAlpha22",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha113",
+          "name": "calAlpha23",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha114",
+          "name": "calAlpha24",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha115",
+          "name": "calAlpha25",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha116",
+          "name": "calAlpha26",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha117",
+          "name": "calAlpha27",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha118",
+          "name": "calAlpha28",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha119",
+          "name": "calAlpha29",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha120",
+          "name": "calAlpha30",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha121",
+          "name": "calAlpha31",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha122",
+          "name": "calAlpha32",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha123",
+          "name": "calAlpha33",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha124",
+          "name": "calAlpha34",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha125",
+          "name": "calAlpha35",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha126",
+          "name": "calAlpha36",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha127",
+          "name": "calAlpha37",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha128",
+          "name": "calAlpha38",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha129",
+          "name": "calAlpha39",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha130",
+          "name": "calAlpha40",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha131",
+          "name": "calAlpha41",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha132",
+          "name": "calAlpha42",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha133",
+          "name": "calAlpha43",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha134",
+          "name": "calAlpha44",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha135",
+          "name": "calAlpha45",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha136",
+          "name": "calAlpha46",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha137",
+          "name": "calAlpha47",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha138",
+          "name": "calAlpha48",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha139",
+          "name": "calAlpha49",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha140",
+          "name": "calAlpha50",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha141",
+          "name": "calAlpha51",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha142",
+          "name": "calAlpha52",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha143",
+          "name": "calAlpha53",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha144",
+          "name": "calAlpha54",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha145",
+          "name": "calAlpha55",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha146",
+          "name": "calAlpha56",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha147",
+          "name": "calAlpha57",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha148",
+          "name": "calAlpha58",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha149",
+          "name": "calAlpha59",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha150",
+          "name": "calAlpha60",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha151",
+          "name": "calAlpha61",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha152",
+          "name": "calAlpha62",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha153",
+          "name": "calAlpha63",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha154",
+          "name": "calAlpha64",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha155",
+          "name": "calAlpha65",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha156",
+          "name": "calAlpha66",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha157",
+          "name": "calAlpha67",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha158",
+          "name": "calAlpha68",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha159",
+          "name": "calAlpha69",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha160",
+          "name": "calAlpha70",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha161",
+          "name": "calAlpha71",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha162",
+          "name": "calAlpha72",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha163",
+          "name": "calAlpha73",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha164",
+          "name": "calAlpha74",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha165",
+          "name": "calAlpha75",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha166",
+          "name": "calAlpha76",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha167",
+          "name": "calAlpha77",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha168",
+          "name": "calAlpha78",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha169",
+          "name": "calAlpha79",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha170",
+          "name": "calAlpha80",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha171",
+          "name": "calAlpha81",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha172",
+          "name": "calAlpha82",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha173",
+          "name": "calAlpha83",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha174",
+          "name": "calAlpha84",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha175",
+          "name": "calAlpha85",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha176",
+          "name": "calAlpha86",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha177",
+          "name": "calAlpha87",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha178",
+          "name": "calAlpha88",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha179",
+          "name": "calAlpha89",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha180",
+          "name": "calAlpha90",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha181",
+          "name": "calAlpha91",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha182",
+          "name": "calAlpha92",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha183",
+          "name": "calAlpha93",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha184",
+          "name": "calAlpha94",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha185",
+          "name": "calAlpha95",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha186",
+          "name": "calAlpha96",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha187",
+          "name": "calAlpha97",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha188",
+          "name": "calAlpha98",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha189",
+          "name": "calAlpha99",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha190",
+          "name": "calAlpha100",
           "type": "function"
         },
         {
-          "name": "gtjaAlpha191",
+          "name": "calAlpha101",
           "type": "function"
         }
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 17286
     },
     {
       "module_name": "wq101alpha/helper/prepare101.dos",
@@ -6485,7 +6653,8 @@
       ],
       "dependencies": [],
       "is_aggregated": false,
-      "chunk_count": null
+      "chunk_count": null,
+      "tokens": 20371
     }
   ]
 }
