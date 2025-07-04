@@ -1,7 +1,7 @@
 {
   "files": [
     {
-      "module_name": "dolphindbmodules/ops/src/ops.dos",
+      "file_path": "dolphindbmodules/ops/src/ops.dos",
       "file_summary": "A module providing utility functions for cluster maintenance, monitoring, and administration in DolphinDB.",
       "symbols": [
         {
@@ -123,7 +123,7 @@
       "tokens": 12228
     },
     {
-      "module_name": "dolphindbmodules/DDBLogAnalyser/src/alertGenerator.dos",
+      "file_path": "dolphindbmodules/DDBLogAnalyser/src/alertGenerator.dos",
       "file_summary": "This module provides functionality for filtering and alerting on log messages in DolphinDB, including email notifications.",
       "symbols": [
         {
@@ -153,7 +153,7 @@
       "tokens": 863
     },
     {
-      "module_name": "dolphindbmodules/DDBLogAnalyser/src/logParser/projects/controller/parseTransactionsInfo.dos",
+      "file_path": "dolphindbmodules/DDBLogAnalyser/src/logParser/projects/controller/parseTransactionsInfo.dos",
       "file_summary": "This script provides functions to parse and extract transaction-related information from DolphinDB log entries.",
       "symbols": [
         {
@@ -187,7 +187,7 @@
       "tokens": 1237
     },
     {
-      "module_name": "dolphindbmodules/DDBLogAnalyser/src/logParser/logParser.dos",
+      "file_path": "dolphindbmodules/DDBLogAnalyser/src/logParser/logParser.dos",
       "file_summary": "A log parsing module that processes DolphinDB log files, extracts relevant information, and stores results in either shared tables or DFS tables.",
       "symbols": [
         {
@@ -237,7 +237,7 @@
       "tokens": 3289
     },
     {
-      "module_name": "dolphindbmodules/DDBLogAnalyser/src/config.dos",
+      "file_path": "dolphindbmodules/DDBLogAnalyser/src/config.dos",
       "file_summary": "Provides configuration management and environment cleanup functions for the DolphinDB log analyzer.",
       "symbols": [
         {
@@ -307,7 +307,7 @@
       "tokens": 1166
     },
     {
-      "module_name": "dolphindbmodules/DDBLogAnalyser/src/demo.dos",
+      "file_path": "dolphindbmodules/DDBLogAnalyser/src/demo.dos",
       "file_summary": "A demo script for log analysis that loads required modules, initializes configuration, and processes logs either in batch or streaming mode.",
       "symbols": [
         {
@@ -385,7 +385,7 @@
       "tokens": 167
     },
     {
-      "module_name": "dolphindbmodules/DDBLogAnalyser/src/logReader.dos",
+      "file_path": "dolphindbmodules/DDBLogAnalyser/src/logReader.dos",
       "file_summary": "Provides functionality for reading and parsing DolphinDB log files in both batch and streaming modes.",
       "symbols": [
         {
@@ -471,7 +471,7 @@
       "tokens": 4265
     },
     {
-      "module_name": "dolphindbmodules/DDBLogAnalyser/src/util.dos",
+      "file_path": "dolphindbmodules/DDBLogAnalyser/src/util.dos",
       "file_summary": "Provides utility functions for log analysis in DolphinDB, including querying log data by time range, level, and version comparison.",
       "symbols": [
         {
@@ -549,7 +549,7 @@
       "tokens": 2218
     },
     {
-      "module_name": "dolphindbmodules/DDBLogAnalyser/src/reportGenerator/reportGenerator.dos",
+      "file_path": "dolphindbmodules/DDBLogAnalyser/src/reportGenerator/reportGenerator.dos",
       "file_summary": "This module provides functionality to generate reports by processing errors and warnings from logs.",
       "symbols": [
         {
@@ -571,7 +571,7 @@
       "tokens": 254
     },
     {
-      "module_name": "dolphindbmodules/DDBLogAnalyser/src/logParser/projects/datanode/parseTransactionsInfo.dos",
+      "file_path": "dolphindbmodules/DDBLogAnalyser/src/logParser/projects/datanode/parseTransactionsInfo.dos",
       "file_summary": "This file contains functions for parsing different types of transaction-related logs in DolphinDB, including transaction metrics, DB audit logs, and transaction lifecycle events (begin, closed, rolled back).",
       "symbols": [
         {
@@ -609,7 +609,7 @@
       "tokens": 1971
     },
     {
-      "module_name": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/createDbAndTb/createDB.dos",
+      "file_path": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/createDbAndTb/createDB.dos",
       "file_summary": "Provides functions for creating databases with specific configurations for different types of financial data.",
       "symbols": [
         {
@@ -627,7 +627,7 @@
       "tokens": 600
     },
     {
-      "module_name": "dolphindbmodules/DolphinDBModules/easyNSQ/script/startup.dos",
+      "file_path": "dolphindbmodules/DolphinDBModules/easyNSQ/script/startup.dos",
       "file_summary": "Initializes the NSQ environment and sets up subscriptions for market data topics (orders, trade, snapshot) from specified exchanges (sh, sz) with optional DFS storage.",
       "symbols": [
         {
@@ -665,7 +665,7 @@
       "tokens": 173
     },
     {
-      "module_name": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadTLData.dos",
+      "file_path": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadTLData.dos",
       "file_summary": "Facilitates automatic loading of trading data from DataYes into DolphinDB databases with configurable parameters.",
       "symbols": [
         {
@@ -691,7 +691,7 @@
       "tokens": 2530
     },
     {
-      "module_name": "dolphindbmodules/DDBLogAnalyser/src/reportGenerator/projects/generateTransactionsReport.dos",
+      "file_path": "dolphindbmodules/DDBLogAnalyser/src/reportGenerator/projects/generateTransactionsReport.dos",
       "file_summary": "Generates various transaction-related reports from log data including rolled back transactions, longest transactions, audit logs, metrics, and node-specific transaction details.",
       "symbols": [
         {
@@ -745,7 +745,7 @@
       "tokens": 3206
     },
     {
-      "module_name": "dolphindbmodules/DolphinDBModules/easyNSQ/src/easyNSQ.dos",
+      "file_path": "dolphindbmodules/DolphinDBModules/easyNSQ/src/easyNSQ.dos",
       "file_summary": "A module for subscribing to and managing NSQ real-time market data (orders, trades, snapshots) with options for stream tables and DFS storage.",
       "symbols": [
         {
@@ -811,7 +811,7 @@
       "tokens": 10536
     },
     {
-      "module_name": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/createDbAndTb/createTB.dos",
+      "file_path": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/createDbAndTb/createTB.dos",
       "file_summary": "Provides functionality to create and manage tables in DolphinDB for different market data types (snapshot, entrust, trade) with configurable market specifications.",
       "symbols": [
         {
@@ -845,7 +845,7 @@
       "tokens": 1544
     },
     {
-      "module_name": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadData/loadData.dos",
+      "file_path": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadData/loadData.dos",
       "file_summary": "Provides functions for loading and processing trading data files into DolphinDB databases.",
       "symbols": [
         {
@@ -879,7 +879,7 @@
       "tokens": 2174
     },
     {
-      "module_name": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadData/loadOneDayData.dos",
+      "file_path": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadData/loadOneDayData.dos",
       "file_summary": "Provides functions to load one day's worth of trading data for Shanghai and Shenzhen markets from CSV files into specified databases and tables.",
       "symbols": [
         {
@@ -921,7 +921,7 @@
       "tokens": 2343
     },
     {
-      "module_name": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadData/loadOneDayData/loadOneDayEntrust.dos",
+      "file_path": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadData/loadOneDayData/loadOneDayEntrust.dos",
       "file_summary": "This module provides functions for transforming and loading entrust data from Shanghai and Shenzhen markets into a standardized format in DolphinDB.",
       "symbols": [
         {
@@ -959,7 +959,7 @@
       "tokens": 3538
     },
     {
-      "module_name": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/csvSchema/entrustCsvSchema.dos",
+      "file_path": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/csvSchema/entrustCsvSchema.dos",
       "file_summary": "Defines table schemas for entrust CSV data in Shenzhen and Shanghai markets.",
       "symbols": [
         {
@@ -977,7 +977,7 @@
       "tokens": 450
     },
     {
-      "module_name": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadData/loadOneDayData/loadOneDayTradeEntrust.dos",
+      "file_path": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadData/loadOneDayData/loadOneDayTradeEntrust.dos",
       "file_summary": "This module provides functions for transforming and loading Shanghai market trade and entrust data from CSV files into standardized database tables.",
       "symbols": [
         {
@@ -1011,7 +1011,7 @@
       "tokens": 2799
     },
     {
-      "module_name": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadData/loadOneDayData/loadOneDayTrade.dos",
+      "file_path": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadData/loadOneDayData/loadOneDayTrade.dos",
       "file_summary": "This module provides functions to transform and load trade data from Shanghai and Shenzhen markets into a standardized format in DolphinDB.",
       "symbols": [
         {
@@ -1049,7 +1049,7 @@
       "tokens": 3787
     },
     {
-      "module_name": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadData/loadOneDayData/loadOneDaySnapshot.dos",
+      "file_path": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/loadData/loadOneDayData/loadOneDaySnapshot.dos",
       "file_summary": "Provides functions for transforming and loading one day's worth of snapshot and order queue data for Shanghai and Shenzhen stock markets.",
       "symbols": [
         {
@@ -1099,7 +1099,7 @@
       "tokens": 10832
     },
     {
-      "module_name": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/csvSchema/snapshotCsvSchema.dos",
+      "file_path": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/csvSchema/snapshotCsvSchema.dos",
       "file_summary": "Defines schema structures for snapshot CSV data from Shenzhen and Shanghai markets, with different schemas based on trading dates.",
       "symbols": [
         {
@@ -1121,7 +1121,7 @@
       "tokens": 2717
     },
     {
-      "module_name": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/csvSchema/orderQueueCsvSchema.dos",
+      "file_path": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/csvSchema/orderQueueCsvSchema.dos",
       "file_summary": "Defines the schema for order queue CSV data with specific column names and types.",
       "symbols": [
         {
@@ -1139,7 +1139,7 @@
       "tokens": 364
     },
     {
-      "module_name": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/csvSchema/tradeEntrustCsvSchema.dos",
+      "file_path": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/csvSchema/tradeEntrustCsvSchema.dos",
       "file_summary": "Defines the schema for trade and entrust CSV data for the Shanghai market.",
       "symbols": [
         {
@@ -1153,7 +1153,7 @@
       "tokens": 195
     },
     {
-      "module_name": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/dfsSchema/entrustSchema.dos",
+      "file_path": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/dfsSchema/entrustSchema.dos",
       "file_summary": "Defines table schemas for entrust data in Shenzhen and Shanghai markets, with options to concatenate or separate trade date and time.",
       "symbols": [
         {
@@ -1175,7 +1175,7 @@
       "tokens": 1000
     },
     {
-      "module_name": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/dfsSchema/tradeSchema.dos",
+      "file_path": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/dfsSchema/tradeSchema.dos",
       "file_summary": "Defines table schemas for trade data in Shenzhen and Shanghai markets with options for time representation.",
       "symbols": [
         {
@@ -1197,7 +1197,7 @@
       "tokens": 1106
     },
     {
-      "module_name": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/dfsSchema/snapshotSchema.dos",
+      "file_path": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/dfsSchema/snapshotSchema.dos",
       "file_summary": "Defines table schemas for snapshot data of Shenzhen and Shanghai markets, with options to concatenate or separate trade date and time.",
       "symbols": [
         {
@@ -1219,7 +1219,7 @@
       "tokens": 4155
     },
     {
-      "module_name": "dolphindbmodules/alphalens/testing/test_alphalens_function_create_information_tear_sheet.dos",
+      "file_path": "dolphindbmodules/alphalens/testing/test_alphalens_function_create_information_tear_sheet.dos",
       "file_summary": "This file contains test cases for the alphalens function create_information_tear_sheet, verifying its functionality with different parameters.",
       "symbols": [
         {
@@ -1261,7 +1261,7 @@
       "tokens": 546
     },
     {
-      "module_name": "dolphindbmodules/alphalens/testing/test_alphalens_function_create_turnover_tear_sheet.dos",
+      "file_path": "dolphindbmodules/alphalens/testing/test_alphalens_function_create_turnover_tear_sheet.dos",
       "file_summary": "This file tests the create_turnover_tear_sheet function in the alphalens module by validating its output structure and behavior with different parameters.",
       "symbols": [
         {
@@ -1307,7 +1307,7 @@
       "tokens": 453
     },
     {
-      "module_name": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/csvSchema/tradeCsvSchema.dos",
+      "file_path": "dolphindbmodules/DolphinDBModules/easyTLDataImport/src/easyTLDataImport/tbSchema/csvSchema/tradeCsvSchema.dos",
       "file_summary": "Defines table schemas for trade CSV data in Shenzhen and Shanghai markets based on trading day.",
       "symbols": [
         {
@@ -1329,7 +1329,7 @@
       "tokens": 607
     },
     {
-      "module_name": "dolphindbmodules/alphalens/testing/test_alphalens_function_get_clean_factor_and_forward_returns.dos",
+      "file_path": "dolphindbmodules/alphalens/testing/test_alphalens_function_get_clean_factor_and_forward_returns.dos",
       "file_summary": "This file contains test cases for the alphalens function get_clean_factor_and_forward_returns, verifying its functionality with different parameters and scenarios.",
       "symbols": [
         {
@@ -1371,7 +1371,7 @@
       "tokens": 855
     },
     {
-      "module_name": "dolphindbmodules/alphalens/testing/test_alphalens_function_plot_create_full_tear_sheet.dos",
+      "file_path": "dolphindbmodules/alphalens/testing/test_alphalens_function_plot_create_full_tear_sheet.dos",
       "file_summary": "This script tests the plot_create_full_tear_sheet function in the alphalens module with various configurations.",
       "symbols": [
         {
@@ -1413,7 +1413,7 @@
       "tokens": 1207
     },
     {
-      "module_name": "dolphindbmodules/alphalens/testing/test_alphalens_function_plot_quantile_statistics_table.dos",
+      "file_path": "dolphindbmodules/alphalens/testing/test_alphalens_function_plot_quantile_statistics_table.dos",
       "file_summary": "Tests the plot_quantile_statistics_table function from the alphalens module by analyzing factor data and verifying output structure and values.",
       "symbols": [
         {
@@ -1459,7 +1459,7 @@
       "tokens": 254
     },
     {
-      "module_name": "dolphindbmodules/alphalens/testing/test_alphalens_function_plot_create_returns_tear_sheet.dos",
+      "file_path": "dolphindbmodules/alphalens/testing/test_alphalens_function_plot_create_returns_tear_sheet.dos",
       "file_summary": "This script tests the plot_create_returns_tear_sheet function in the alphalens module with various configurations.",
       "symbols": [
         {
@@ -1501,7 +1501,7 @@
       "tokens": 712
     },
     {
-      "module_name": "dolphindbmodules/gtja191Alpha/helper/gtja191AlphaRes.dos",
+      "file_path": "dolphindbmodules/gtja191Alpha/helper/gtja191AlphaRes.dos",
       "file_summary": "This script implements and calculates the GTJA 191 alpha factors using DolphinDB modules gtja191Alpha and gtja191Prepare for a specific set of securities and time period.",
       "symbols": [
         {
@@ -1583,7 +1583,7 @@
       "tokens": 810
     },
     {
-      "module_name": "dolphindbmodules/gtja191Alpha/testing/gtja191AlphaRes.dos",
+      "file_path": "dolphindbmodules/gtja191Alpha/testing/gtja191AlphaRes.dos",
       "file_summary": "This script implements the GTJA 191 alpha factors using DolphinDB modules gtja191Alpha and gtja191Prepare, calculates them for a set of securities, and saves the results.",
       "symbols": [
         {
@@ -1665,7 +1665,7 @@
       "tokens": 810
     },
     {
-      "module_name": "dolphindbmodules/wq101alpha/helper/infoDataScript.dos",
+      "file_path": "dolphindbmodules/wq101alpha/helper/infoDataScript.dos",
       "file_summary": "This script creates a database and table for storing financial information data, then generates and populates it with sample data.",
       "symbols": [
         {
@@ -1691,7 +1691,7 @@
       "tokens": 355
     },
     {
-      "module_name": "dolphindbmodules/alphalens/src/alphalens.dos",
+      "file_path": "dolphindbmodules/alphalens/src/alphalens.dos",
       "file_summary": "A DolphinDB implementation of the Alphalens library for performance analysis of alpha factors.",
       "symbols": [
         {
@@ -1973,7 +1973,7 @@
       "tokens": 33813
     },
     {
-      "module_name": "dolphindbmodules/ta/helper/1.10.3/ta.dos",
+      "file_path": "dolphindbmodules/ta/helper/1.10.3/ta.dos",
       "file_summary": "A DolphinDB module containing technical analysis indicators for financial time series data.",
       "symbols": [
         {
@@ -2227,7 +2227,7 @@
       "tokens": 8364
     },
     {
-      "module_name": "dolphindbmodules/mytt/src/mytt.dos",
+      "file_path": "dolphindbmodules/mytt/src/mytt.dos",
       "file_summary": "A DolphinDB module implementing technical analysis indicators from Tongdaxin (通达信) for financial market analysis.",
       "symbols": [
         {
@@ -2497,7 +2497,7 @@
       "tokens": 5774
     },
     {
-      "module_name": "dolphindbmodules/ta/src/ta.dos",
+      "file_path": "dolphindbmodules/ta/src/ta.dos",
       "file_summary": "A DolphinDB module implementing various technical analysis indicators similar to Python's TA-Lib.",
       "symbols": [
         {
@@ -2759,7 +2759,7 @@
       "tokens": 6265
     },
     {
-      "module_name": "dolphindbmodules/wq101alpha/helper/wq101alphaStreamTest.dos",
+      "file_path": "dolphindbmodules/wq101alpha/helper/wq101alphaStreamTest.dos",
       "file_summary": "This script implements real-time computation of WorldQuant 101 alpha factors using DolphinDB's streaming capabilities.",
       "symbols": [
         {
@@ -2801,7 +2801,7 @@
       "tokens": 22514
     },
     {
-      "module_name": "dolphindbmodules/wq101alpha/helper/wq101alphaScript.dos",
+      "file_path": "dolphindbmodules/wq101alpha/helper/wq101alphaScript.dos",
       "file_summary": "This script calculates and saves all 101 alpha factors into a database.",
       "symbols": [
         {
@@ -2847,7 +2847,7 @@
       "tokens": 706
     },
     {
-      "module_name": "dolphindbmodules/wq101alpha/helper/wq101alphaScript_2.00.8.dos",
+      "file_path": "dolphindbmodules/wq101alpha/helper/wq101alphaScript_2.00.8.dos",
       "file_summary": "This script calculates and saves all 101 alpha factors into a database using DolphinDB.",
       "symbols": [
         {
@@ -2901,7 +2901,7 @@
       "tokens": 810
     },
     {
-      "module_name": "dolphindbmodules/wq101alpha/test/wq101alphaDDBTime.dos",
+      "file_path": "dolphindbmodules/wq101alpha/test/wq101alphaDDBTime.dos",
       "file_summary": "This script tests the performance of WorldQuant 101 alpha implementations in DolphinDB by measuring execution times for each alpha.",
       "symbols": [
         {
@@ -2967,7 +2967,7 @@
       "tokens": 408
     },
     {
-      "module_name": "dolphindbmodules/wq101alpha/test/wqAlphaDDBRes.dos",
+      "file_path": "dolphindbmodules/wq101alpha/test/wqAlphaDDBRes.dos",
       "file_summary": "This script verifies the correctness of WorldQuant 101 alpha implementations in DolphinDB by testing specific alpha functions on stock data.",
       "symbols": [
         {
@@ -3037,7 +3037,7 @@
       "tokens": 499
     },
     {
-      "module_name": "dolphindbmodules/wq101alpha/testing/wqAlphaDDBRes.dos",
+      "file_path": "dolphindbmodules/wq101alpha/testing/wqAlphaDDBRes.dos",
       "file_summary": "This script verifies the correctness of WorldQuant 101 alpha implementation in DolphinDB by testing specific alpha factors on stock data.",
       "symbols": [
         {
@@ -3107,7 +3107,7 @@
       "tokens": 499
     },
     {
-      "module_name": "dolphindbmodules/wq101alpha/src/wq101alpha.dos",
+      "file_path": "dolphindbmodules/wq101alpha/src/wq101alpha.dos",
       "file_summary": "Implements 101 alpha formulas from '101 Formulaic Alphas' in DolphinDB, categorized into factors with and without industry neutralization.",
       "symbols": [
         {
@@ -3521,7 +3521,7 @@
       "tokens": 12688
     },
     {
-      "module_name": "dolphindbmodules/gtja191Alpha/src/gtja191Alpha.dos",
+      "file_path": "dolphindbmodules/gtja191Alpha/src/gtja191Alpha.dos",
       "file_summary": "This module implements 191 alpha formulas from GuotaiJunan Securities in DolphinDB, categorized by their features and designed for day-level data analysis.",
       "symbols": [
         {
@@ -4299,7 +4299,7 @@
       "tokens": 18590
     },
     {
-      "module_name": "dolphindbmodules/gtja191Alpha/helper/gtja191Prepare.dos",
+      "file_path": "dolphindbmodules/gtja191Alpha/helper/gtja191Prepare.dos",
       "file_summary": "This script provides helper functions to prepare panel data and calculate 191 alpha factors for the gtja191Alpha module.",
       "symbols": [
         {
@@ -5085,7 +5085,7 @@
       "tokens": 10915
     },
     {
-      "module_name": "dolphindbmodules/prepare101",
+      "file_path": "dolphindbmodules/prepare101",
       "file_summary": "This script provides functions to prepare panel data and calculate 101 alpha factors for the wq101alpha module.",
       "symbols": [
         {
@@ -5831,7 +5831,7 @@
       "tokens": 17286
     },
     {
-      "module_name": "dolphindbmodules/wq101alpha/helper/prepare101.dos",
+      "file_path": "dolphindbmodules/wq101alpha/helper/prepare101.dos",
       "file_summary": "This script provides functions to prepare panel data and calculate 101 alpha factors for the wq101alpha module.",
       "symbols": [
         {

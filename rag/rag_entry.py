@@ -7,7 +7,7 @@ from llm.llm_prompt import llm
 from typing import List
 
 from llm.models import ModelManager
-from .index_manager import DDBIndexManager
+from .code_index_manager import CodeIndexManager
 
 class DDBRAG:
     """
@@ -16,7 +16,7 @@ class DDBRAG:
     def __init__(self, project_path: str, index_file: str = None):
         self.project_path = project_path
         self.index_file = index_file or os.path.join(project_path, ".ddb_agent", "index.json")
-        self.index_manager = DDBIndexManager(project_path=project_path, index_file = self.index_file)
+        self.index_manager = CodeIndexManager(project_path=project_path, index_file = self.index_file)
 
     @llm.prompt()
     def _chat_prompt(self, user_query: str, context_files: str) -> str:

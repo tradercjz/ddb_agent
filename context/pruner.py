@@ -8,8 +8,8 @@ from llm.llm_prompt import llm
 from utils.json_parser import parse_json_string 
 class SourceCode:
     """A simple container for source code data."""
-    def __init__(self, module_name: str, source_code: str, tokens: int = -1):
-        self.module_name = module_name
+    def __init__(self, file_path: str, source_code: str, tokens: int = -1):
+        self.file_path = file_path
         self.source_code = source_code
         # 懒加载token计数，如果未提供
         from token_counter import count_tokens # 局部导入避免循环依赖
@@ -73,7 +73,7 @@ class DeletePruner(BasePruner):
                 pruned_sources.append(source)
                 current_tokens += source.tokens
             else:
-                print(f"Token limit reached. Discarding remaining files starting from {source.module_name}.")
+                print(f"Token limit reached. Discarding remaining files starting from {source.file_path}.")
                 break
         
         print(f"Pruning complete. Kept {len(pruned_sources)} files with {current_tokens} tokens.")
@@ -163,7 +163,7 @@ class ExtractPruner(BasePruner):
         Processes a single large file to extract snippets. This is the target for our threads.
         Returns a new SourceCode object with pruned content, or the original if it fails.
         """
-        print(f"  - Starting snippet extraction for: {file_source.module_name}")
+        print(f"  - Starting snippet extraction for: {file_source.file_path}")
         try:
             lines_with_numbers = "\n".join(
                 f"{i+1} {line}" for i, line in enumerate(file_source.source_code.splitlines())
@@ -177,19 +177,19 @@ class ExtractPruner(BasePruner):
             raw_snippets = parse_json_string(response_str)
             
             if not raw_snippets:
-                print(f"  - No relevant snippets found in {file_source.module_name}.")
+                print(f"  - No relevant snippets found in {file_source.file_path}.")
                 # 返回一个空内容的SourceCode，但保留文件名，token为0
-                return SourceCode(file_source.module_name, "", 0)
+                return SourceCode(file_source.file_path, "", 0)
             
             merged_snippets = self._merge_overlapping_snippets(raw_snippets)
             new_content = self._build_snippet_content(file_source.source_code, merged_snippets)
 
             # 返回一个新的、内容被精简的SourceCode对象
-            return SourceCode(file_source.module_name, new_content)
+            return SourceCode(file_source.file_path, new_content)
         except Exception as e:
-            print(f"  - Error extracting snippets from {file_source.module_name}: {e}. Keeping original content for now.")
+            print(f"  - Error extracting snippets from {file_source.file_path}: {e}. Keeping original content for now.")
             # 如果处理失败，可以返回原始对象或一个空对象，这里选择返回空对象以强制其被丢弃（如果token超限）
-            return SourceCode(file_source.module_name, "", 0)
+            return SourceCode(file_source.file_path, "", 0)
 
     def prune(
         self, 
@@ -232,7 +232,7 @@ class ExtractPruner(BasePruner):
                             processed_large_files.append(processed_source)
                     except Exception as exc:
                         original_source = future_to_source[future]
-                        print(f"Exception processing {original_source.module_name}: {exc}")
+                        print(f"Exception processing {original_source.file_path}: {exc}")
 
         # 3. 合并和最终剪枝
         # 将完整保留的小文件和处理后的大文件片段合并
@@ -251,9 +251,9 @@ class ExtractPruner(BasePruner):
             if final_tokens + source.tokens <= self.max_tokens:
                 final_sources.append(source)
                 final_tokens += source.tokens
-                print(f"  - Added snippets from {source.module_name} ({source.tokens} tokens)")
+                print(f"  - Added snippets from {source.file_path} ({source.tokens} tokens)")
             else:
-                print(f"  - Snippets from {source.module_name} ({source.tokens} tokens) too large to fit. Discarding.")
+                print(f"  - Snippets from {source.file_path} ({source.tokens} tokens) too large to fit. Discarding.")
         
         print(f"Pruning complete. Final context has {len(final_sources)} files with {final_tokens} tokens.")
         return final_sources

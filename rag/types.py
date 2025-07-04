@@ -1,7 +1,15 @@
 # file: ddb_agent/rag/types.py
 
+from git import Union
 import pydantic
-from typing import List, Dict, Any, Optional
+from typing import Annotated, List, Literal, Optional
+
+class BaseIndexModel(pydantic.BaseModel):
+    """
+    Marker base class for all index model types (e.g., CodeIndex, TextChunkIndex).
+    """
+    pass
+
 
 class Symbol(pydantic.BaseModel):
     """
@@ -10,11 +18,12 @@ class Symbol(pydantic.BaseModel):
     name: str = pydantic.Field(description="The name of the symbol.")
     type: str = pydantic.Field(description="The type of the symbol (e.g., 'class', 'function').")
 
-class FileIndex(pydantic.BaseModel):
+class CodeIndex(BaseIndexModel):
     """
     Represents the indexed metadata for a single source file.
     """
-    module_name: str = pydantic.Field(description="The path to the source file.")
+    model_type: Literal["code"] = "code"
+    file_path: str = pydantic.Field(description="The path to the source file.")
     file_summary: str = pydantic.Field(description="A brief summary of the file's purpose and functionality.")
     symbols: List[Symbol] = pydantic.Field(description="A list of key symbols defined in the file.")
     # Optional: You can add other metadata if needed, e.g., dependencies
@@ -23,8 +32,36 @@ class FileIndex(pydantic.BaseModel):
     chunk_count: Optional[int] = pydantic.Field(None, description="Number of chunks if aggregated.")
     tokens: Optional[int] = pydantic.Field(None, description="file tokens.")
 
-class ProjectIndex(pydantic.BaseModel):
+class TextChunkIndex(BaseIndexModel):
     """
-    Represents the entire project's index, which is a collection of FileIndex objects.
+    Represents the indexed metadata for a single chunk of text.
     """
-    files: List[FileIndex] = pydantic.Field(description="A list of all indexed files in the project.")
+    model_type: Literal["text_chunk"] = "text_chunk"
+    
+    file_path: str = pydantic.Field(description="The path to the source file containing the chunk.")
+    chunk_id: str = pydantic.Field(description="A unique identifier for the chunk (e.g., 'doc_name-chunk__0').")
+    source_document: str = pydantic.Field(description="The path or name of the source document.")
+    
+    start_line: int = pydantic.Field(description="The starting line number of the chunk in the original document.")
+    end_line: int = pydantic.Field(description="The ending line number of the chunk in the original document.")
+    
+    content: str = pydantic.Field(description="The original text content of the chunk.")
+    
+    summary: str = pydantic.Field(description="A concise summary of the chunk's content.")
+    keywords: List[str] = pydantic.Field(description="A list of keywords representing the chunk's topics.")
+    hypothetical_question: Optional[str] = pydantic.Field(None, description="A representative question this chunk can answer.")
+    tokens: Optional[int] = pydantic.Field(None, description="file tokens.")
+
+class ProjectIndex(BaseIndexModel):
+    """
+    Represents the entire project's index, containing a collection of file/chunk indexes.
+    """
+    # 这是关键！
+    # 我们告诉 Pydantic，files 是一个列表，列表中的每个元素
+    # 都属于 AnyIndexModel (即 TextChunkIndex 或 CodeIndex)。
+    # Pydantic 应该查看每个元素的 'model_type' 字段来决定使用哪个具体模型。
+    files: List[Annotated[Union[TextChunkIndex, CodeIndex], pydantic.Field(discriminator='model_type')]]
+    
+    # 你还可以添加其他元数据
+    project_name: Optional[str] = None
+    version: str = "1.0"

@@ -1,0 +1,44 @@
+{
+  "files": [
+    {
+      "model_type": "text_chunk",
+      "file_path": "./dolphindbmodules/README.md",
+      "chunk_id": "0",
+      "source_document": "./dolphindbmodules/README.md",
+      "start_line": 1,
+      "end_line": 66,
+      "content": "# DolphinDB Modules\n\nThis project encapsulates the implementation of functions commonly used in the fields of quantitative finance and IoT in modules. We encourage DolphinDB developers to contribute modules.\n\n## Introduction\n\nIn DolphinDB, a module is a code package that contains only function definitions.\n\n- Module files are stored under directory [home]/modules on a DolphinDB node.\n- The suffix of all module fileUse is .dos, which is an abbreviation of \\\"dolphindb script\\\".\n- The first line of a module file can only be the keyword \\\"module\\\" followed by the module name. For example: ```module fileLog```.\n- Other than the first line, a module file contains only function definitions.\n\n## Directory Structure\n\nThe first-level directory under directory 'modules' is named after the module name. For example, the first-level directory of the 'ta' module is 'ta', which contains the implementation of the [TA-Lib package](https://mrjbq7.github.io/ta-lib/index.html).\n\nUnder the first-level directory of each module, there are 'src' and 'test' directories. \n* Function definitions are saved in the 'src' directory.\n* The 'test' directory contains test cases, which are named after module name and function name (e.g., 'test_ta_function_ma.txt').\n\n## Quick Start\n\nWe use the ta module in this project as an example to demonstrate the deployment and use of modules.\n\n### 1. How to deploy module\n\n#### Download module\n\nDownload the entire project and unzip it:\n\n```\nunzip dolphindbmodules-master.zip\n```\n\n#### Deploy module\n\nCreate the 'modules' directory under the directory \\\"/DolphinDB/server/\\\":\n```\nmkdir modules\n```\n\nCopy the .dos files to the 'modules' directory:\n```\ncp /dolphindbmodules-master/ta/src/ta.dos /DolphinDB/server/modules/\n```\n\n\n### 2. How to import modules into your project\n\nDolphinDB uses keyword 'use' to import the module 'ta'. Note that the module imported by keyword 'use' only applies for the current session. After importing a module, we can use the functions in the module in two ways:\n\n#### Use functions directly\n```\nuse ta\n\nclose=1..40\nma(close, 30, 0)\n```\n#### Call functions with the full path\n```\nuse ta\n\nclose=1..40\nta::ma(close, 30, 0)\n```",
+      "summary": "DolphinDB模块项目封装了量化金融和物联网领域常用函数，并提供了模块部署和使用的详细指南。",
+      "keywords": [
+        "DolphinDB",
+        "模块",
+        "量化金融",
+        "物联网",
+        "TA-Lib"
+      ],
+      "hypothetical_question": "如何在DolphinDB中部署和使用模块？",
+      "tokens": null
+    },
+    {
+      "model_type": "text_chunk",
+      "file_path": "./dolphindbmodules/README_CN.md",
+      "chunk_id": "0",
+      "source_document": "./dolphindbmodules/README_CN.md",
+      "start_line": 1,
+      "end_line": 71,
+      "content": "# DolphinDB 模块 (Modules)\n\n本项目将量化金融与物联网领域常用函数用DolphinDB脚本实现并封装在模块中，便于DolphinDB开发者使用。我们也欢迎DolphinDB开发者们贡献模块。\n\n## Module(模块)简介\n\n在DolphinDB中，模块是指只包含函数定义的代码包。它具有以下特点：\n\n* 模块文件保存在[home]/modules目录下。\n* 模块文件名的后缀为.dos。dos是\\\"dolphindb script\\\"的缩写。\n* 模块文件第一行只能使用 module 后接模块名以声明模块，例如 ```module fileLog``` 。 \n* 模块文件除第一行外的内容仅可包含函数定义。\n\n关于模块的更多细节，请参考[DolphinDB模块教程](https://gitee.com/dolphindb/Tutorials_CN/blob/master/module_tutorial.md)。\n\n## 目录结构\n\n一级目录以module的名称命名，例如'ta'模块的一级目录名为'ta'，该目录下包含了[TA-Lib包](https://mrjbq7.github.io/ta-lib/index.html)中一些常用指标的实现。\n\n每个module的一级目录下包含'src'和'test'目录：\n* 'src'目录下包含所有函数的DolphinDB实现脚本。\n* 'test'目录下包含每个函数的测试用例。测试用例以模块名称和函数名称命名（例如'test_ta_function_ma.txt'）。\n\n## 快速入门\n\n下面以本项目中的金融交易数据技术分析模块(ta module)为例，简单演示模块的部署和使用。\n\n### 1. 如何部署module\n\n#### 下载module\n\n下载整个项目并解压：\n```\nunzip dolphindbmodules-master.zip\n```\n\n#### 部署module\n\n在/DolphinDB/server/目录下创建modules目录：\n```\nmkdir modules\n```\n\n将需要使用的.dos的文件复制到modules目录下：\n```\ncp /dolphindbmodules-master/ta/src/ta.dos /DolphinDB/server/modules/\n```\n\n### 2. 如何在项目中导入module\n\n使用[use](https://www.dolphindb.cn/cn/help/Use.html)关键字来导入模块'ta'。注意，use关键字导入的模块是会话隔离的，仅对当前会话有效。\n\n导入模块后，我们可以通过以下两种方式来使用模块内的函数：\n\n#### 直接使用模块中的函数\n\n```\nuse ta\n\nclose=1..40\nma(close, 30, 0)\n```\n\n#### 通过完整路径来调用模块中的函数\n\n```\nuse ta\n\nclose=1..40\nta::ma(close, 30, 0)\n```",
+      "summary": "DolphinDB模块是包含量化金融和物联网领域常用函数的脚本包，本文介绍了模块的定义、目录结构、部署和使用方法。",
+      "keywords": [
+        "DolphinDB模块",
+        "量化金融",
+        "物联网",
+        "模块部署",
+        "模块使用"
+      ],
+      "hypothetical_question": "如何在DolphinDB中部署和使用模块？",
+      "tokens": null
+    }
+  ],
+  "project_name": null,
+  "version": "1.0"
+}

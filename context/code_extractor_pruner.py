@@ -8,8 +8,8 @@ from token_counter import count_tokens # 引入我们之前创建的token计数�
 
 class SourceCode:
     """A simple container for source code data."""
-    def __init__(self, module_name: str, source_code: str, tokens: int = -1):
-        self.module_name = module_name
+    def __init__(self, file_path: str, source_code: str, tokens: int = -1):
+        self.file_path = file_path
         self.source_code = source_code
         self.tokens = tokens if tokens != -1 else count_tokens(source_code)
 
@@ -111,7 +111,7 @@ class CodeExtractorPruner:
                 # 1. 完整保留小文件
                 selected_files.append(file_source)
                 total_tokens += file_source.tokens
-                print(f"✅ Kept file completely: {file_source.module_name} ({file_source.tokens} tokens)")
+                print(f"✅ Kept file completely: {file_source.file_path} ({file_source.tokens} tokens)")
                 continue
 
             if total_tokens >= self.max_tokens:
@@ -119,7 +119,7 @@ class CodeExtractorPruner:
                 break
 
             # 2. 对大文件进行片段抽取
-            print(f"🔍 Processing large file for snippets: {file_source.module_name} ({file_source.tokens} tokens)")
+            print(f"🔍 Processing large file for snippets: {file_source.file_path} ({file_source.tokens} tokens)")
             
             try:
                 # 为文件内容添加行号
@@ -136,7 +136,7 @@ class CodeExtractorPruner:
                 )
                 
                 if not raw_snippets:
-                    print(f"  - No relevant snippets found in {file_source.module_name}.")
+                    print(f"  - No relevant snippets found in {file_source.file_path}.")
                     continue
                 
                 # 合并重叠片段
@@ -148,19 +148,19 @@ class CodeExtractorPruner:
                 
                 if total_tokens + new_tokens <= self.max_tokens:
                     selected_files.append(SourceCode(
-                        module_name=file_source.module_name,
+                        file_path=file_source.file_path,
                         source_code=new_content,
                         tokens=new_tokens
                     ))
                     total_tokens += new_tokens
-                    print(f"  - Extracted snippets from {file_source.module_name}. "
+                    print(f"  - Extracted snippets from {file_source.file_path}. "
                           f"Original: {file_source.tokens} tokens -> New: {new_tokens} tokens.")
                 else:
-                    print(f"  - Snippets from {file_source.module_name} are too large to fit. Skipping.")
+                    print(f"  - Snippets from {file_source.file_path} are too large to fit. Skipping.")
                     break # 如果添加片段后超限，则停止处理后续文件
 
             except Exception as e:
-                print(f"Error processing snippets for {file_source.module_name}: {e}")
+                print(f"Error processing snippets for {file_source.file_path}: {e}")
                 continue # 出错则跳过此文件
 
         print(f"Pruning complete. Final context has {len(selected_files)} files with {total_tokens} tokens.")

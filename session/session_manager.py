@@ -49,7 +49,7 @@ class SessionManager:
         self.session_data['updated_at'] = datetime.now(timezone.utc).isoformat()
         try:
             with open(self.session_path, 'w', encoding='utf-8') as f:
-                json.dump(self.session_data, f, indent=2, ensure_ascii=False)
+                json.dump(self.session_data, f, indent=2)
             print(f"Session saved to: {self.session_path}")
         except IOError as e:
             print(f"Error: Could not save session file. {e}")
