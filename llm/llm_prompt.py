@@ -185,15 +185,22 @@ class PromptDecorator:
             LLM的响应文本
         """
         llm_client = LLMClientManager.get_client(api_key=api_key, base_url=base_url)
-        
-        response = llm_client.generate_response(
-            conversation_history=messages,
-            model=model
-        )
-        if response.success:
-            return response.content
+
+
+        if self.stream:
+            return llm_client.stream_generate_response(
+                conversation_history=messages,
+                model=model
+            )
         else:
-            return response.error_message
+            response = llm_client.generate_response(
+                conversation_history=messages,
+                model=model
+            )
+            if response.success:
+                return response.content
+            else:
+                return response.error_message
     
     def _convert_to_model(self, text: str) -> Any:
         """

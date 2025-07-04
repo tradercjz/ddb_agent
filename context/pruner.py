@@ -126,7 +126,12 @@ class ExtractPruner(BasePruner):
             {"start_line": 88, "end_line": 95}
         ]
         ```
-        """
+        """''
+
+        return {
+            "conversations": conversations,
+            "content_with_lines": content_with_lines
+        }
       
 
     def _merge_overlapping_snippets(self, snippets: List[Dict[str, int]]) -> List[Dict[str, int]]:

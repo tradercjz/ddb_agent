@@ -1,6 +1,7 @@
 # file: ddb_agent/agent.py (之前在main.py中虚构的，现在正式实现)
 
 from typing import List, Dict, Any
+from llm.llm_client import LLMResponse
 from session.session_manager import SessionManager
 from context.context_builder import ContextBuilder
 from rag.rag_entry import DDBRAG
@@ -33,7 +34,33 @@ class DDBAgent:
         """Starts a new chat session."""
         self.session_manager.new_session()
 
-    def run_task(self, user_input: str, task_type: str = 'chat'):
+    @llm.prompt(stream=True)
+    def _streaming_chat_prompt(self, conversation_history: List[Dict[str, str]]):
+        """       You are a helpful DolphinDB assistant. Continue the conversation naturally.
+        The user's latest message is the last one in the history.
+        """
+    
+    def _stream_wrapper(self, generator):
+        """一个包装器，用于在流式输出结束后保存历史记录。"""
+        full_content = ""
+        final_meta = None
+        for part in generator:
+            if isinstance(part, str):
+                full_content += part
+                yield part # 将文本块传递出去
+            elif isinstance(part, LLMResponse):
+                final_meta = part
+        
+        # 流结束后，保存完整对话
+        if final_meta and final_meta.success:
+            self.session_manager.add_message('assistant', full_content)
+            self.session_manager.save_session()
+        
+        # 将最后的元数据也传递出去，以便上层检查错误
+        #if final_meta:
+        #    yield final_meta
+
+    def run_task(self, user_input: str, task_type: str = 'chat', stream: bool = False) :
         """
         Handles a user request by orchestrating RAG, context building, and LLM interaction.
         """
@@ -63,9 +90,16 @@ class DDBAgent:
         # 来调用一个带有完整、剪枝后历史的 prompt 函数。
         # 注意：这里我们不再需要一个复杂的模板，因为所有上下文都已在 message 列表中。
         # 我们只需一个简单的函数来触发调用。
-        assistant_response = self.chat_prompt_func(
-            conversation_history=final_messages
-        )
+
+        if stream:
+            response_generator = self._streaming_chat_prompt(
+                conversation_history=final_messages
+            )
+            return self._stream_wrapper(response_generator)
+        else:
+            assistant_response = self.chat_prompt_func(
+                conversation_history=final_messages
+            )
 
         # 6. 更新会话并保存
         self.session_manager.add_message('assistant', assistant_response)

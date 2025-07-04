@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 from openai import OpenAI
-from typing import List, Dict, Any, Optional
+from typing import Generator, List, Dict, Any, Optional, Union
 import os
-
 
 @dataclass 
 class LLMResponse:
@@ -32,6 +31,59 @@ class LLMClient:
         
         self.client = OpenAI(api_key=api_key, base_url=base_url)
         self.logger = logger
+
+    def stream_generate_response(
+        self, 
+        conversation_history: List[Dict[str, str]], 
+        model: Optional[str] = None
+    ) -> Generator[Union[str, LLMResponse], None, None]:
+        """
+        Streams the response from the LLM.
+
+        Yields:
+            str: Chunks of the response content.
+            LLMResponse: The final response object with metadata at the end.
+        """
+        try:
+            target_model = model or os.getenv("DEEPSEEK_MODEL")
+            if not target_model:
+                raise ValueError("No model specified and DEEPSEEK_MODEL environment variable is not set.")
+
+            stream = self.client.chat.completions.create(
+                model=target_model,
+                messages=conversation_history,
+                max_completion_tokens=8000,
+                stream=True
+            )
+
+            if self.logger:
+                self.logger.info(f"Streaming response from model: {target_model}...")
+            
+            full_content = ""
+            for chunk in stream:
+                # 检查 delta 是否存在且有内容
+                if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                    content_chunk = chunk.choices[0].delta.content
+                    full_content += content_chunk
+                    yield content_chunk # <--- 流式地 yield 出文本块
+
+            # 循环结束后，yield 最终的元数据对象
+            yield LLMResponse(
+                success=True,
+                content=full_content,
+                metadata={"model": target_model}
+            )
+
+        except Exception as e:
+            error_msg = f"DeepSeek API error: {str(e)}"
+            if self.logger:
+                self.logger.error(error_msg)
+            # 在出错时，也 yield 一个包含错误信息的 LLMResponse
+            yield LLMResponse(
+                success=False,
+                error_message=error_msg,
+                error_type=type(e).__name__
+            )
     
     def generate_response(
         self, 

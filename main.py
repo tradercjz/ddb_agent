@@ -19,10 +19,12 @@
 # file: ddb_agent/main.py
 
 import os
-from typing import Dict
+from typing import Any, Dict, Generator, Tuple, Union
 from rich.console import Console
 from rich.panel import Panel
+from rich.status import Status
 from rich.markdown import Markdown
+from rich.live import Live
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
@@ -30,6 +32,7 @@ from prompt_toolkit.styles import Style
 
 # 假设我们所有的核心逻辑都在 ddb_agent 包中
 from agent import DDBAgent # 这是我们将所有逻辑组合起来的主Agent类
+from llm.llm_client import LLMResponse
 from llm.llm_prompt import llm # 假设llm实例在这里初始化
 from llm.models import ModelManager # 加载模型配置
 
@@ -68,8 +71,67 @@ def print_help_message():
         border_style="blue"
     ))
 
-# --- 主循环 ---
+def stream_out(
+    response_generator: Generator[Union[str, LLMResponse], None, None],
+    title: str = "Agent",
+    final_title: str = "Agent Response"
+) -> Tuple[str, Any]:
+    """
+    Handles streaming output to the console with a loading status,
+    then seamlessly transitions to a live-updated panel.
+    """
+    assistant_response = ""
+    last_meta = None
+    live: Live = None
 
+    with Status("[bold yellow]Agent is thinking...[/bold yellow]", console=console, spinner="dots") as status:
+        first_token_received = False
+        
+        for part in response_generator:
+            if isinstance(part, str):
+                if not first_token_received:
+                    # 收到第一个token，停止status，启动live
+                    status.stop()
+                    live = Live(console=console, auto_refresh=False, vertical_overflow="visible")
+                    live.start()
+                    first_token_received = True
+                
+                assistant_response += part
+                if live:
+                    md = Markdown(assistant_response, code_theme="monokai")
+                    live.update(Panel(
+                        md,
+                        title=f"[bold green]{title}[/bold green]",
+                        border_style="green"
+                    ), refresh=True)
+
+            elif isinstance(part, LLMResponse):
+                # 收到最后的元数据
+                last_meta = part
+                if not part.success:
+                    # 如果有错误，也在这里处理
+                    if live:
+                        live.update(Panel(
+                            f"[bold red]Error:[/bold red]\n{part.error_message}",
+                            title="[bold red]Error[/bold red]",
+                            border_style="red"
+                        ), refresh=True)
+                    else: # 如果在第一个token前就出错
+                        status.stop()
+                        console.print(Panel(
+                            f"[bold red]Error:[/bold red]\n{part.error_message}",
+                            title="[bold red]Error[/bold red]",
+                            border_style="red"
+                        ))
+                break # 收到元数据或错误后，流结束
+
+    if live:
+        live.stop()
+    
+    return assistant_response, last_meta
+
+
+# --- 主循环 ---
 def main_loop(agent: DDBAgent):
     """The main Read-Eval-Print Loop (REPL) for the agent."""
     
@@ -103,18 +165,55 @@ def main_loop(agent: DDBAgent):
                 print_help_message()
                 continue
 
-            # --- 调用 Agent 核心逻辑 ---
-            with console.status("[bold yellow]Agent is thinking...[/bold yellow]", spinner="dots"):
-                # 假设 run_task 是我们之前设计的，封装了所有逻辑的方法
-                assistant_response = agent.run_task(user_input)
+            # # --- 调用 Agent 核心逻辑 ---
+            # with console.status("[bold yellow]Agent is thinking...[/bold yellow]", spinner="dots"):
+            #     # 假设 run_task 是我们之前设计的，封装了所有逻辑的方法
+            #     assistant_response = agent.run_task(user_input)
 
-            # --- 格式化并打印输出 ---
-            console.print(Panel(
-                Markdown(assistant_response, code_theme="monokai"),
+            # # --- 格式化并打印输出 ---
+            # console.print(Panel(
+            #     Markdown(assistant_response, code_theme="monokai"),
+            #     title="[bold green]Agent[/bold green]",
+            #     border_style="green",
+            #     title_align="left"
+            # ))
+
+             # 初始化一个Markdown对象，用于Live显示
+            markdown_panel = Panel(
+                Markdown("", code_theme="monokai"),
                 title="[bold green]Agent[/bold green]",
                 border_style="green",
                 title_align="left"
-            ))
+            )
+            
+            full_response_content = ""
+            
+            # 使用 rich.Live 来实时更新显示
+            with Live(markdown_panel, console=console, refresh_per_second=10, vertical_overflow="visible") as live:
+                # 调用 agent.run_task，它现在需要能处理流式返回
+                # 我们假设 agent.run_task 现在返回一个生成器
+                response_generator = agent.run_task(user_input, stream=True)
+
+                for part in response_generator:
+                    if isinstance(part, str):
+                        # 如果是文本块，追加到完整内容，并更新Live显示
+                        full_response_content += part
+                        live.update(Panel(
+                            Markdown(full_response_content, code_theme="monokai"),
+                            title="[bold green]Agent[/bold green]",
+                            border_style="green",
+                            title_align="left"
+                        ))
+                    elif isinstance(part, LLMResponse):
+                        # 如果是最后的元数据对象，检查是否有错误
+                        if not part.success:
+                            live.update(Panel(
+                                f"[bold red]Error:[/bold red]\n{part.error_message}",
+                                title="[bold red]Error[/bold red]",
+                                border_style="red"
+                            ))
+                        # 收到元数据，流结束
+                        break
 
         except KeyboardInterrupt:
             # 允许用户通过 Ctrl+C 安全退出
