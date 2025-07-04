@@ -165,55 +165,71 @@ def main_loop(agent: DDBAgent):
                 print_help_message()
                 continue
 
-            # # --- 调用 Agent 核心逻辑 ---
-            # with console.status("[bold yellow]Agent is thinking...[/bold yellow]", spinner="dots"):
-            #     # 假设 run_task 是我们之前设计的，封装了所有逻辑的方法
-            #     assistant_response = agent.run_task(user_input)
-
-            # # --- 格式化并打印输出 ---
-            # console.print(Panel(
-            #     Markdown(assistant_response, code_theme="monokai"),
-            #     title="[bold green]Agent[/bold green]",
-            #     border_style="green",
-            #     title_align="left"
-            # ))
-
-             # 初始化一个Markdown对象，用于Live显示
-            markdown_panel = Panel(
-                Markdown("", code_theme="monokai"),
-                title="[bold green]Agent[/bold green]",
-                border_style="green",
-                title_align="left"
-            )
-            
             full_response_content = ""
+            error_message = None
+            live: Live = None
             
-            # 使用 rich.Live 来实时更新显示
-            with Live(markdown_panel, console=console, refresh_per_second=10, vertical_overflow="visible") as live:
-                # 调用 agent.run_task，它现在需要能处理流式返回
-                # 我们假设 agent.run_task 现在返回一个生成器
+            # 1. 启动 Status 加载动画
+            status = Status("[bold yellow]Agent is thinking...[/bold yellow]", console=console, spinner="dots")
+            status.start()
+
+            try:
+                # 调用 agent.run_task 获取生成器
+                # 假设 agent.run_task 现在返回一个流
                 response_generator = agent.run_task(user_input, stream=True)
+                first_token_received = False
 
                 for part in response_generator:
+                    if not first_token_received:
+                        # 收到第一个 token，停止 status，启动 live
+                        status.stop()
+                        live = Live(console=console, auto_refresh=False, transient=True)
+                        live.start()
+                        first_token_received = True
+                    
                     if isinstance(part, str):
-                        # 如果是文本块，追加到完整内容，并更新Live显示
                         full_response_content += part
-                        live.update(Panel(
-                            Markdown(full_response_content, code_theme="monokai"),
-                            title="[bold green]Agent[/bold green]",
-                            border_style="green",
-                            title_align="left"
-                        ))
-                    elif isinstance(part, LLMResponse):
-                        # 如果是最后的元数据对象，检查是否有错误
-                        if not part.success:
+                        if live:
+                            # 为了避免滚动重复，只显示最后一部分内容
+                            terminal_height = console.height
+                            lines = full_response_content.splitlines()
+                            display_lines = lines[-(terminal_height - 5):]
+                            display_content = "\n".join(display_lines)
+                            if len(lines) > len(display_lines):
+                                display_content = f"[dim]... (scrolling) ...[/dim]\n{display_content}"
+                            
+                            md = Markdown(display_content, code_theme="monokai")
                             live.update(Panel(
-                                f"[bold red]Error:[/bold red]\n{part.error_message}",
-                                title="[bold red]Error[/bold red]",
-                                border_style="red"
-                            ))
-                        # 收到元数据，流结束
-                        break
+                                md,
+                                title="[bold green]Agent[/bold green]",
+                                border_style="green",
+                                title_align="left"
+                            ), refresh=True)
+                    elif isinstance(part, LLMResponse):
+                        if not part.success:
+                            error_message = part.error_message
+                        break # 流结束
+            finally:
+                # 确保 Status 和 Live 都被正确停止
+                if status:
+                    status.stop()
+                if live and live.is_started:
+                    live.stop()
+
+            # --- Live 结束后，打印最终的完整结果 ---
+            if error_message:
+                console.print(Panel(
+                    f"[bold red]Error:[/bold red]\n{error_message}",
+                    title="[bold red]Error[/bold red]",
+                    border_style="red"
+                ))
+            elif full_response_content:
+                console.print(Panel(
+                    Markdown(full_response_content, code_theme="monokai"),
+                    title="[bold green]Agent[/bold green]",
+                    border_style="green",
+                    title_align="left"
+                ))
 
         except KeyboardInterrupt:
             # 允许用户通过 Ctrl+C 安全退出
