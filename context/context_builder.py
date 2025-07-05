@@ -2,7 +2,7 @@
 
 from typing import List, Dict, Any, Literal
 
-from .pruner import get_pruner, SourceCode
+from .pruner import get_pruner, Document
 from .budget import ContextBudget
 from token_counter import count_tokens
 
@@ -20,7 +20,7 @@ class ContextBuilder:
         self,
         system_prompt: str,
         conversations: List[Dict[str, Any]],
-        file_sources: List[SourceCode],
+        file_sources: List[Document],
         task_type: Literal['default', 'coding', 'chat'] = 'default',
         file_pruning_strategy: str = 'extract'
     ) -> List[Dict[str, Any]]:

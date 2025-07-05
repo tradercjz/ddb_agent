@@ -45,8 +45,6 @@ class TextChunkIndex(BaseIndexModel):
     start_line: int = pydantic.Field(description="The starting line number of the chunk in the original document.")
     end_line: int = pydantic.Field(description="The ending line number of the chunk in the original document.")
     
-    content: str = pydantic.Field(description="The original text content of the chunk.")
-    
     summary: str = pydantic.Field(description="A concise summary of the chunk's content.")
     keywords: List[str] = pydantic.Field(description="A list of keywords representing the chunk's topics.")
     hypothetical_question: Optional[str] = pydantic.Field(None, description="A representative question this chunk can answer.")

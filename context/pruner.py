@@ -6,14 +6,14 @@ from typing import List, Dict, Any
 import json
 from llm.llm_prompt import llm
 from utils.json_parser import parse_json_string 
-class SourceCode:
+class Document:
     """A simple container for source code data."""
     def __init__(self, file_path: str, source_code: str, tokens: int = -1):
         self.file_path = file_path
         self.source_code = source_code
         # 懒加载token计数，如果未提供
         from token_counter import count_tokens # 局部导入避免循环依赖
-        self.tokens = tokens if tokens != -1 else count_tokens(source_code)
+        self.tokens = tokens if tokens != None else count_tokens(source_code)
 
 class BasePruner(ABC):
     """
@@ -27,22 +27,22 @@ class BasePruner(ABC):
     @abstractmethod
     def prune(
         self, 
-        file_sources: List[SourceCode], 
+        file_sources: List[Document], 
         conversations: List[Dict[str, Any]]
-    ) -> List[SourceCode]:
+    ) -> List[Document]:
         """
         Applies a specific pruning strategy to the list of file sources.
 
         Args:
-            file_sources: A list of SourceCode objects to be pruned.
+            file_sources: A list of Document objects to be pruned.
             conversations: The conversation history, which may be used by the strategy.
 
         Returns:
-            A pruned list of SourceCode objects that fits within max_tokens.
+            A pruned list of Document objects that fits within max_tokens.
         """
         pass
 
-    def _count_total_tokens(self, sources: List[SourceCode]) -> int:
+    def _count_total_tokens(self, sources: List[Document]) -> int:
         """Helper method to count total tokens of a list of sources."""
         return sum(source.tokens for source in sources)
     
@@ -55,9 +55,9 @@ class DeletePruner(BasePruner):
     """
     def prune(
         self, 
-        file_sources: List[SourceCode], 
+        file_sources: List[Document], 
         conversations: List[Dict[str, Any]]
-    ) -> List[SourceCode]:
+    ) -> List[Document]:
         
         print("Applying 'delete' pruning strategy...")
         
@@ -65,7 +65,7 @@ class DeletePruner(BasePruner):
         if total_tokens <= self.max_tokens:
             return file_sources
 
-        pruned_sources: List[SourceCode] = []
+        pruned_sources: List[Document] = []
         current_tokens = 0
 
         for source in file_sources:
@@ -158,10 +158,10 @@ class ExtractPruner(BasePruner):
             content_parts.extend(lines[start:end])
         return "\n".join(content_parts)
 
-    def _process_single_large_file(self, file_source: SourceCode, conversations: List[Dict[str, Any]]) -> SourceCode:
+    def _process_single_large_file(self, file_source: Document, conversations: List[Dict[str, Any]]) -> Document:
         """
         Processes a single large file to extract snippets. This is the target for our threads.
-        Returns a new SourceCode object with pruned content, or the original if it fails.
+        Returns a new Document object with pruned content, or the original if it fails.
         """
         print(f"  - Starting snippet extraction for: {file_source.file_path}")
         try:
@@ -178,86 +178,94 @@ class ExtractPruner(BasePruner):
             
             if not raw_snippets:
                 print(f"  - No relevant snippets found in {file_source.file_path}.")
-                # 返回一个空内容的SourceCode，但保留文件名，token为0
-                return SourceCode(file_source.file_path, "", 0)
+                # 返回一个空内容的Document，但保留文件名，token为0
+                return Document(file_source.file_path, "", 0)
             
             merged_snippets = self._merge_overlapping_snippets(raw_snippets)
             new_content = self._build_snippet_content(file_source.source_code, merged_snippets)
 
-            # 返回一个新的、内容被精简的SourceCode对象
-            return SourceCode(file_source.file_path, new_content)
+            # 返回一个新的、内容被精简的Document对象
+            return Document(file_source.file_path, new_content)
         except Exception as e:
             print(f"  - Error extracting snippets from {file_source.file_path}: {e}. Keeping original content for now.")
             # 如果处理失败，可以返回原始对象或一个空对象，这里选择返回空对象以强制其被丢弃（如果token超限）
-            return SourceCode(file_source.file_path, "", 0)
+            return Document(file_source.file_path, "", 0)
 
     def prune(
         self, 
-        file_sources: List[SourceCode], 
+        file_sources: List[Document], 
         conversations: List[Dict[str, Any]]
-    ) -> List[SourceCode]:
+    ) -> List[Document]:
         
         print(f"Applying concurrent 'extract' pruning strategy with {self.max_workers} workers...")
         
         # 1. 分组：小文件 vs 大文件
-        small_files: List[SourceCode] = []
-        large_files: List[SourceCode] = []
+        small_files: List[Document] = []
+        large_files: List[Document] = []
+
+        try:
         
-        current_tokens = 0
-        for source in file_sources:
-            if current_tokens + source.tokens <= self.full_file_threshold:
-                small_files.append(source)
-                current_tokens += source.tokens
-            else:
-                large_files.append(source)
+            current_tokens = 0
+            for source in file_sources:
+                if source is None: 
+                    print("Warning: Encountered a None source in file_sources. Skipping.", file_sources)
+                if current_tokens + source.tokens <= self.full_file_threshold:
+                    small_files.append(source)
+                    current_tokens += source.tokens
+                else:
+                    large_files.append(source)
         
         # print(f"Split files: {len(small_files)} small files (kept whole), {len(large_files)} large files (to be processed).")
         
+       
 
-        # 测试
-        large_files += small_files  # 确保小文件也在后续处理列表中
-        # 2. 并发处理大文件
-        processed_large_files: List[SourceCode] = []
-        if large_files:
-            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-                future_to_source = {
-                    executor.submit(self._process_single_large_file, source, conversations): source 
-                    for source in large_files
-                }
-                
-                for future in as_completed(future_to_source):
-                    try:
-                        processed_source = future.result()
-                        if processed_source.tokens > 0: # 只保留有内容的
-                            processed_large_files.append(processed_source)
-                    except Exception as exc:
-                        original_source = future_to_source[future]
-                        print(f"Exception processing {original_source.file_path}: {exc}")
+            # 测试
+            large_files += small_files  # 确保小文件也在后续处理列表中
+            # 2. 并发处理大文件
+            processed_large_files: List[Document] = []
+            if large_files:
+                with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                    future_to_source = {
+                        executor.submit(self._process_single_large_file, source, conversations): source 
+                        for source in large_files
+                    }
+                    
+                    for future in as_completed(future_to_source):
+                        try:
+                            processed_source = future.result()
+                            if processed_source.tokens > 0: # 只保留有内容的
+                                processed_large_files.append(processed_source)
+                        except Exception as exc:
+                            original_source = future_to_source[future]
+                            print(f"Exception processing {original_source.file_path}: {exc}")
 
-        # 3. 合并和最终剪枝
-        # 将完整保留的小文件和处理后的大文件片段合并
-        # 我们优先保留小文件，然后尝试添加处理后的大文件片段
-        print("Merging results and performing final token check...")
-        final_sources: List[SourceCode] = []
-        # final_tokens = self._count_total_tokens(small_files)
-        # final_sources.extend(small_files)
+            # 3. 合并和最终剪枝
+            # 将完整保留的小文件和处理后的大文件片段合并
+            # 我们优先保留小文件，然后尝试添加处理后的大文件片段
+            print("Merging results and performing final token check...")
+            final_sources: List[Document] = []
+            # final_tokens = self._count_total_tokens(small_files)
+            # final_sources.extend(small_files)
 
-        final_tokens = 0
+            final_tokens = 0
 
-        # 对处理后的大文件按（新）token数从小到大排序，优先添加小的
-        processed_large_files.sort(key=lambda x: x.tokens)
+            # 对处理后的大文件按（新）token数从小到大排序，优先添加小的
+            processed_large_files.sort(key=lambda x: x.tokens)
 
-        for source in processed_large_files:
-            if final_tokens + source.tokens <= self.max_tokens:
-                final_sources.append(source)
-                final_tokens += source.tokens
-                print(f"  - Added snippets from {source.file_path} ({source.tokens} tokens)")
-            else:
-                print(f"  - Snippets from {source.file_path} ({source.tokens} tokens) too large to fit. Discarding.")
-        
-        print(f"Pruning complete. Final context has {len(final_sources)} files with {final_tokens} tokens.")
-        return final_sources
-
+            for source in processed_large_files:
+                if final_tokens + source.tokens <= self.max_tokens:
+                    final_sources.append(source)
+                    final_tokens += source.tokens
+                    print(f"  - Added snippets from {source.file_path} ({source.tokens} tokens)")
+                else:
+                    print(f"  - Snippets from {source.file_path} ({source.tokens} tokens) too large to fit. Discarding.")
+            
+            print(f"Pruning complete. Final context has {len(final_sources)} files with {final_tokens} tokens.")
+            return final_sources
+        except Exception as e:
+            import traceback    
+            traceback.print_exc()
+            print(f"Error during pruning: {e}. Returning original file sources.")
 
 
 def get_pruner(strategy: str, max_tokens: int, **kwargs) -> BasePruner:

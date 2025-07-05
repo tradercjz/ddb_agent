@@ -46,7 +46,6 @@ class TextIndexManager(BaseIndexManager):
           "source_document": "{{ source_document }}",
           "start_line": {{ start_line }},
           "end_line": {{ end_line }},
-          "content": "{{ content | e }}",
           "summary": "对文本片段内容的简洁摘要。",
           "keywords": ["关键词1", "关键词2", "关键词3"],
           "hypothetical_question": "一个该文本片段可以回答的问题。"
@@ -59,7 +58,7 @@ class TextIndexManager(BaseIndexManager):
             "source_document": file_path,
             "start_line": 1,
             "end_line": len(file_content.splitlines()),
-            "content": file_content.replace('"', '\\"'),  # Escape quotes for JSON
+            "content": file_content.replace('"', '\\"'),  # Escape double quotes for JSON
         }
 
 
@@ -99,7 +98,6 @@ class TextIndexManager(BaseIndexManager):
           "source_document": "{{ source_document }}",
           "start_line": {{ start_line }},
           "end_line": {{ end_line }},
-          "content": "{{ content | e }}",
           "summary": "A concise summary of the chunk's content.",
           "keywords": ["keyword1", "keyword2", "keyword3"],
           "hypothetical_question": "A question that this chunk can answer."

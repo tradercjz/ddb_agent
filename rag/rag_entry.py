@@ -2,12 +2,13 @@
 
 import os
 
-from context.pruner import SourceCode, get_pruner
+from context.pruner import Document, get_pruner
 from llm.llm_prompt import llm
 from typing import List
 
 from llm.models import ModelManager
 from .code_index_manager import CodeIndexManager
+from .text_index_manager import TextIndexManager
 
 class DDBRAG:
     """
@@ -15,8 +16,8 @@ class DDBRAG:
     """
     def __init__(self, project_path: str, index_file: str = None):
         self.project_path = project_path
-        self.index_file = index_file or os.path.join(project_path, ".ddb_agent", "index.json")
-        self.index_manager = CodeIndexManager(project_path=project_path, index_file = self.index_file)
+        self.index_file = index_file or os.path.join(project_path, ".ddb_agent", "file_index.json")
+        self.index_manager = TextIndexManager(project_path=project_path, index_file = self.index_file)
 
     @llm.prompt()
     def _chat_prompt(self, user_query: str, context_files: str) -> str:
@@ -71,8 +72,8 @@ class DDBRAG:
         """
         pass
 
-    def _get_files_content(self, file_paths: List[str]) -> List[SourceCode]:
-        """Reads file contents and creates SourceCode objects."""
+    def _get_files_content(self, file_paths: List[str]) -> List[Document]:
+        """Reads file contents and creates Document objects."""
         sources = []
         for file_path in file_paths:
             full_path = os.path.join(self.project_path, file_path)
@@ -81,13 +82,13 @@ class DDBRAG:
                     content = f.read()
                 # 从索引中获取预先计算好的token数
                 index_info = self.index_manager.get_index_by_filepath(file_path)
-                tokens = index_info.tokens if index_info else -1 # 如果找不到索引，则让SourceCode自己计算
-                sources.append(SourceCode(file_path, content, tokens))
+                tokens = index_info.tokens if index_info else -1 # 如果找不到索引，则让Document自己计算
+                sources.append(Document(file_path, content, tokens))
             except Exception as e:
                 print(f"Warning: Could not read file {file_path}: {e}")
         return sources
 
-    def retrieve(self, query: str, top_k: int = 5) -> List[SourceCode]:
+    def retrieve(self, query: str, top_k: int = 5) -> List[Document]:
         """
         Retrieves the most relevant source code files for a given query.
 
@@ -96,7 +97,7 @@ class DDBRAG:
             top_k: The maximum number of relevant files to return.
 
         Returns:
-            A list of SourceCode objects containing the content of the relevant files.
+            A list of Document objects containing the content of the relevant files.
         """
         print("Step 1: Retrieving relevant file paths...")
         relevant_file_paths = self.index_manager.get_relevant_files(query, top_k=top_k)
@@ -107,5 +108,5 @@ class DDBRAG:
 
         print(f"Step 2: Found {len(relevant_file_paths)} relevant files: {', '.join(relevant_file_paths)}")
 
-        # Step 3: Read file contents and return as SourceCode objects
+        # Step 3: Read file contents and return as Document objects
         return self._get_files_content(relevant_file_paths)

@@ -7,8 +7,7 @@
       "source_document": "./dolphindbmodules/README.md",
       "start_line": 1,
       "end_line": 66,
-      "content": "# DolphinDB Modules\n\nThis project encapsulates the implementation of functions commonly used in the fields of quantitative finance and IoT in modules. We encourage DolphinDB developers to contribute modules.\n\n## Introduction\n\nIn DolphinDB, a module is a code package that contains only function definitions.\n\n- Module files are stored under directory [home]/modules on a DolphinDB node.\n- The suffix of all module fileUse is .dos, which is an abbreviation of \\\"dolphindb script\\\".\n- The first line of a module file can only be the keyword \\\"module\\\" followed by the module name. For example: ```module fileLog```.\n- Other than the first line, a module file contains only function definitions.\n\n## Directory Structure\n\nThe first-level directory under directory 'modules' is named after the module name. For example, the first-level directory of the 'ta' module is 'ta', which contains the implementation of the [TA-Lib package](https://mrjbq7.github.io/ta-lib/index.html).\n\nUnder the first-level directory of each module, there are 'src' and 'test' directories. \n* Function definitions are saved in the 'src' directory.\n* The 'test' directory contains test cases, which are named after module name and function name (e.g., 'test_ta_function_ma.txt').\n\n## Quick Start\n\nWe use the ta module in this project as an example to demonstrate the deployment and use of modules.\n\n### 1. How to deploy module\n\n#### Download module\n\nDownload the entire project and unzip it:\n\n```\nunzip dolphindbmodules-master.zip\n```\n\n#### Deploy module\n\nCreate the 'modules' directory under the directory \\\"/DolphinDB/server/\\\":\n```\nmkdir modules\n```\n\nCopy the .dos files to the 'modules' directory:\n```\ncp /dolphindbmodules-master/ta/src/ta.dos /DolphinDB/server/modules/\n```\n\n\n### 2. How to import modules into your project\n\nDolphinDB uses keyword 'use' to import the module 'ta'. Note that the module imported by keyword 'use' only applies for the current session. After importing a module, we can use the functions in the module in two ways:\n\n#### Use functions directly\n```\nuse ta\n\nclose=1..40\nma(close, 30, 0)\n```\n#### Call functions with the full path\n```\nuse ta\n\nclose=1..40\nta::ma(close, 30, 0)\n```",
-      "summary": "DolphinDB模块项目封装了量化金融和物联网领域常用函数，并提供了模块部署和使用的详细指南。",
+      "summary": "DolphinDB Modules项目封装了量化金融和物联网领域常用功能的模块，并介绍了模块的结构、部署和使用方法。",
       "keywords": [
         "DolphinDB",
         "模块",
@@ -26,16 +25,279 @@
       "source_document": "./dolphindbmodules/README_CN.md",
       "start_line": 1,
       "end_line": 71,
-      "content": "# DolphinDB 模块 (Modules)\n\n本项目将量化金融与物联网领域常用函数用DolphinDB脚本实现并封装在模块中，便于DolphinDB开发者使用。我们也欢迎DolphinDB开发者们贡献模块。\n\n## Module(模块)简介\n\n在DolphinDB中，模块是指只包含函数定义的代码包。它具有以下特点：\n\n* 模块文件保存在[home]/modules目录下。\n* 模块文件名的后缀为.dos。dos是\\\"dolphindb script\\\"的缩写。\n* 模块文件第一行只能使用 module 后接模块名以声明模块，例如 ```module fileLog``` 。 \n* 模块文件除第一行外的内容仅可包含函数定义。\n\n关于模块的更多细节，请参考[DolphinDB模块教程](https://gitee.com/dolphindb/Tutorials_CN/blob/master/module_tutorial.md)。\n\n## 目录结构\n\n一级目录以module的名称命名，例如'ta'模块的一级目录名为'ta'，该目录下包含了[TA-Lib包](https://mrjbq7.github.io/ta-lib/index.html)中一些常用指标的实现。\n\n每个module的一级目录下包含'src'和'test'目录：\n* 'src'目录下包含所有函数的DolphinDB实现脚本。\n* 'test'目录下包含每个函数的测试用例。测试用例以模块名称和函数名称命名（例如'test_ta_function_ma.txt'）。\n\n## 快速入门\n\n下面以本项目中的金融交易数据技术分析模块(ta module)为例，简单演示模块的部署和使用。\n\n### 1. 如何部署module\n\n#### 下载module\n\n下载整个项目并解压：\n```\nunzip dolphindbmodules-master.zip\n```\n\n#### 部署module\n\n在/DolphinDB/server/目录下创建modules目录：\n```\nmkdir modules\n```\n\n将需要使用的.dos的文件复制到modules目录下：\n```\ncp /dolphindbmodules-master/ta/src/ta.dos /DolphinDB/server/modules/\n```\n\n### 2. 如何在项目中导入module\n\n使用[use](https://www.dolphindb.cn/cn/help/Use.html)关键字来导入模块'ta'。注意，use关键字导入的模块是会话隔离的，仅对当前会话有效。\n\n导入模块后，我们可以通过以下两种方式来使用模块内的函数：\n\n#### 直接使用模块中的函数\n\n```\nuse ta\n\nclose=1..40\nma(close, 30, 0)\n```\n\n#### 通过完整路径来调用模块中的函数\n\n```\nuse ta\n\nclose=1..40\nta::ma(close, 30, 0)\n```",
-      "summary": "DolphinDB模块是包含量化金融和物联网领域常用函数的脚本包，本文介绍了模块的定义、目录结构、部署和使用方法。",
+      "summary": "DolphinDB模块是包含量化金融与物联网领域常用函数的代码包，介绍了模块的特点、目录结构、部署和使用方法。",
       "keywords": [
         "DolphinDB模块",
         "量化金融",
         "物联网",
-        "模块部署",
-        "模块使用"
+        "函数封装",
+        "模块部署"
       ],
       "hypothetical_question": "如何在DolphinDB中部署和使用模块？",
+      "tokens": null
+    },
+    {
+      "model_type": "text_chunk",
+      "file_path": "./dolphindbmodules/DolphinDBModules/README.md",
+      "chunk_id": "0",
+      "source_document": "./dolphindbmodules/DolphinDBModules/README.md",
+      "start_line": 1,
+      "end_line": 11,
+      "summary": "DolphinDBModules目录包含脚本代码及其对应的教程链接。",
+      "keywords": [
+        "DolphinDBModules",
+        "脚本代码",
+        "教程链接"
+      ],
+      "hypothetical_question": "DolphinDBModules目录包含哪些脚本代码及其对应的教程链接？",
+      "tokens": null
+    },
+    {
+      "model_type": "text_chunk",
+      "file_path": "./dolphindbmodules/DolphinDBModules/easyNSQ/README.md",
+      "chunk_id": "0",
+      "source_document": "./dolphindbmodules/DolphinDBModules/easyNSQ/README.md",
+      "start_line": 1,
+      "end_line": 733,
+      "summary": "DolphinDBModules::easyNSQ模块是一个用于自动化接收和存储NSQ实时行情数据的工具，支持上海和深圳市场的现货逐笔委托、逐笔成交和现货深度行情数据。",
+      "keywords": [
+        "DolphinDB",
+        "NSQ插件",
+        "实时行情数据",
+        "流数据表",
+        "分区表"
+      ],
+      "hypothetical_question": "如何使用DolphinDB的easyNSQ模块来接收和存储NSQ实时行情数据？",
+      "tokens": null
+    },
+    {
+      "model_type": "text_chunk",
+      "file_path": "./dolphindbmodules/ops/README_EN.md",
+      "chunk_id": "0",
+      "source_document": "./dolphindbmodules/ops/README_EN.md",
+      "start_line": 1,
+      "end_line": 782,
+      "summary": "The ops module in DolphinDB provides functions for database maintenance tasks such as canceling jobs, managing sessions, checking disk usage, and handling licenses.",
+      "keywords": [
+        "DolphinDB",
+        "ops module",
+        "database maintenance",
+        "cluster management",
+        "license management"
+      ],
+      "hypothetical_question": "What functions does the ops module in DolphinDB provide for database maintenance?",
+      "tokens": null
+    },
+    {
+      "model_type": "text_chunk",
+      "file_path": "./dolphindbmodules/MarketHoliday/README.md",
+      "chunk_id": "0",
+      "source_document": "./dolphindbmodules/MarketHoliday/README.md",
+      "start_line": 1,
+      "end_line": 435,
+      "summary": "DolphinDB提供了交易日历功能，支持查询和应用内置的全球五十多个交易所的交易日历，以及自定义和更新交易日历。",
+      "keywords": [
+        "交易日历",
+        "DolphinDB",
+        "交易所",
+        "自定义",
+        "查询"
+      ],
+      "hypothetical_question": "如何在DolphinDB中使用和自定义交易日历？",
+      "tokens": null
+    },
+    {
+      "model_type": "text_chunk",
+      "file_path": "./dolphindbmodules/MarketHoliday/README_EN.md",
+      "chunk_id": "0",
+      "source_document": "./dolphindbmodules/MarketHoliday/README_EN.md",
+      "start_line": 1,
+      "end_line": 411,
+      "summary": "DolphinDB provides built-in trading calendars for over fifty exchanges, enabling users to check trading days, perform calendar-based calculations, and customize or update calendars.",
+      "keywords": [
+        "trading calendar",
+        "DolphinDB",
+        "exchange holidays"
+      ],
+      "hypothetical_question": "How can I use and customize trading calendars in DolphinDB for different exchanges?",
+      "tokens": null
+    },
+    {
+      "model_type": "text_chunk",
+      "file_path": "./dolphindbmodules/ops/README.md",
+      "chunk_id": "0",
+      "source_document": "./dolphindbmodules/ops/README.md",
+      "start_line": 1,
+      "end_line": 920,
+      "summary": "DolphinDB的ops模块是一个运维函数库，提供了一系列用于数据库运维的函数，如取消作业、查看磁盘占用、关闭会话等，以简化运维操作。",
+      "keywords": [
+        "DolphinDB",
+        "运维函数库",
+        "ops模块",
+        "数据库运维",
+        "函数说明"
+      ],
+      "hypothetical_question": "DolphinDB中的ops模块提供了哪些运维功能？",
+      "tokens": null
+    },
+    {
+      "model_type": "text_chunk",
+      "file_path": "./dolphindbmodules/MarketHoliday/Release.md",
+      "chunk_id": "0",
+      "source_document": "./dolphindbmodules/MarketHoliday/Release.md",
+      "start_line": 1,
+      "end_line": 86,
+      "summary": "本文档详细说明了2024年国内外交易所交易日历的更新情况，包括新增的交易所市场识别码和具体的日期调整。",
+      "keywords": [
+        "交易日历",
+        "交易所",
+        "2024年",
+        "市场识别码",
+        "更新说明"
+      ],
+      "hypothetical_question": "2024年国内外交易所交易日历有哪些更新内容？",
+      "tokens": null
+    },
+    {
+      "model_type": "text_chunk",
+      "file_path": "./dolphindbmodules/MarketHoliday/Release_EN.md",
+      "chunk_id": "0",
+      "source_document": "./dolphindbmodules/MarketHoliday/Release_EN.md",
+      "start_line": 1,
+      "end_line": 80,
+      "summary": "DolphinDB发布了2024年全球交易所日历更新，包括新增交易所和调整中国内地交易所的ISO代码。",
+      "keywords": [
+        "DolphinDB",
+        "交易所日历",
+        "2024年",
+        "ISO代码",
+        "市场假期"
+      ],
+      "hypothetical_question": "DolphinDB在2024年更新了哪些交易所的日历和ISO代码？",
+      "tokens": null
+    },
+    {
+      "model_type": "text_chunk",
+      "file_path": "./dolphindbmodules/gtja191Alpha/README_CN.md",
+      "chunk_id": "0",
+      "source_document": "./dolphindbmodules/gtja191Alpha/README_CN.md",
+      "start_line": 1,
+      "end_line": 220,
+      "summary": "本文介绍了国泰君安191 Alpha因子库的基本规范、函数命名规则、入参规范，并展示了在批计算和流计算中的应用范例。",
+      "keywords": [
+        "国泰君安191 Alpha因子",
+        "DolphinDB模块",
+        "批计算",
+        "流计算",
+        "因子库"
+      ],
+      "hypothetical_question": "如何在DolphinDB中使用国泰君安191 Alpha因子库进行批计算和流计算？",
+      "tokens": null
+    },
+    {
+      "model_type": "text_chunk",
+      "file_path": "./dolphindbmodules/ta/README.md",
+      "chunk_id": "0",
+      "source_document": "./dolphindbmodules/ta/README.md",
+      "start_line": 1,
+      "end_line": 326,
+      "summary": "DolphinDB的ta模块是一个技术分析指标库，实现了TA-Lib的功能，用于在DolphinDB中计算金融市场的技术指标，并提供了性能对比和使用示例。",
+      "keywords": [
+        "DolphinDB",
+        "技术分析",
+        "TA-Lib",
+        "金融指标",
+        "性能优化"
+      ],
+      "hypothetical_question": "DolphinDB的ta模块是什么，它如何实现技术分析指标的计算？",
+      "tokens": null
+    },
+    {
+      "model_type": "text_chunk",
+      "file_path": "./dolphindbmodules/ta/README_CN.md",
+      "chunk_id": "0",
+      "source_document": "./dolphindbmodules/ta/README_CN.md",
+      "start_line": 1,
+      "end_line": 563,
+      "summary": "DolphinDB ta模块是一个技术分析指标库，实现了TA-Lib中的常用金融交易技术指标，支持高性能计算和流式增量计算，并提供了详细的使用范例、性能对比和正确性验证。",
+      "keywords": [
+        "DolphinDB",
+        "技术分析",
+        "TA-Lib",
+        "金融交易",
+        "流式计算"
+      ],
+      "hypothetical_question": "DolphinDB ta模块提供了哪些技术分析指标以及如何使用它们？",
+      "tokens": null
+    },
+    {
+      "model_type": "text_chunk",
+      "file_path": "./dolphindbmodules/wq101alpha/README_CN.md",
+      "chunk_id": "0",
+      "source_document": "./dolphindbmodules/wq101alpha/README_CN.md",
+      "start_line": 1,
+      "end_line": 419,
+      "summary": "DolphinDB的wq101alpha模块实现了WorldQuant的101个alpha因子，具有高性能、批流一体和简单实现的特点。",
+      "keywords": [
+        "DolphinDB",
+        "WorldQuant",
+        "alpha因子",
+        "量化金融",
+        "性能对比"
+      ],
+      "hypothetical_question": "DolphinDB的wq101alpha模块如何实现WorldQuant的101个alpha因子？",
+      "tokens": null
+    },
+    {
+      "model_type": "text_chunk",
+      "file_path": "./dolphindbmodules/wq101alpha/README.md",
+      "chunk_id": "0",
+      "source_document": "./dolphindbmodules/wq101alpha/README.md",
+      "start_line": 1,
+      "end_line": 397,
+      "summary": "DolphinDB的wq101alpha模块提供了高效、统一的流批处理方式来计算WorldQuant的101个量化交易alpha因子，并展示了其相对于Python的性能优势。",
+      "keywords": [
+        "DolphinDB",
+        "WorldQuant",
+        "alpha因子",
+        "量化交易",
+        "性能对比"
+      ],
+      "hypothetical_question": "如何在DolphinDB中高效计算WorldQuant的101个alpha因子？",
+      "tokens": null
+    },
+    {
+      "model_type": "text_chunk",
+      "file_path": "./dolphindbmodules/wq101alpha/README_CN_2.00.8.md",
+      "chunk_id": "0",
+      "source_document": "./dolphindbmodules/wq101alpha/README_CN_2.00.8.md",
+      "start_line": 1,
+      "end_line": 468,
+      "summary": "DolphinDB的wq101alpha模块实现了WorldQuant的101个alpha因子，具有高性能、批流一体和简单实现的特点。",
+      "keywords": [
+        "DolphinDB",
+        "WorldQuant",
+        "alpha因子",
+        "量化金融",
+        "性能对比"
+      ],
+      "hypothetical_question": "DolphinDB的wq101alpha模块有哪些优势？",
+      "tokens": null
+    },
+    {
+      "model_type": "text_chunk",
+      "file_path": "./dolphindbmodules/mytt/README.md",
+      "chunk_id": "0",
+      "source_document": "./dolphindbmodules/mytt/README.md",
+      "start_line": 1,
+      "end_line": 461,
+      "summary": "DolphinDB mytt module是一个将通达信、同花顺等指标公式移植到DolphinDB中的库，支持高性能批处理和流式计算，并提供了详细的使用指南、性能对比和正确性验证。",
+      "keywords": [
+        "DolphinDB",
+        "技术指标",
+        "流式计算"
+      ],
+      "hypothetical_question": "如何在DolphinDB中使用mytt模块进行技术指标计算？",
       "tokens": null
     }
   ],

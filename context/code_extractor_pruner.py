@@ -6,8 +6,8 @@ from byzerllm.utils.client import code_utils
 from llm.llm_prompt import llm  # 假设您使用之前设计的llm.prompt
 from token_counter import count_tokens # 引入我们之前创建的token计数器
 
-class SourceCode:
-    """A simple container for source code data."""
+class Document:
+    """A simple container for source code or md doc data."""
     def __init__(self, file_path: str, source_code: str, tokens: int = -1):
         self.file_path = file_path
         self.source_code = source_code
@@ -98,12 +98,12 @@ class CodeExtractorPruner:
         
         return "\n".join(content_parts)
 
-    def prune(self, file_sources: List[SourceCode], conversations: List[Dict[str, str]]) -> List[SourceCode]:
+    def prune(self, file_sources: List[Document], conversations: List[Dict[str, str]]) -> List[Document]:
         """
         Prunes the context by extracting relevant snippets from large files.
         """
         print("Starting 'extract' pruning strategy...")
-        selected_files: List[SourceCode] = []
+        selected_files: List[Document] = []
         total_tokens = 0
         
         for file_source in file_sources:
@@ -147,7 +147,7 @@ class CodeExtractorPruner:
                 new_tokens = count_tokens(new_content, model_name=self.llm_model_name)
                 
                 if total_tokens + new_tokens <= self.max_tokens:
-                    selected_files.append(SourceCode(
+                    selected_files.append(Document(
                         file_path=file_source.file_path,
                         source_code=new_content,
                         tokens=new_tokens
