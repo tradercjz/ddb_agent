@@ -163,6 +163,11 @@ class TextIndexManager(BaseIndexManager):
         Extracts text from a file, chunks it, and creates an index for each chunk.
         """
         print(f"Starting to index file: {file_path}")
+
+        index_info = self.get_index_by_filepath(file_path)
+        if index_info:
+            print(f"  - File {file_path} is already indexed. Skipping.")
+            return None
         
         try:
             # 1. 从文件提取纯文本
