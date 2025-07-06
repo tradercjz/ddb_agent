@@ -225,6 +225,8 @@ def main_loop(agent: DDBAgent):
                 title="[bold red]Error[/bold red]",
                 border_style="red"
             ))
+            import traceback
+            traceback.print_exc()
 
 
 if __name__ == "__main__":

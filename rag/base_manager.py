@@ -20,7 +20,10 @@ class BaseIndexManager(ABC):
         self.project_path = project_path
         self.index_path = os.path.join(project_path, index_file)
         self.project_index: ProjectIndex = self._load_index()
-        self._index_lock = threading.Lock() 
+        self._index_lock = threading.Lock()
+
+    def get_all_indices(self) -> List[BaseIndexModel]:
+        return self.project_index.files
 
     @abstractmethod
     def build_index(
