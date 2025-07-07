@@ -80,7 +80,7 @@ class LLMCandidateSelector:
         self.all_items = all_index_items
         self.index_manager = index_manager
 
-    @llm.prompt()
+    @llm.prompt(model="gemini-2.0-flash-001")
     def _select_from_chunk_prompt(self, user_query: str, index_chunk_json: str) -> str:
         """
         You are an expert retrieval assistant. Your task is to analyze a CHUNK of a project's index 

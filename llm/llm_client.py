@@ -1,7 +1,9 @@
 from dataclasses import dataclass
+import json
 from openai import OpenAI
 from typing import Generator, List, Dict, Any, Optional, Union
 import os
+from loguru import logger
 
 @dataclass 
 class LLMResponse:
@@ -32,10 +34,28 @@ class LLMClient:
         self.client = OpenAI(api_key=api_key, base_url=base_url)
         self.logger = logger
 
+    def _log_request(self, conversation_history: List[Dict[str, str]], model: str):
+        """Helper method to log the request payload."""
+        try:
+            # 使用 .bind(llm_request=True) 来标记这条日志
+            # 这样我们的文件处理器就能通过 filter 捕获它
+            request_logger = logger.bind(llm_request=True)
+            
+            # 格式化日志内容
+            log_content = {
+                "model": model,
+                "messages": conversation_history
+            }
+            # 使用 pretty-printed JSON 格式，便于阅读
+            request_logger.debug(f"\n{json.dumps(log_content, indent=2, ensure_ascii=False)}")
+        except Exception as e:
+            logger.warning(f"Failed to log LLM request: {e}")
+            
     def stream_generate_response(
         self, 
         conversation_history: List[Dict[str, str]], 
-        model: Optional[str] = None
+        model: Optional[str] = None,
+        log_requests: bool = False,
     ) -> Generator[Union[str, LLMResponse], None, None]:
         """
         Streams the response from the LLM.
@@ -48,6 +68,9 @@ class LLMClient:
             target_model = model or os.getenv("DEEPSEEK_MODEL")
             if not target_model:
                 raise ValueError("No model specified and DEEPSEEK_MODEL environment variable is not set.")
+        
+            if log_requests:
+                self._log_request(conversation_history, target_model)
 
             stream = self.client.chat.completions.create(
                 model=target_model,
@@ -88,7 +111,8 @@ class LLMClient:
     def generate_response(
         self, 
         conversation_history: List[Dict[str, str]],
-        model: Optional[str] = None
+        model: Optional[str] = None,
+        log_requests: bool = False
     ) -> LLMResponse:
         """从LLM获取响应
         
@@ -102,6 +126,9 @@ class LLMClient:
             target_model = model or os.getenv("DEEPSEEK_MODEL")
             if not target_model:
                 raise ValueError("No model specified and DEEPSEEK_MODEL environment variable is not set.")
+            
+            if log_requests:
+                self._log_request(conversation_history, target_model)
             
             stream = self.client.chat.completions.create(
                 model=target_model,

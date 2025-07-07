@@ -59,9 +59,8 @@ class ContextBuilder:
             file_context_str = "\n---\n".join(
                 f"File: {f.file_path}\n\n{f.source_code}" for f in pruned_file_sources
             )
-            final_messages.append({"role": "user", "content": f"<CONTEXT_FILES>\n{file_context_str}\n</CONTEXT_FILES>"})
-            final_messages.append({"role": "assistant", "content": "I have read the provided files."})
-
+            final_messages.append({"role": "assistant", "content": f"<CONTEXT_FILES>\n{file_context_str}\n</CONTEXT_FILES>"})
+           
         final_messages.extend(pruned_conversations)
 
         return final_messages

@@ -25,6 +25,7 @@ class PromptDecorator:
                  base_url: Optional[str] = None,
                  response_model: Optional[Type] = None, 
                  stream: bool = False,
+                 log_requests: Optional[bool] = None,
                  **kwargs):
         """
         初始化装饰器
@@ -39,6 +40,7 @@ class PromptDecorator:
         self.override_base_url = base_url
         self.response_model = response_model
         self.stream = stream
+        self.override_log_requests = log_requests
         self.kwargs = kwargs
         self.jinja_env = Environment(loader=BaseLoader())
         
@@ -137,12 +139,20 @@ class PromptDecorator:
 
             pruned_messages = context_manager.prune(llm_messages)
             
+            # --- 决定最终的日志开关状态 ---
+            # 优先级: 装饰器直接覆盖 > 配置文件 > 默认Fals
+            final_log_requests = self.override_log_requests
+            if final_log_requests is None and model_config:
+                final_log_requests = model_config.log_requests
+            final_log_requests = final_log_requests or True
+            
             # 调用LLM API
             llm_result = self._call_llm_api(
                 messages = pruned_messages, 
                 model = final_model_name,
                 api_key = final_api_key,
-                base_url = final_base_url
+                base_url = final_base_url,
+                log_requests = final_log_requests
             )
             
             # 如果指定了响应模型，则进行类型转换
@@ -174,7 +184,7 @@ class PromptDecorator:
         
         return wrapper
     
-    def _call_llm_api(self, messages: List[Dict[str, str]], model: Optional[str] = None, api_key: Optional[str] = None, base_url: Optional[str] = None) -> str:
+    def _call_llm_api(self, messages: List[Dict[str, str]], model: Optional[str] = None, api_key: Optional[str] = None, base_url: Optional[str] = None,  log_requests: bool = False) -> str:
         """
         调用LLM API (这里是一个模拟实现)
         
@@ -190,12 +200,14 @@ class PromptDecorator:
         if self.stream:
             return llm_client.stream_generate_response(
                 conversation_history=messages,
-                model=model
+                model=model,
+                log_requests=log_requests
             )
         else:
             response = llm_client.generate_response(
                 conversation_history=messages,
-                model=model
+                model=model,
+                log_requests=log_requests
             )
             if response.success:
                 return response.content

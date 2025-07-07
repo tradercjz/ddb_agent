@@ -4,17 +4,50 @@
     "model_type": "deepseek",
     "model_name": "deepseek-chat",
     "base_url": "https://api.deepseek.com/v1",
-    "api_key": "sk-e43ce0aab45f43f38032df9568d3e508",
+    "api_key": "sk-aa4987bac3ab4d59bd4f04a5d672122f",
     "description": "Default DeepSeek model for general tasks.",
-    "max_context_tokens": 64000
+    "max_context_tokens": 128000,
+    "log_requests": true
   },
   {
     "name": "openai-gpt4o",
     "model_type": "openai",
     "model_name": "openai/gpt-4o-mini",
     "base_url": "https://openrouter.ai/api/v1",
-    "api_key": "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",
+    "api_key": "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",
     "description": "OpenAI's GPT-4o model for complex reasoning.",
-    "max_context_tokens": 64000
+    "max_context_tokens": 128000,
+    "log_requests": true
+  },
+  {
+    "name": "gemini-2.0-flash-001",
+    "model_type": "gemini",
+    "model_name": "google/gemini-2.0-flash-001",
+    "base_url": "https://openrouter.ai/api/v1",
+    "api_key": "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",
+    "description": "OpenAI's GPT-4o model for complex reasoning.",
+    "max_context_tokens": 64000,
+    "log_requests": true
+  },
+  {
+    "name": "sonnet4",
+    "model_type": "sonnet",
+    "model_name": "anthropic/claude-4-sonnet-20250522",
+    "base_url": "https://openrouter.ai/api/v1",
+    "api_key": "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",
+    "description": "OpenAI's GPT-4o model for complex reasoning.",
+    "max_context_tokens": 200000,
+    "log_requests": true
+  }
+  ,
+  {
+    "name": "gemini-2.5-pro",
+    "model_type": "gemini",
+    "model_name": "google/gemini-2.5-pro",
+    "base_url": "https://openrouter.ai/api/v1",
+    "api_key": "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",
+    "description": "OpenAI's GPT-4o model for complex reasoning.",
+    "max_context_tokens": 1000000,
+    "log_requests": true
   }
 ]

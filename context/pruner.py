@@ -4,7 +4,10 @@ from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
 import json
+
+from pydantic import BaseModel, Field, field_validator
 from llm.llm_prompt import llm
+from token_counter import count_tokens
 from utils.json_parser import parse_json_string 
 class Document:
     """A simple container for source code data."""
@@ -79,6 +82,20 @@ class DeletePruner(BasePruner):
         print(f"Pruning complete. Kept {len(pruned_sources)} files with {current_tokens} tokens.")
         return pruned_sources
 
+class ExtractedSnippet(BaseModel):
+    """
+    Represents a text snippet extracted by the LLM, along with its relevance score.
+    """
+    score: int = Field(description="The relevance score of the snippet to the user's query, from 0 (not relevant) to 10 (highly relevant).")
+    snippet: str = Field(description="The actual extracted text or code snippet.")
+
+    # @field_validator('score')
+    # @classmethod
+    # def score_must_be_in_range(cls, v: int) -> int:
+    #     """Ensures the score is within the valid range of 0-10."""
+    #     if not 0 <= v <= 10:
+    #         raise ValueError('score must be between 0 and 10')
+    #     return v
 
 class ExtractPruner(BasePruner):
     """
@@ -90,7 +107,7 @@ class ExtractPruner(BasePruner):
         self.full_file_threshold = int(max_tokens * 0.8)
         self.max_workers = max_workers
 
-    @llm.prompt()
+    @llm.prompt(model="gemini-2.0-flash-001")
     def _extract_snippets_prompt(self, conversations: List[Dict[str, str]], content_with_lines: str) -> dict:
         """
         Based on the provided code file and conversation history, extract relevant code snippets.
@@ -134,6 +151,54 @@ class ExtractPruner(BasePruner):
         }
       
 
+    @llm.prompt(model="gemini-2.0-flash-001")
+    def _extract_content_prompt(self, conversations: List[Dict[str, str]], full_content: str) -> dict:
+        """
+        You are an expert content analyst. Your task is to extract the most relevant text snippets from a source document and score their relevance to a user's query.
+
+        Here is the source document:
+        <DOCUMENT>
+        {{ full_content }}
+        </DOCUMENT>
+
+        Here is the conversation history. The last message is the user's primary request.
+        <CONVERSATION_HISTORY>
+        {% for msg in conversations %}
+        <{{ msg.role }}>: {{ msg.content }}
+        {% endfor %}
+        </CONVERSATION_HISTORY>
+
+        Your Task:
+        1. Analyze the user's request in the conversation.
+        2. Identify and extract the most relevant continuous blocks of text/code from the document.
+        3. For each extracted snippet, assign a relevance score from 0 to 10, where 10 is most relevant and 0 is not relevant at all.
+        4. Keep the snippets concise but complete. You can return up to 4 snippets.
+
+        Output Requirements:
+        - Your response MUST be a valid JSON array of objects.
+        - Each object must have two keys: "score" (an integer from 0-10) and "snippet" (a string).
+        - If no parts of the document are relevant, return an empty array [].
+        - Do not include any text or explanations outside of the JSON array.
+
+        Example output:
+        ```json
+        [
+          {
+            "score": 9,
+            "snippet": "def calculate_pnl(trades, prices):\\n    # ... implementation ...\\n    return pnl"
+          },
+          {
+            "score": 7,
+            "snippet": "pnl_result = calculate_pnl(my_trades, daily_prices)"
+          }
+        ]
+        ```
+        """
+        return {
+            "conversations": conversations,
+            "full_content": full_content
+        }
+    
     def _merge_overlapping_snippets(self, snippets: List[Dict[str, int]]) -> List[Dict[str, int]]:
         """...""" # 实现不变
         if not snippets: return []
@@ -165,31 +230,50 @@ class ExtractPruner(BasePruner):
         """
         print(f"  - Starting snippet extraction for: {file_source.file_path}")
         try:
-            lines_with_numbers = "\n".join(
-                f"{i+1} {line}" for i, line in enumerate(file_source.source_code.splitlines())
-            )
-            
-            response_str = self._extract_snippets_prompt(
+        
+            response_str = self._extract_content_prompt(
                 conversations=conversations,
-                content_with_lines=lines_with_numbers
+                full_content=file_source.source_code
             )
-            
-            raw_snippets = parse_json_string(response_str)
-            
-            if not raw_snippets:
-                print(f"  - No relevant snippets found in {file_source.file_path}.")
-                # 返回一个空内容的Document，但保留文件名，token为0
-                return Document(file_source.file_path, "", 0)
-            
-            merged_snippets = self._merge_overlapping_snippets(raw_snippets)
-            new_content = self._build_snippet_content(file_source.source_code, merged_snippets)
 
-            # 返回一个新的、内容被精简的Document对象
+            import re
+            # 将所有非法反斜杠转义为合法形式，例如 \* -> \\*
+            def escape_invalid_json_backslashes(s):
+                return re.sub(r'\\([^"\\/bfnrtu])', r'\\\\\1', s)
+
+            clean_json_str = escape_invalid_json_backslashes(response_str)
+
+            json_items = parse_json_string(clean_json_str)
+            extracted_items = [ExtractedSnippet(**item) for item in json_items if isinstance(item, dict)]
+            
+            # --- 关键：过滤掉低分数的片段 ---
+            # 我们可以设定一个阈值，比如只保留分数大于等于5的片段
+            score_threshold = 5
+            high_score_snippets = [item for item in extracted_items if item.score >= score_threshold]
+
+            if not high_score_snippets:
+                print(f"  - No snippets with score >= {score_threshold} found in {file_source.file_path}.")
+                return Document(file_source.file_path, "")
+            
+            # (可选) 可以按分数从高到低排序，让最重要的内容出现在前面
+            high_score_snippets.sort(key=lambda x: x.score, reverse=True)
+
+            # --- 构建新的内容 ---
+            new_content_parts = [
+                f"# Highly relevant snippets from {file_source.file_path} (filtered by score >= {score_threshold}):\n"
+            ]
+            for item in high_score_snippets:
+                # 在注释中包含分数，便于调试
+                new_content_parts.append(f"\n# Relevance Score: {item.score}\n---\n{item.snippet}\n")
+            
+            new_content = "".join(new_content_parts)
+
             return Document(file_source.file_path, new_content)
+
         except Exception as e:
-            print(f"  - Error extracting snippets from {file_source.file_path}: {e}. Keeping original content for now.")
-            # 如果处理失败，可以返回原始对象或一个空对象，这里选择返回空对象以强制其被丢弃（如果token超限）
-            return Document(file_source.file_path, "", 0)
+            print(f"  - Error extracting content from {file_source.file_path}: {e}")
+            return Document(file_source.file_path, "")
+
 
     def prune(
         self, 
@@ -233,8 +317,8 @@ class ExtractPruner(BasePruner):
                     for future in as_completed(future_to_source):
                         try:
                             processed_source = future.result()
-                            if processed_source.tokens > 0: # 只保留有内容的
-                                processed_large_files.append(processed_source)
+                            #if processed_source.tokens > 0: # 只保留有内容的
+                            processed_large_files.append(processed_source)
                         except Exception as exc:
                             original_source = future_to_source[future]
                             print(f"Exception processing {original_source.file_path}: {exc}")
@@ -255,7 +339,7 @@ class ExtractPruner(BasePruner):
             for source in processed_large_files:
                 if final_tokens + source.tokens <= self.max_tokens:
                     final_sources.append(source)
-                    final_tokens += source.tokens
+                    final_tokens += count_tokens(source.source_code)
                     print(f"  - Added snippets from {source.file_path} ({source.tokens} tokens)")
                 else:
                     print(f"  - Snippets from {source.file_path} ({source.tokens} tokens) too large to fit. Discarding.")

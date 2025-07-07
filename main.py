@@ -13,6 +13,8 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.styles import Style
 
+from utils.logger import setup_llm_logger
+
 # 假设我们所有的核心逻辑都在 ddb_agent 包中
 from agent import DDBAgent # 这是我们将所有逻辑组合起来的主Agent类
 from llm.llm_client import LLMResponse
@@ -117,6 +119,12 @@ def stream_out(
 # --- 主循环 ---
 def main_loop(agent: DDBAgent):
     """The main Read-Eval-Print Loop (REPL) for the agent."""
+
+    # 1. 设置 LLM 请求日志文件
+    # 日志会保存在 .ddb_agent/logs/llm_requests.log
+    log_dir = ".ddb_agent/logs"
+    os.makedirs(log_dir, exist_ok=True)
+    setup_llm_logger(log_file_path=os.path.join(log_dir, "llm_requests.log"))
     
     console.print(Panel(
         "[bold green]Welcome to the DDB-Coding-Agent!_Type `/help` for commands.[/bold green]",

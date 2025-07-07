@@ -80,7 +80,7 @@ class DDBRAG:
         """
         pass
 
-    @llm.prompt()
+    @llm.prompt(model="gemini-2.5-pro")
     def _rerank_candidates_prompt(self, user_query: str, candidates_json: str) -> str:
         """
         You are an expert re-ranking system. Your task is to analyze a list of candidate documents
@@ -160,7 +160,8 @@ class DDBRAG:
         # 3. 阶段二：精排 (Re-ranking by LLM)
         print("Phase 2: Re-ranking candidates with LLM...")
         #  先用列表推导式和 .model_dump() 将 Pydantic 对象列表转换为字典列表
-        candidates_for_llm = [c.model_dump() for c in candidates]
+        print("candidates:", candidates)
+        candidates_for_llm = [c.model_dump() for c in candidates if c is not None]
         #  然后再对这个字典列表进行 JSON 序列化
         candidates_json_str = json.dumps(candidates_for_llm, indent=2, ensure_ascii=False)
 
