@@ -80,7 +80,7 @@ class LLMCandidateSelector:
         self.all_items = all_index_items
         self.index_manager = index_manager
 
-    @llm.prompt(model="gemini-2.0-flash-001")
+    @llm.prompt()
     def _select_from_chunk_prompt(self, user_query: str, index_chunk_json: str) -> str:
         """
         You are an expert retrieval assistant. Your task is to analyze a CHUNK of a project's index 
@@ -122,8 +122,12 @@ class LLMCandidateSelector:
 
         for item in self.all_items:
             # 将Pydantic对象转为字典
-            item_dict = item.model_dump()
-            item_str = json.dumps(item_dict)
+            item_dict = {
+                "file_path": item.file_path,
+                "summary": item.summary,
+                "keywords": item.keywords
+            }   
+            item_str = json.dumps(item_dict, ensure_ascii=False)
             item_tokens = count_tokens(item_str)
 
             if current_tokens + item_tokens > self.MAX_TOKENS_PER_CHUNK and current_chunk:

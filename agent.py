@@ -34,7 +34,7 @@ class DDBAgent:
         """Starts a new chat session."""
         self.session_manager.new_session()
 
-    @llm.prompt(stream=True, model="gemini-2.0-flash-001")
+    @llm.prompt(stream=True)
     def _streaming_chat_prompt(self, conversation_history: List[Dict[str, str]]):
         """       You are a helpful DolphinDB assistant. Continue the conversation naturally.
         The user's latest message is the last one in the history.

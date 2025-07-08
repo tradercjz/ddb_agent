@@ -107,7 +107,7 @@ class ExtractPruner(BasePruner):
         self.full_file_threshold = int(max_tokens * 0.8)
         self.max_workers = max_workers
 
-    @llm.prompt(model="gemini-2.0-flash-001")
+    @llm.prompt()
     def _extract_snippets_prompt(self, conversations: List[Dict[str, str]], content_with_lines: str) -> dict:
         """
         Based on the provided code file and conversation history, extract relevant code snippets.
@@ -151,7 +151,7 @@ class ExtractPruner(BasePruner):
         }
       
 
-    @llm.prompt(model="gemini-2.0-flash-001")
+    @llm.prompt()
     def _extract_content_prompt(self, conversations: List[Dict[str, str]], full_content: str) -> dict:
         """
         You are an expert content analyst. Your task is to extract the most relevant text snippets from a source document and score their relevance to a user's query.
