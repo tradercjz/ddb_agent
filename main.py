@@ -242,7 +242,7 @@ if __name__ == "__main__":
     
     # 1. 设置项目路径
     # 在实际应用中，这可能来自命令行参数
-    project_path = "/home/jzchen/ddb_agent" # 当前目录
+    project_path = current_dir = os.path.dirname(os.path.abspath(__file__))
     
     # 2. 加载模型配置
     # ModelManager 会自动从 models.json 加载

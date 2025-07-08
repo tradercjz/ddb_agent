@@ -1,8 +1,7 @@
 # file: ddb_agent/rag/types.py
 
-from git import Union
 import pydantic
-from typing import Annotated, List, Literal, Optional
+from typing import Annotated, List, Literal, Optional, Union
 
 class BaseIndexModel(pydantic.BaseModel):
     """

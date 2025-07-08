@@ -8,7 +8,6 @@ from token_counter import count_tokens
 from utils.json_parser import parse_json_string
 from .types import TextChunkIndex
 from utils.text_extractor import extract_text_from_file
-from byzerllm.utils.client import code_utils
 from .base_manager import BaseIndexManager
 from llm.models import ModelManager
 

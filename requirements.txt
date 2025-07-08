@@ -1,0 +1,70 @@
+# DDB-Coding-Agent - Project Dependencies
+# ----------------------------------------
+# This file lists the Python packages required to run the agent.
+#
+# To install all dependencies, run the following command in your terminal:
+# pip install -r requirements.txt
+#
+# For reproducible builds, it's recommended to freeze the versions after a
+# successful installation using: pip freeze > requirements.txt
+#
+
+# --- Core Logic & Data Validation ---
+
+pydantic
+# Used extensively for data validation and settings management, especially in:
+# - llm/models.py (ModelConfig)
+# - rag/types.py (CodeIndex, TextChunkIndex, ProjectIndex)
+# - context/pruner.py (ExtractedSnippet)
+
+python-dotenv
+# Used in llm/llm_prompt.py to load environment variables from a .env file,
+# such as API keys and base URLs.
+
+# --- LLM Interaction & Machine Learning ---
+
+openai
+# The official OpenAI Python library, used as the primary client for interacting
+# with LLM APIs (including DeepSeek, which is OpenAI-compatible).
+# Found in: llm/llm_client.py
+
+transformers
+# From Hugging Face. Crucial for token counting. It's used to load the
+# specific tokenizer for the model (e.g., DeepSeek) to get accurate token counts.
+# Found in: token_counter.py
+
+jinja2
+# A modern and designer-friendly templating engine. Used in llm/llm_prompt.py
+# to render the docstring templates with dynamic data before sending them to the LLM.
+
+# --- Command-Line User Interface (UI) ---
+
+rich
+# For creating beautiful and readable command-line interfaces. Used in main.py
+# for styled text, panels, status spinners, and markdown rendering.
+
+prompt-toolkit
+# A library for building powerful interactive command-line applications.
+# Used in main.py to create the main input prompt with history and auto-suggestions.
+
+# --- RAG & Document Processing ---
+
+# For extracting text from various document types.
+# These are optional but required if you want to index these file types.
+PyMuPDF
+# Used by utils/text_extractor.py to extract text from PDF files. The library is imported as `fitz`.
+
+python-docx
+# Used by utils/text_extractor.py to extract text from .docx Word documents.
+
+# For natural language processing, especially for keyword search in RAG.
+jieba
+# A popular Chinese text segmentation library. Used in utils/tokenizer.py
+# for "smart" tokenization to support keyword search in Chinese queries.
+
+# --- Logging & Utilities ---
+
+loguru
+# A library which aims to bring enjoyable logging in Python. Used for structured
+# and filterable logging, especially for capturing LLM requests.
+# Found in: llm/llm_client.py and configured in utils/logger.py
