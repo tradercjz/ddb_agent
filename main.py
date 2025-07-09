@@ -9,6 +9,12 @@ from rich.status import Status
 from rich.markdown import Markdown
 from rich.live import Live
 from rich.pretty import pprint 
+from rich.spinner import Spinner
+from rich.layout import Layout
+from rich.align import Align
+from rich.text import Text
+from rich.markup import escape
+
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
@@ -167,43 +173,106 @@ def main_loop(agent: DDBAgent):
 
                 console.print(Panel(f"[bold blue]Received coding task:[/bold blue] {task_description}", title="[bold magenta]Coding Task[/bold magenta]"))
 
-                # 使用 Status 来显示一个美观的加载动画，提升用户体验
-                with Status("[bold yellow]Agent is working on the coding task...[/bold yellow]", console=console, spinner="dots") as status:
-                    try:
-                        # 调用我们新的 coding task 方法
-                        final_result = agent.run_coding_task(task_description)
+                # 调用改造后的生成器方法
+                response_generator = agent.run_coding_task_with_planner(task_description)
 
-                        # 任务结束后，停止加载动画
-                        status.stop()
+                # --- 使用 rich.Live 来创建实时更新的界面 ---
+                # 初始化界面元素
+                status_spinner = Spinner("dots", "Agent is thinking...")
+                current_plan_panel = Panel("No plan generated yet.", title="[yellow]Current Plan[/yellow]", border_style="yellow")
+                execution_log = [] # 存储执行日志
+                
+                final_task_outcome = None
 
-                        # 根据最终结果向用户展示
-                        if final_result.success:
-                            console.print(Panel(
-                                "[bold green]✅ Task Completed Successfully![/bold green]",
-                                title="[bold green]Success[/bold green]",
-                                border_style="green"
-                            ))
-                            console.print("[bold cyan]Result Data:[/bold cyan]")
-                            # 使用 rich.pretty.pprint 来美观地打印结果
-                            pprint(final_result.data, expand_all=True)
-                        else:
-                            console.print(Panel(
-                                f"[bold red]❌ Task Failed.[/bold red]\n\n[bold]Final Error:[/bold]\n{final_result.error_message}",
-                                title="[bold red]Failure[/bold red]",
-                                border_style="red"
-                            ))
-                    except Exception as e:
-                        # 捕获 run_coding_task 中可能出现的意外错误
-                        status.stop()
+                # 创建一个布局
+                layout = Layout()
+                layout.split_column(
+                    Layout(name="header", size=3),
+                    Layout(name="body")
+                )
+                layout["header"].update(Align.center(status_spinner))
+                layout["body"].split_row(
+                    Layout(current_plan_panel, name="plan"),
+                    Layout(Panel("", title="[cyan]Execution Log[/cyan]", border_style="cyan"), name="log")
+                )
+
+                with Live(layout, console=console, screen=True, auto_refresh=False) as live:
+                    for update in response_generator:
+                        update_type = update.get("type")
+
+                        if update_type == "status":
+                            # 状态消息通常是开发者自己写的，比较安全，但转义一下更保险
+                            status_spinner.text = escape(update["message"])
+                            live.update(layout, refresh=True)
+                        
+                        elif update_type == "plan":
+                            # 更新计划面板
+                            plan_text = ""
+                            # --- 这是修复的关键 ---
+                            # 确保从 update 中获取的 plan 是一个列表，如果不存在则为空列表
+                            plan_data = update.get("plan", [])
+                            if isinstance(plan_data, list):
+                                for i, step in enumerate(plan_data):
+                                    # 对所有来自LLM的动态字符串进行 .get() 安全访问和 escape 转义
+                                    action = escape(str(step.get("action", "N/A")))
+                                    thought = escape(str(step.get("thought", "No thought provided.")))
+                                    plan_text += f"[b]{i+1}. {action}[/b]\n   [dim]Thought: {thought}[/dim]\n"
+                            
+                            current_plan_panel.renderable = plan_text
+                            live.update(layout, refresh=True)
+
+                        elif update_type == "step_start":
+                            # 你的代码已经在这里报错，说明 plan 的内容有问题
+                            # 我们同样要确保这里的转义是健壮的
+                            step_num = update.get('step', '?')
+                            action = escape(str(update.get("action", "N/A")))
+                            thought = escape(str(update.get("thought", "")))
+                            
+                            log_entry = f"[bold green]▶️ Step {step_num}: {action}[/bold green]\n[dim]   Thought: {thought}[/dim]"
+                            execution_log.append(log_entry)
+                            
+                            # 更新日志面板
+                            # 使用 "\n---\n".join(...) 的方式是正确的
+                            layout["log"].update(Panel("\n---\n".join(execution_log), title="[cyan]Execution Log[/cyan]", border_style="cyan"))
+                            live.update(layout, refresh=True) # 错误发生在这里
+                        elif update_type == "step_result":
+                            # 对工具返回的 observation 进行转义，这是最关键的一步！
+                            escaped_observation = escape(update['observation'])
+                            log_entry = f"   [bold]Observation:[/bold]\n   {escaped_observation}"
+                            execution_log.append(log_entry)
+                            layout["log"].update(Panel("\n---\n".join(execution_log), title="[cyan]Execution Log[/cyan]", border_style="cyan"))
+                            live.update(layout, refresh=True)
+
+                        if update_type == "final_result" or update_type == "error":
+                            final_task_outcome = update
+                            if update_type == "error":
+                                break # 如果是错误，提前终止直播
+
+                console.print() # 打印一个空行，为了格式美观
+                if final_task_outcome:
+                    if final_task_outcome["type"] == "final_result":
                         console.print(Panel(
-                            f"[bold red]An unexpected error occurred during the coding task:[/bold red]\n{e}",
-                            title="[bold red]Critical Error[/bold red]",
+                            "[bold green]✅ Task Completed Successfully![/bold green]",
+                            title="[bold green]Success[/bold green]",
+                            border_style="green"
+                        ))
+                        console.print("[bold cyan]Result Data:[/bold cyan]")
+                        # 使用 rich.pretty.pprint 美观地打印结果
+                        pprint(final_task_outcome.get('result', 'No data returned.'), expand_all=True)
+                    
+                    elif final_task_outcome["type"] == "error":
+                        console.print(Panel(
+                            f"[bold red]❌ Task Failed.[/bold red]\n\n[bold]Final Error:[/bold]\n{escape(final_task_outcome.get('message', 'Unknown error.'))}",
+                            title="[bold red]Failure[/bold red]",
                             border_style="red"
                         ))
-                        import traceback
-                        traceback.print_exc()
-                
-                continue # 处理完 /code 命令后，进入下一次循环
+                else:
+                    # 如果循环因为某些原因（如KeyboardInterrupt）提前退出，没有最终结果
+                    console.print(Panel("[bold yellow]Task execution was interrupted or finished without a definitive result.[/bold yellow]", border_style="yellow"))
+
+                console.print("\n[bold green]Coding task finished. Press Enter to continue...[/bold green]")
+                input() # 等待用户按键，以便查看最终结果
+                continue
 
             full_response_content = ""
             error_message = None
@@ -276,14 +345,15 @@ def main_loop(agent: DDBAgent):
             console.print("\n[bold yellow]Interrupted by user. Exiting...[/bold yellow]")
             break
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             # 捕获意外错误，并打印，防止程序崩溃
             console.print(Panel(
                 f"[bold red]An unexpected error occurred:[/bold red]\n{e}",
                 title="[bold red]Error[/bold red]",
                 border_style="red"
             ))
-            import traceback
-            traceback.print_exc()
+            
 
 
 if __name__ == "__main__":
@@ -311,6 +381,8 @@ if __name__ == "__main__":
         main_loop(ddb_agent)
 
     except Exception as e:
-        console.print(f"[bold red]Failed to initialize the agent:[/bold red] {e}")
+        error_text = Text(str(e))
+        # 先打印静态部分，再打印 Text 对象
+        console.print("[bold red]Failed to initialize the agent:[/bold red]", error_text)
         import traceback
         traceback.print_exc()

@@ -1,14 +1,22 @@
 # file: ddb_agent/agent.py (之前在main.py中虚构的，现在正式实现)
 
-from typing import List, Dict, Any
+import json
+from typing import Generator, List, Dict, Any
 from agent.code_executor import CodeExecutor
 from agent.coding_task_state import CodingTaskState
-from agent.prompts import fix_script_from_error, generate_initial_script
+from agent.prompts import debugging_planner, fix_script_from_error, generate_initial_script
 from llm.llm_client import LLMResponse
 from session.session_manager import SessionManager
 from context.context_builder import ContextBuilder
 from rag.rag_entry import DDBRAG
 from llm.llm_prompt import llm # 假设llm实例在这里
+
+from rich.pretty import pprint
+
+from agent.tool_manager import ToolManager
+from agent.tools.ddb_tools import GetFunctionSignatureTool, RunDolphinDBScriptTool
+from utils.json_parser import parse_json_string
+
 
 class DDBAgent:
     """
@@ -21,6 +29,11 @@ class DDBAgent:
         self.rag = DDBRAG(project_path=project_path)
         self.llm_model_name = model_name
         self.code_executor = CodeExecutor()
+        self.tool_manager = ToolManager([
+            RunDolphinDBScriptTool(),
+            GetFunctionSignatureTool()
+            # 未来可以添加更多工具, e.g., ReadFileTool, ListDirectoryTool
+        ])
 
         # 定义一个通用的聊天Prompt
         @llm.prompt()
@@ -181,3 +194,84 @@ class DDBAgent:
         # 如果循环结束仍未成功
         print("❌ Task Failed after maximum attempts.")
         return state.execution_history[-1] # 返回最后一次的失败结果
+    
+    def run_coding_task_with_planner(self, user_input: str) -> Generator[Dict[str, Any], None, None]:
+        """
+        Orchestrates the plan-and-execute loop for a coding task, yielding state updates.
+        """
+        yield {"type": "status", "message": "Starting new PLAN-and-EXECUTE coding task..."}
+
+        # 1. 初始 RAG (可选，用于生成第一版脚本)
+        yield {"type": "status", "message": "Retrieving context with RAG..."}
+        # ... RAG logic ...
+
+        # 2. 生成初始计划
+        yield {"type": "status", "message": "Generating initial plan..."}
+        # 这里我们简化，直接生成一个包含run_dolphindb_script的计划
+        # 实际中可能需要一个Planner来生成
+        try:
+            initial_script = generate_initial_script(user_query=user_input, rag_context="...") # 假设有rag_context
+            plan = [
+                {
+                    "step": 1, 
+                    "thought": "I will start by generating a script to address the user's request and then execute it.", 
+                    "action": "run_dolphindb_script", 
+                    "args": {"script": initial_script}
+                }
+            ]
+            yield {"type": "plan", "plan": plan, "message": "Initial plan generated."}
+        except Exception as e:
+            yield {"type": "error", "message": f"Failed to generate initial script: {e}"}
+            return
+
+        # 3. 执行计划循环
+        step_index = 0
+        execution_context = {}
+
+        while step_index < len(plan):
+            current_step = plan[step_index]
+            action = current_step["action"]
+            args = current_step["args"]
+            thought = current_step["thought"]
+            
+            # Yield 当前步骤的思考过程
+            yield {"type": "step_start", "step": step_index + 1, "thought": thought, "action": action, "args": args}
+
+            # 执行工具调用
+            result_str = self.tool_manager.call_tool(action, args)
+
+            # Yield 工具调用的观察结果
+            yield {"type": "step_result", "step": step_index + 1, "observation": result_str}
+            
+            # 检查是否需要启动调试子流程
+            if action == "run_dolphindb_script" and "Execution failed" in result_str:
+                yield {"type": "status", "message": "Execution failed. Entering debugging sub-task..."}
+                
+                failed_code = args["script"]
+                error_message = result_str.split("Error:\n", 1)[1]
+                tool_defs_str = json.dumps(self.tool_manager.get_tool_definitions(), indent=2)
+
+                try:
+                    # 调用调试Planner
+                    new_plan_str = debugging_planner(
+                        original_query=user_input,
+                        failed_code=failed_code,
+                        error_message=error_message,
+                        tool_definitions=tool_defs_str
+                    )
+                    new_plan = parse_json_string(new_plan_str)
+
+                    # Yield 新的调试计划
+                    yield {"type": "plan", "plan": new_plan, "message": "Generated a new debugging plan."}
+                    
+                    plan = new_plan
+                    step_index = 0
+                    continue # 重置循环，从新计划的第一步开始
+                except Exception as e:
+                    yield {"type": "error", "message": f"Failed to generate debugging plan: {e}"}
+                    return
+
+            execution_context[f"step_{step_index + 1}_result"] = result_str
+            step_index += 1
+        
+        yield {"type": "final_result", "result": execution_context.get(f"step_{len(plan)}_result", "Plan finished with no final output.")}

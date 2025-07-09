@@ -67,3 +67,59 @@ def fix_script_from_error(
     4.  **Do not** add any explanations or markdown. Your output must be **only the raw, fixed script code**.
     """
     pass
+
+@llm.prompt(model="deepseek") # Planner需要最强的模型
+def debugging_planner(
+    original_query: str,
+    failed_code: str,
+    error_message: str,
+    tool_definitions: str,
+    # 也可以加入对话历史、RAG上下文等
+) -> str:
+    """
+    You are an autonomous debugging expert for DolphinDB.
+    A script you wrote has failed. Your goal is to create a step-by-step plan to identify the cause of the error and fix the script.
+
+    ## Initial Goal
+    The user wants to: {{ original_query }}
+
+    ## The Code that Failed
+    ```dolphiindb
+    {{ failed_code }}
+    ```
+
+    ## The Error Message
+    ```
+    {{ error_message }}
+    ```
+
+    ## Available Tools
+    You have access to the following tools to help you diagnose the problem.
+    {{ tool_definitions }}
+
+    ## Your Task
+    Based on the error, create a JSON plan of actions to take.
+    - Think step-by-step.
+    - The plan should lead to a final, corrected script.
+    - The available actions are the names of the tools provided.
+    - The final step in your plan should ALWAYS be `run_dolphindb_script` with the fully corrected code.
+
+    Example Plan for a function error:
+    ```json
+    [
+      {
+        "step": 1,
+        "thought": "The error message 'wavg function needs 2 argument(s)' suggests I used the wavg function incorrectly. I need to check its correct signature and documentation.",
+        "action": "get_function_signature",
+        "args": {"function_name": "wavg"}
+      },
+      {
+        "step": 2,
+        "thought": "The documentation shows wavg requires two arguments: a value column and a weight column. The original code only provided one. I need to add the 'qty' column as the weight. I will now construct the corrected script and run it.",
+        "action": "run_dolphindb_script",
+        "args": {"script": "trades = stocks::create_mock_trades_table()\nselect wavg(price, qty) from trades"}
+      }
+    ]
+    ```
+    """
+    pass
