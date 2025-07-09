@@ -8,6 +8,7 @@ from rich.panel import Panel
 from rich.status import Status
 from rich.markdown import Markdown
 from rich.live import Live
+from rich.pretty import pprint 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
@@ -16,7 +17,7 @@ from prompt_toolkit.styles import Style
 from utils.logger import setup_llm_logger
 
 # 假设我们所有的核心逻辑都在 ddb_agent 包中
-from agent import DDBAgent # 这是我们将所有逻辑组合起来的主Agent类
+from agent.agent import DDBAgent # 这是我们将所有逻辑组合起来的主Agent类
 from llm.llm_client import LLMResponse
 from llm.llm_prompt import llm # 假设llm实例在这里初始化
 from llm.models import ModelManager # 加载模型配置
@@ -44,8 +45,9 @@ def print_help_message():
     help_text = """
     **DDB-Coding-Agent Help**
 
-    - Type your query directly to chat with the agent.
+    - Type your query directly to chat with the agent (RAG-based Q&A).
     - Use the following slash commands for special actions:
+      - `/code <your task>`: Ask the agent to write and execute DolphinDB code.
       - `/new` or `/reset`: Start a new conversation session.
       - `/help`: Show this help message.
       - `/exit` or `/quit`: Exit the agent.
@@ -155,6 +157,53 @@ def main_loop(agent: DDBAgent):
             if user_input.lower() == '/help':
                 print_help_message()
                 continue
+
+            # --- 新增: /code 命令处理 ---
+            if user_input.lower().startswith('/code '):
+                task_description = user_input[6:].strip()
+                if not task_description:
+                    console.print(Panel("[bold yellow]Please provide a task description after /code.[/bold yellow]", border_style="yellow"))
+                    continue
+
+                console.print(Panel(f"[bold blue]Received coding task:[/bold blue] {task_description}", title="[bold magenta]Coding Task[/bold magenta]"))
+
+                # 使用 Status 来显示一个美观的加载动画，提升用户体验
+                with Status("[bold yellow]Agent is working on the coding task...[/bold yellow]", console=console, spinner="dots") as status:
+                    try:
+                        # 调用我们新的 coding task 方法
+                        final_result = agent.run_coding_task(task_description)
+
+                        # 任务结束后，停止加载动画
+                        status.stop()
+
+                        # 根据最终结果向用户展示
+                        if final_result.success:
+                            console.print(Panel(
+                                "[bold green]✅ Task Completed Successfully![/bold green]",
+                                title="[bold green]Success[/bold green]",
+                                border_style="green"
+                            ))
+                            console.print("[bold cyan]Result Data:[/bold cyan]")
+                            # 使用 rich.pretty.pprint 来美观地打印结果
+                            pprint(final_result.data, expand_all=True)
+                        else:
+                            console.print(Panel(
+                                f"[bold red]❌ Task Failed.[/bold red]\n\n[bold]Final Error:[/bold]\n{final_result.error_message}",
+                                title="[bold red]Failure[/bold red]",
+                                border_style="red"
+                            ))
+                    except Exception as e:
+                        # 捕获 run_coding_task 中可能出现的意外错误
+                        status.stop()
+                        console.print(Panel(
+                            f"[bold red]An unexpected error occurred during the coding task:[/bold red]\n{e}",
+                            title="[bold red]Critical Error[/bold red]",
+                            border_style="red"
+                        ))
+                        import traceback
+                        traceback.print_exc()
+                
+                continue # 处理完 /code 命令后，进入下一次循环
 
             full_response_content = ""
             error_message = None

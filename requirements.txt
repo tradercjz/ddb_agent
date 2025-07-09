@@ -68,3 +68,5 @@ loguru
 # A library which aims to bring enjoyable logging in Python. Used for structured
 # and filterable logging, especially for capturing LLM requests.
 # Found in: llm/llm_client.py and configured in utils/logger.py
+
+dolphindb

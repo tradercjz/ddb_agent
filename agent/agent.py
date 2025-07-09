@@ -1,6 +1,9 @@
 # file: ddb_agent/agent.py (之前在main.py中虚构的，现在正式实现)
 
 from typing import List, Dict, Any
+from agent.code_executor import CodeExecutor
+from agent.coding_task_state import CodingTaskState
+from agent.prompts import fix_script_from_error, generate_initial_script
 from llm.llm_client import LLMResponse
 from session.session_manager import SessionManager
 from context.context_builder import ContextBuilder
@@ -17,6 +20,7 @@ class DDBAgent:
         self.context_builder = ContextBuilder(model_name=model_name, max_window_size=max_window_size)
         self.rag = DDBRAG(project_path=project_path)
         self.llm_model_name = model_name
+        self.code_executor = CodeExecutor()
 
         # 定义一个通用的聊天Prompt
         @llm.prompt()
@@ -106,3 +110,74 @@ class DDBAgent:
         self.session_manager.save_session()
 
         return assistant_response
+    
+    def run_coding_task(self, user_input: str):
+        """
+        Orchestrates the iterative process of generating, executing, and fixing code.
+        """
+        print(f"--- Starting new coding task for: '{user_input}' ---")
+
+        # 1. 初始 RAG
+        print("Step 1: Retrieving context with RAG...")
+        initial_context = self.rag.retrieve(user_input, top_k=5)
+        # 将 Document 列表转换为单个字符串
+        context_str = "\n---\n".join(
+            f"File: {doc.file_path}\n\n{doc.source_code}" for doc in initial_context
+        )
+
+        # 2. 初始化任务状态
+        state = CodingTaskState(
+            original_query=user_input,
+            rag_context=context_str
+        )
+
+        # 3. 生成第一版脚本
+        print("Step 2: Generating initial script...")
+        state.current_code = generate_initial_script(
+            user_query=state.original_query,
+            rag_context=state.rag_context
+        )
+        print(f"Initial script generated:\n{state.current_code}")
+
+        # 4. 进入核心的 "执行-修正" 循环
+        while not state.has_reached_max_attempts:
+            print(f"\n--- Attempt {state.refinement_attempts + 1}/{state.max_attempts} ---")
+            
+            # 执行代码
+            print("Executing script...")
+            exec_result = self.code_executor.run(state.current_code)
+            state.add_execution_result(exec_result)
+
+            # 分析结果
+            if exec_result.success:
+                print("✅ Task Succeeded!")
+                print("source code:",state.current_code)  # 输出最终代码
+                print("Final Result Data:")
+                print(exec_result.data)
+                # 任务成功，退出循环
+                return exec_result
+            
+            # 如果失败，进行修正
+            print(f"Script failed. Error: {exec_result.error_message}")
+            print("Attempting to self-correct...")
+            
+            last_error = state.get_last_error()
+            
+            # (可选) 针对错误进行 RAG
+            # error_context = self.rag.retrieve(last_error, top_k=2)
+            # combined_context = state.rag_context + "\n---\n" + error_context_str
+            
+            # 调用修正 prompt
+            state.current_code = fix_script_from_error(
+                original_query=state.original_query,
+                failed_code=state.current_code,
+                error_message=last_error,
+                rag_context=state.rag_context # 使用更新后的上下文
+            )
+            print(f"Generated new corrected script:\n{state.current_code}")
+            
+            state.refinement_attempts += 1
+        
+        # 如果循环结束仍未成功
+        print("❌ Task Failed after maximum attempts.")
+        return state.execution_history[-1] # 返回最后一次的失败结果
