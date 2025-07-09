@@ -30,10 +30,10 @@ graph TD
     end
 
     subgraph "Core Components"
-        RAG[RAG System<br>(rag/)]
-        Context[Context Management<br>(context/)]
-        LLM[LLM Interface<br>(llm/)]
-        Session[Session Manager<br>(session/)]
+        RAG[RAG System rag/]
+        Context[Context Management context/]
+        LLM[LLM Interface llm/]
+        Session[Session Manager session/]
     end
 
     CLI -- User Input --> Agent
@@ -43,6 +43,7 @@ graph TD
     Agent -- 4. Manage History --> Session
     LLM -- Response --> Agent
     Agent -- Formatted Output --> CLI
+
 ```
 
 ---
