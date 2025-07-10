@@ -1,6 +1,7 @@
-# file: agent/tools/ddb_tools.py (新建)
 import dolphindb as ddb
-from pydantic import Field # 假设可以这样导入
+from pydantic import Field
+
+from agent.execution_result import ExecutionResult 
 from .tool_interface import BaseTool, ToolInput
 from agent.code_executor import CodeExecutor 
 
@@ -36,10 +37,5 @@ class RunDolphinDBScriptTool(BaseTool):
     def __init__(self):
         self.executor = CodeExecutor()
 
-    def run(self, args: RunDolphinDBScriptInput) -> str:
-        result = self.executor.run(args.script)
-        if result.success:
-            # 将结果转换为字符串，以便LLM处理
-            return f"Execution successful. Data:\n{str(result.data)}"
-        else:
-            return f"Execution failed. Error:\n{result.error_message}"
+    def run(self, args: RunDolphinDBScriptInput) -> ExecutionResult:
+        return self.executor.run(args.script)

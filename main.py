@@ -14,6 +14,7 @@ from rich.layout import Layout
 from rich.align import Align
 from rich.text import Text
 from rich.markup import escape
+from rich.syntax import Syntax
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
@@ -54,6 +55,7 @@ def print_help_message():
     - Type your query directly to chat with the agent (RAG-based Q&A).
     - Use the following slash commands for special actions:
       - `/code <your task>`: Ask the agent to write and execute DolphinDB code.
+      - `/save <file_path>`: Save the last successful script to a file.
       - `/new` or `/reset`: Start a new conversation session.
       - `/help`: Show this help message.
       - `/exit` or `/quit`: Exit the agent.
@@ -163,6 +165,22 @@ def main_loop(agent: DDBAgent):
             if user_input.lower() == '/help':
                 print_help_message()
                 continue
+            
+            if user_input.lower().startswith('/save '):
+                file_path = user_input[6:].strip()
+                if not file_path:
+                    console.print(Panel("[bold yellow]Please provide a file path after /save.[/bold yellow]", border_style="yellow"))
+                    continue
+                
+                # Call the agent's save method
+                success, message = agent.save_last_script(file_path)
+
+                if success:
+                    console.print(Panel(f"[bold green]✅ Success![/bold green]\n{message}", border_style="green"))
+                else:
+                    console.print(Panel(f"[bold red]❌ Failed![/bold red]\n{message}", border_style="red"))
+                
+                continue # Move to the next loop iteration
 
             # --- 新增: /code 命令处理 ---
             if user_input.lower().startswith('/code '):
@@ -242,7 +260,6 @@ def main_loop(agent: DDBAgent):
                             execution_log.append(log_entry)
                             layout["log"].update(Panel("\n---\n".join(execution_log), title="[cyan]Execution Log[/cyan]", border_style="cyan"))
                             live.update(layout, refresh=True)
-
                         if update_type == "final_result" or update_type == "error":
                             final_task_outcome = update
                             if update_type == "error":
@@ -251,6 +268,22 @@ def main_loop(agent: DDBAgent):
                 console.print() # 打印一个空行，为了格式美观
                 if final_task_outcome:
                     if final_task_outcome["type"] == "final_result":
+                        final_exec_result = final_task_outcome.get('result_object')
+                        # Start printing the success panel
+                        console.print(Panel(
+                            "[bold green]✅ Task Completed Successfully![/bold green]",
+                            title="[bold green]Success[/bold green]",
+                            border_style="green"
+                        ))
+
+                        # --- DISPLAY THE FINAL SCRIPT ---
+                        if final_exec_result and final_exec_result.executed_script:
+                            console.print(Panel(
+                                Syntax(final_exec_result.executed_script, "dos", theme="monokai", line_numbers=True),
+                                title="[yellow]Final Successful Script[/yellow]",
+                                border_style="yellow"
+                            ))
+                        
                         console.print(Panel(
                             "[bold green]✅ Task Completed Successfully![/bold green]",
                             title="[bold green]Success[/bold green]",

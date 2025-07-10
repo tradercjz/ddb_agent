@@ -54,6 +54,7 @@ class CodeExecutor:
         if not script or not script.strip():
             return ExecutionResult(
                 success=False,
+                executed_script=script,
                 error_message="Error: Empty script provided."
             )
 
@@ -78,6 +79,7 @@ class CodeExecutor:
                 return ExecutionResult(
                     success=True,
                     data=result,
+                    executed_script=script,
                     metadata={"execution_duration_seconds": duration}
                 )
             else:
@@ -88,6 +90,7 @@ class CodeExecutor:
                 return ExecutionResult(
                     success=False,
                     error_message=error_str,
+                    executed_script=script,
                     metadata={"execution_duration_seconds": duration}
                 )
 
@@ -101,5 +104,6 @@ class CodeExecutor:
             return ExecutionResult(
                 success=False,
                 error_message=error_msg,
+                executed_script=script,
                 metadata={"execution_duration_seconds": duration}
             )

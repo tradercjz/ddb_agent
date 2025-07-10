@@ -1,9 +1,11 @@
 # file: ddb_agent/agent.py (之前在main.py中虚构的，现在正式实现)
 
 import json
-from typing import Generator, List, Dict, Any
+import os
+from typing import Generator, List, Dict, Any, Tuple
 from agent.code_executor import CodeExecutor
 from agent.coding_task_state import CodingTaskState
+from agent.execution_result import ExecutionResult
 from agent.prompts import debugging_planner, fix_script_from_error, generate_initial_script
 from llm.llm_client import LLMResponse
 from session.session_manager import SessionManager
@@ -34,6 +36,7 @@ class DDBAgent:
             GetFunctionSignatureTool()
             # 未来可以添加更多工具, e.g., ReadFileTool, ListDirectoryTool
         ])
+        self.last_successful_script: str | None = None 
 
         # 定义一个通用的聊天Prompt
         @llm.prompt()
@@ -201,9 +204,6 @@ class DDBAgent:
         """
         yield {"type": "status", "message": "Starting new PLAN-and-EXECUTE coding task..."}
 
-        # 1. 初始 RAG (可选，用于生成第一版脚本)
-        yield {"type": "status", "message": "Retrieving context with RAG..."}
-        # ... RAG logic ...
 
         # 2. 生成初始计划
         yield {"type": "status", "message": "Generating initial plan..."}
@@ -238,17 +238,24 @@ class DDBAgent:
             yield {"type": "step_start", "step": step_index + 1, "thought": thought, "action": action, "args": args}
 
             # 执行工具调用
-            result_str = self.tool_manager.call_tool(action, args)
+            tool_result = self.tool_manager.call_tool(action, args)
 
-            # Yield 工具调用的观察结果
-            yield {"type": "step_result", "step": step_index + 1, "observation": result_str}
+            is_success = True
+            if isinstance(tool_result, ExecutionResult):
+                observation_str = str(tool_result.data) if tool_result.success else f"Execution failed. Error:\n{tool_result.error_message}"
+                is_success = tool_result.success
+            else: # It's a string from another tool like get_function_signature
+                observation_str = str(tool_result)
+
+            yield {"type": "step_result", "step": step_index + 1, "observation": observation_str}
+
             
             # 检查是否需要启动调试子流程
-            if action == "run_dolphindb_script" and "Execution failed" in result_str:
+            if action == "run_dolphindb_script" and  not is_success:
                 yield {"type": "status", "message": "Execution failed. Entering debugging sub-task..."}
                 
                 failed_code = args["script"]
-                error_message = result_str.split("Error:\n", 1)[1]
+                error_message = observation_str.split("Error:\n", 1)[1]
                 tool_defs_str = json.dumps(self.tool_manager.get_tool_definitions(), indent=2)
 
                 try:
@@ -271,7 +278,36 @@ class DDBAgent:
                     yield {"type": "error", "message": f"Failed to generate debugging plan: {e}"}
                     return
 
-            execution_context[f"step_{step_index + 1}_result"] = result_str
+            execution_context[f"step_{step_index + 1}_result"] = tool_result
             step_index += 1
         
-        yield {"type": "final_result", "result": execution_context.get(f"step_{len(plan)}_result", "Plan finished with no final output.")}
+        final_result_obj = execution_context.get(f"step_{len(plan)}_result")
+
+        if final_result_obj and isinstance(final_result_obj, ExecutionResult) and final_result_obj.success:
+            self.last_successful_script = final_result_obj.executed_script 
+        else:
+            # If the task fails or doesn't end with a script, clear the last script
+            self.last_successful_script = None 
+
+        yield {"type": "final_result", "result_object": final_result_obj}
+
+    def save_last_script(self, file_path: str) -> Tuple[bool, str]:
+        """
+        Saves the last successfully executed script to a file.
+        
+        Returns:
+            A tuple of (success: bool, message: str).
+        """
+        if not self.last_successful_script:
+            return False, "No successful script is available to save. Please run a /code task first."
+        
+        try:
+            # Create directories if they don't exist
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(self.last_successful_script)
+            
+            return True, f"Script successfully saved to: {file_path}"
+        except Exception as e:
+            return False, f"Error saving file: {e}"
