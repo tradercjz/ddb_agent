@@ -1,0 +1,96 @@
+/* ddb_agent.css (Sci-Fi / Cyberpunk Theme) */
+
+/* 
+ * 颜色方案灵感:
+ * #0d0d1a -> 近乎黑色的深蓝紫 (背景)
+ * #2a2a3a -> 深石板灰 (UI元素背景)
+ * #6c71c4 -> 淡紫色 (边框、次要文本)
+ * #268bd2 -> 柔和的蓝色 (高亮、标题)
+ * #d33682 -> 品红色/粉紫色 (强调、错误)
+ * #fdf6e3 -> 温暖的灰白色 (主要文本)
+*/
+
+/* 整体屏幕样式 */
+Screen {
+    /* 使用深邃的蓝紫色作为整个应用的背景 */
+    background: #0d0d1a;
+    layout: vertical;
+}
+
+/* 头部样式 */
+Header {
+    dock: top;
+    /* 使用更深的背景，并带有微妙的蓝色前景 */
+    background: #2a2a3a;
+    color: #268bd2;
+    border-bottom: heavy #6c71c4; /* 添加一条底部分界线 */
+}
+
+/* 脚部样式 */
+Footer {
+    dock: bottom;
+    background: #2a2a3a;
+    border-top: heavy #6c71c4; /* 添加一条顶部分界线 */
+}
+
+/* 脚部按键绑定文本样式 */
+Footer > .footer--key {
+    background: #6c71c4;
+    text-style: bold;
+    color: #0d0d1a; /* 反色，以突出按键 */
+}
+
+Footer > .footer--description {
+    color: #6c71c4;
+}
+
+/* 输出日志的容器 */
+#output-container {
+    width: 100%;
+    height: 1fr;
+    padding: 0 1;
+}
+
+/* 输出日志区域本身的样式 */
+#output-log {
+    /* 透明背景，融入整个屏幕 */
+    background: transparent;
+    /* 使用更柔和的淡紫色作为边框 */
+    border: round #6c71c4;
+    padding: 1;
+}
+
+/* 输入框样式 */
+#input-box {
+    dock: bottom;
+    margin: 0 1 1 1;
+    /* 输入框边框与日志区边框保持一致 */
+    border: round #6c71c4;
+}
+
+/* 输入框聚焦时的样式 */
+Input:focus {
+    /* 聚焦时，边框变为醒目的蓝色，并加粗 */
+    border: tall #268bd2;
+}
+
+/* 对 Rich Panel 的统一样式调整 (可选，但能提升一致性) */
+/* 这会影响所有用 Panel 包装的输出 */
+.panel {
+    padding: 1;
+}
+
+/* 用户输入的 Panel */
+Panel.user {
+    border: round #268bd2; /* 蓝色边框 */
+}
+
+/* Agent 回复的 Panel */
+Panel.agent {
+    border: round #6c71c4; /* 紫色边框 */
+}
+
+/* 错误信息的 Panel */
+Panel.error {
+    border: round #d33682; /* 品红色/粉色边框 */
+}
