@@ -14,13 +14,23 @@ from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, Input, RichLog, Static
 from textual.containers import VerticalScroll
 from textual.binding import Binding
+from rich.spinner import Spinner
 
 from utils.logger import setup_llm_logger
 from agent.agent import DDBAgent
 from llm.llm_client import LLMResponse
 from llm.models import ModelManager
 
+from textual.message import Message
+class StartSpinner(Message):
+    """请求开始一个 Spinner 动画的消息。"""
+    def __init__(self, widget_id: str) -> None:
+        self.widget_id = widget_id
+        super().__init__()
 
+class StopSpinner(Message):
+    """请求停止 Spinner 动画的消息。"""
+    pass
 class DDBAgentApp(App):
     """一个基于 Textual 的高级 DolphinDB Agent TUI"""
 
@@ -34,6 +44,7 @@ class DDBAgentApp(App):
     def __init__(self, agent: DDBAgent):
         super().__init__()
         self.agent = agent
+        self._spinner_timer = None
 
     def compose(self) -> ComposeResult:
         """创建应用的UI布局"""
@@ -53,6 +64,28 @@ class DDBAgentApp(App):
         )
         log.write(welcome_panel)
         self.query_one(Input).focus()
+    
+    def on_start_spinner(self, message: StartSpinner) -> None:
+        """在主线程中处理 StartSpinner 消息。"""
+        try:
+            widget_to_refresh = self.query_one(f"#{message.widget_id}")
+            if self._spinner_timer is not None:
+                self._spinner_timer.stop() # 先停止旧的，以防万一
+            
+            self._spinner_timer = self.set_interval(
+                1 / 15, 
+                widget_to_refresh.refresh, 
+                name="spinner_updater"
+            )
+        except Exception:
+            # 如果 widget 找不到，就不做任何事
+            pass
+
+    def on_stop_spinner(self, message: StopSpinner) -> None:
+        """在主线程中处理 StopSpinner 消息。"""
+        if self._spinner_timer is not None:
+            self._spinner_timer.stop()
+            self._spinner_timer = None
 
     # --- Action Handlers (for BINDINGS) ---
     def action_new_session(self) -> None:
@@ -74,14 +107,10 @@ class DDBAgentApp(App):
 
         if not user_input:
             return
-
-        log.write(Panel(escape(user_input), title="You", border_style="blue", title_align="right"))
+        
         self.query_one(Input).value = ""
-
         self.query_one(Input).disabled = True
 
-        # --- 关键修改在这里 ---
-        # 使用 functools.partial 来包装带参数的 worker 函数
         if user_input.lower().startswith('/'):
             worker = partial(self._handle_command, user_input)
             self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
@@ -129,16 +158,12 @@ class DDBAgentApp(App):
 
             elif cmd == '/chat':
                 if len(parts) > 1:
-                    # 将 /chat 后面的所有部分作为查询内容
                     query = " ".join(parts[1:])
-                    # 直接调用处理普通聊天任务的 worker
-                    print("query:",query)
                     self._handle_chat_task(query)
-                    # 因为 _handle_chat_task 自己会处理 finally, 这里我们就不需要再处理了
-                    # 但是为了让外层的 try...finally 正常工作，我们需要 return
-                    return
                 else:
                     self._write_to_log(Panel("[yellow]Please provide a query after /chat.[/yellow]", border_style="yellow"))
+                    self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
+                    self.call_from_thread(self.query_one(Input).focus)
 
 
             elif cmd == '/code':
@@ -156,85 +181,111 @@ class DDBAgentApp(App):
             self.call_from_thread(self.query_one(Input).focus)
 
     def _handle_chat_task(self, user_input: str):
-        """在后台处理普通聊天，并流式输出结果 (Static Widget 修复版)"""
+        """
+        处理聊天任务，并在 Agent 响应期间将用户问题置于标题栏。
+        将最终结果写入 RichLog，并移除临时 widget。
+        """
+        streaming_widget_id = f"streaming-static-{uuid.uuid4()}"
+        output_container = self.query_one("#output-container")
+        log = self.query_one("#output-log")
 
-        # 为这次任务的 Static widget 生成一个唯一的ID
-        task_widget_id = f"task-static-{uuid.uuid4()}"
+        # 模糊历史记录
+        self.call_from_thread(log.add_class, "defocused")
+
+        # --- 动态创建 Widget 子类 ---
+        class StreamingStatic(Static):
+            """一个在尺寸变化时能自动滚动父容器的 Static Widget。"""
+            def on_resize(self, event) -> None:
+                # 当这个 widget 的高度因为内容更新而改变时，这个方法会被调用。
+                # 这是确保滚动到底部的最可靠时机。
+                self.parent.scroll_end(animate=False)
+            
+        spinner = Spinner("dots", text=" Agent is thinking...")
+        truncated_query = escape(user_input[:70] + '...' if len(user_input) > 70 else user_input)
+        context_title = f"Agent 🤖  [dim]: {truncated_query}[/dim]"
+        assistant_panel = Panel(spinner, title=context_title, border_style="yellow", title_align="left")
         
-        # 在内存中创建一个 Panel 对象，我们将在循环中更新它
-        assistant_panel = Panel("...", title="Agent", border_style="yellow", title_align="left")
+        # 使用我们自定义的 StreamingStatic 类来创建 widget
+        streaming_widget = StreamingStatic(assistant_panel, id=streaming_widget_id)
+
+        # 挂载临时 widget
+        self.call_from_thread(output_container.mount, streaming_widget)
+
+        self.post_message(StartSpinner(streaming_widget_id))
         
-        # 标记是否已经将 Static widget 写入 log
-        is_widget_mounted = False
+        final_renderable = None
 
         try:
             response_generator = self.agent.run_task(user_input, stream=True)
             full_response = ""
+            first_token_received = False
             
             for part in response_generator:
                 if isinstance(part, str):
-                    # 只有在收到第一个 token 时，才创建并写入 Static widget
-                    if not is_widget_mounted:
+                    if not first_token_received:
+                        self.post_message(StopSpinner())
                         assistant_panel.border_style = "green"
-                        # 创建一个包含 Panel 的 Static widget，并赋予其唯一ID
-                        static_widget = Static(assistant_panel, id=task_widget_id)
-                        
-                        # 将这个 Static widget 写入 RichLog
-                        self.call_from_thread(self.query_one("#output-log").write, static_widget)
-                        is_widget_mounted = True
+                        first_token_received = True
                     
                     full_response += part
+                    assistant_panel.renderable = Markdown(full_response, code_theme="monokai", inline_code_theme="monokai")
                     
-                    # 更新 Panel 的内容
-                    assistant_panel.renderable = Markdown(full_response, code_theme="monokai")
-                    
-                    # 定义一个在主线程中执行的更新函数
                     def update_ui():
                         try:
-                            # 通过ID查询到UI中的 Static widget
-                            widget_to_update = self.query_one(f"#{task_widget_id}", Static)
-                            # 调用 Static widget 的 update 方法，传入更新后的 Panel
+                            widget_to_update = self.query_one(f"#{streaming_widget_id}", Static)
+                            # 只需更新内容，滚动将由 on_resize 事件自动处理
                             widget_to_update.update(assistant_panel)
                         except Exception:
                             pass
                     
-                    # 从后台线程调用这个UI更新函数
                     self.call_from_thread(update_ui)
 
                 elif isinstance(part, LLMResponse) and not part.success:
+                    self.post_message(StopSpinner())
                     error_message = f"[bold red]Error:[/bold red]\n{escape(part.error_message)}"
-                    if is_widget_mounted:
-                        def update_error_ui():
-                            try:
-                                widget_to_update = self.query_one(f"#{task_widget_id}", Static)
-                                assistant_panel.renderable = error_message
-                                assistant_panel.border_style = "red"
-                                widget_to_update.update(assistant_panel)
-                            except Exception:
-                                pass
-                        self.call_from_thread(update_error_ui)
-                    else:
-                        self._write_to_log(Panel(error_message, title="Agent", border_style="red", title_align="left"))
+                    final_renderable = Panel(error_message, title="Agent", border_style="red", title_align="left")
                     break
-        
+            
+            if final_renderable is None:
+                response_markdown = Markdown(full_response, code_theme="monokai", inline_code_theme="monokai") if full_response else Text("Empty response.")
+                final_renderable = Panel(
+                    response_markdown,
+                    title="Agent",
+                    border_style="green",
+                    title_align="left"
+                )
+
         except Exception as e:
-            error_message = f"[bold red]An unexpected error occurred:[/bold red]\n{escape(str(e))}"
-            if 'is_widget_mounted' in locals() and is_widget_mounted:
-                 def update_critical_error_ui():
-                    try:
-                        widget_to_update = self.query_one(f"#{task_widget_id}", Static)
-                        assistant_panel.renderable = error_message
-                        assistant_panel.border_style = "red"
-                        widget_to_update.update(assistant_panel)
-                    except Exception:
-                        pass
-                 self.call_from_thread(update_critical_error_ui)
-            else:
-                 self._write_to_log(Panel(error_message, title="Agent", border_style="red", title_align="left"))
+            self.post_message(StopSpinner())
+            import traceback
+            tb_str = traceback.format_exc()
+            error_message = f"[bold red]An unexpected error occurred:[/bold red]\n{escape(str(e))}\n\n[dim]{escape(tb_str)}[/dim]"
+            final_renderable = Panel(error_message, title="Agent", border_style="red", title_align="left")
 
         finally:
-            self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
-            self.call_from_thread(self.query_one(Input).focus)
+            self.post_message(StopSpinner())
+            def cleanup_and_finalize():
+                try:
+                    widget_to_remove = self.query_one(f"#{streaming_widget_id}")
+                    widget_to_remove.remove()
+                except Exception:
+                    pass
+
+                #移除 'defocused' 类，恢复历史记录
+                log.remove_class("defocused")
+                
+                user_panel = Panel(escape(user_input), title="You", border_style="blue", title_align="right")
+                log.write(user_panel)
+
+                if final_renderable:
+                    log.write(final_renderable)
+
+                self.query_one(Input).disabled = False
+                self.query_one(Input).focus()
+                
+                output_container.scroll_end(animate=True, duration=0.2)
+
+            self.call_from_thread(cleanup_and_finalize)
 
     def _handle_code_task(self, task_description: str):
         self._write_to_log(Panel(f"[bold blue]Received coding task:[/bold blue] {escape(task_description)}", title="[bold magenta]Coding Task[/bold magenta]"))

@@ -94,3 +94,17 @@ Panel.agent {
 Panel.error {
     border: round #d33682; /* 品红色/粉色边框 */
 }
+
+#output-log.defocused {
+    /* 
+     * 通过 text-opacity 降低文本的透明度，使其变暗。
+     */
+    text-opacity: 0.4;
+    
+    /* 
+     * ★ 最终修复：使用最兼容的 transition 语法，只指定属性和时长。
+     * 这在所有版本的 Textual 中都应该有效。
+     */
+    transition: text-opacity 0.5s;
+}
+
