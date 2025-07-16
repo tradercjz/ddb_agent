@@ -31,6 +31,7 @@ class CodeExecutor:
         self.user = user or os.getenv("DDB_USER", "admin")
         self.password = password or os.getenv("DDB_PASSWORD", "123456") #
         self.logger = logger
+        self.session = None
 
         if not all([self.host, self.port, self.user, self.password]):
             raise ValueError(
@@ -40,6 +41,18 @@ class CodeExecutor:
 
         if self.logger:
             self.logger.info(f"CodeExecutor initialized for DolphinDB at {self.host}:{self.port}")
+
+    def _get_session(self):
+        if self.session is None:
+            self.session = DatabaseSession(self.host, self.port, self.user, self.password, logger=self.logger)
+            self.session.connect()
+        return self.session
+
+    def close(self):
+        """关闭持久化的 session。"""
+        if self.session:
+            self.session.close()
+            self.session = None
 
     def run(self, script: str) -> ExecutionResult:
         """
@@ -66,10 +79,8 @@ class CodeExecutor:
         start_time = time.time()
         
         try:
-            # 使用 `with` 语句来自动管理 session 的连接和关闭
-            with DatabaseSession(self.host, self.port, self.user, self.password, logger=self.logger) as db_session:
-                success, result = db_session.execute(script)
-            
+            db_session = self._get_session()
+            success, result = db_session.execute(script)
             end_time = time.time()
             duration = end_time - start_time
 

@@ -17,6 +17,12 @@ from rich.pretty import pprint
 
 from agent.tool_manager import ToolManager
 from agent.tools.ddb_tools import GetFunctionSignatureTool, RunDolphinDBScriptTool
+from agent.tools.enhanced_ddb_tools import (
+    InspectDatabaseTool, ListTablesTool, DescribeTableTool, 
+    ValidateScriptTool, QueryDataTool, CreateSampleDataTool, OptimizeQueryTool
+)
+from agent.enhanced_planner import EnhancedPlanner
+from agent.enhanced_executor import EnhancedExecutor
 from utils.json_parser import parse_json_string
 
 
@@ -31,11 +37,24 @@ class DDBAgent:
         self.rag = DDBRAG(project_path=project_path)
         self.llm_model_name = model_name
         self.code_executor = CodeExecutor()
+        # 初始化工具管理器（包含增强工具集）
         self.tool_manager = ToolManager([
+            # 基础工具
             RunDolphinDBScriptTool(),
-            GetFunctionSignatureTool()
-            # 未来可以添加更多工具, e.g., ReadFileTool, ListDirectoryTool
+            GetFunctionSignatureTool(),
+            # 增强工具集
+            InspectDatabaseTool(),
+            ListTablesTool(),
+            DescribeTableTool(),
+            ValidateScriptTool(),
+            QueryDataTool(),
+            CreateSampleDataTool(),
+            OptimizeQueryTool()
         ])
+        
+        # 初始化增强规划器和执行器
+        self.enhanced_planner = EnhancedPlanner(self.tool_manager, self.rag)
+        self.enhanced_executor = EnhancedExecutor(self.tool_manager, self.enhanced_planner)
         self.last_successful_script: str | None = None 
 
         # 定义一个通用的聊天Prompt
@@ -290,6 +309,30 @@ class DDBAgent:
             self.last_successful_script = None 
 
         yield {"type": "final_result", "result_object": final_result_obj}
+    
+    def run_enhanced_coding_task(self, user_input: str) -> Generator[Dict[str, Any], None, None]:
+        """
+        使用增强的plan/act模式执行编码任务
+        """
+        yield {"type": "status", "message": "🚀 Starting enhanced coding task..."}
+        
+        try:
+            # 使用增强执行器执行任务
+            for update in self.enhanced_executor.execute_task(user_input):
+                # 保存最后成功的脚本
+                if (update.get("type") == "final_result" and 
+                    update.get("result_object") and 
+                    isinstance(update["result_object"], ExecutionResult) and 
+                    update["result_object"].success):
+                    self.last_successful_script = update["result_object"].executed_script
+                
+                yield update
+                
+        except Exception as e:
+            yield {
+                "type": "error", 
+                "message": f"Enhanced coding task failed: {str(e)}"
+            }
 
     def save_last_script(self, file_path: str) -> Tuple[bool, str]:
         """

@@ -133,8 +133,10 @@ class DDBAgentApp(App):
 - Type your query directly to chat with the agent (RAG-based Q&A).
 - Use the following slash commands for special actions:
   - `/chat <your query>`: Explicitly start a RAG-based chat query.
-  - `/code <your task>`: Ask the agent to write and execute DolphinDB code.
+  - `/code <your task>`: Ask the agent to write and execute DolphinDB code (basic mode).
+  - `/enhanced <your task>`: Use enhanced plan-and-execute mode with advanced tools.
   - `/save <file_path>`: Save the last successful script to a file.
+  - `/stats`: Show execution statistics for enhanced mode.
   - `/new` or `/reset`: Start a new conversation session (or use `Ctrl+N`).
   - `/help`: Show this help message.
   - `/exit` or `/quit`: Exit the agent (or use `Ctrl+Q`).
@@ -172,6 +174,29 @@ class DDBAgentApp(App):
                     self._handle_code_task(task_description)
                 else:
                     self._write_to_log(Panel("[yellow]Please provide a task description.[/yellow]", border_style="yellow"))
+            
+            elif cmd == '/enhanced':
+                if len(parts) > 1:
+                    task_description = " ".join(parts[1:])
+                    self._handle_enhanced_code_task(task_description)
+                else:
+                    self._write_to_log(Panel("[yellow]Please provide a task description.[/yellow]", border_style="yellow"))
+            
+            elif cmd == '/stats':
+                stats = self.agent.enhanced_executor.get_execution_stats()
+                stats_text = f"""
+**Enhanced Executor Statistics**
+
+- Total Tasks: {stats.get('total_tasks', 0)}
+- Successful Tasks: {stats.get('successful_tasks', 0)}
+- Failed Tasks: {stats.get('failed_tasks', 0)}
+- Success Rate: {stats.get('success_rate', 0):.1%}
+- Total Steps: {stats.get('total_steps', 0)}
+- Failed Steps: {stats.get('failed_steps', 0)}
+- Step Failure Rate: {stats.get('step_failure_rate', 0):.1%}
+- Recovery Attempts: {stats.get('recovery_attempts', 0)}
+                """
+                self._write_to_log(Panel(Markdown(stats_text), title="[bold cyan]Statistics[/bold cyan]", border_style="cyan"))
             
             else:
                 self._write_to_log(Panel(f"[red]Unknown command: {cmd}[/red]", border_style="red"))
@@ -346,6 +371,116 @@ class DDBAgentApp(App):
                     ))
         except Exception as e:
             self._write_to_log(Panel(f"[bold red]An unexpected error occurred during the coding task:[/bold red]\n{e}", border_style="red"))
+    
+    def _handle_enhanced_code_task(self, task_description: str):
+        """处理增强的代码任务"""
+        self._write_to_log(Panel(
+            f"[bold blue]🚀 Enhanced Coding Task:[/bold blue] {escape(task_description)}", 
+            title="[bold magenta]Enhanced Plan & Execute[/bold magenta]",
+            border_style="magenta"
+        ))
+        
+        try:
+            response_generator = self.agent.run_enhanced_coding_task(task_description)
+            
+            for update in response_generator:
+                update_type = update.get("type")
+                message = escape(update.get("message", ""))
+
+                if update_type == "status":
+                    self._write_to_log(Panel(f"⚙️ {message}", border_style="yellow"))
+                
+                elif update_type == "plan":
+                    plan_text = ""
+                    plan_data = update.get("plan", [])
+                    complexity = update.get("complexity", "unknown")
+                    
+                    plan_text += f"[bold]Task Complexity:[/bold] {complexity.upper()}\n\n"
+                    
+                    if isinstance(plan_data, list):
+                        for step in plan_data:
+                            step_id = step.get("step_id", "?")
+                            action = escape(str(step.get("action", "N/A")))
+                            thought = escape(str(step.get("thought", "No thought.")))
+                            args = step.get("args", {})
+                            
+                            plan_text += f"[b]{step_id}. {action}[/b]\n"
+                            plan_text += f"   [dim]💭 {thought}[/dim]\n"
+                            if args:
+                                plan_text += f"   [dim]📋 Args: {escape(str(args))}[/dim]\n"
+                            plan_text += "\n"
+                    
+                    self._write_to_log(Panel(plan_text, title="[yellow]📋 Execution Plan[/yellow]", border_style="yellow"))
+                
+                elif update_type == "step_start":
+                    step_num = update.get('step', '?')
+                    action = escape(str(update.get("action", "N/A")))
+                    thought = escape(str(update.get("thought", "")))
+                    log_entry = f"[bold green]▶️ Step {step_num}: {action}[/bold green]\n[dim]   💭 {thought}[/dim]"
+                    self._write_to_log(Panel(log_entry, title=f"Step {step_num} Start", border_style="green"))
+
+                elif update_type == "step_result":
+                    step_num = update.get('step', '?')
+                    success = update.get('success', False)
+                    observation = update.get('observation', '')
+                    execution_time = update.get('execution_time', 0)
+                    
+                    status_icon = "✅" if success else "❌"
+                    status_color = "green" if success else "red"
+                    
+                    obs_text = f"{status_icon} [bold]Result:[/bold]\n{escape(observation)}"
+                    if execution_time:
+                        obs_text += f"\n\n[dim]⏱️ Execution time: {execution_time:.2f}s[/dim]"
+                    
+                    self._write_to_log(Panel(obs_text, title=f"[{status_color}]Step {step_num} Result[/{status_color}]", border_style=status_color))
+
+                elif update_type == "recovery_plan":
+                    original_step = update.get('original_step', '?')
+                    new_steps = update.get('new_steps', [])
+                    
+                    recovery_text = f"[bold yellow]🔧 Recovery for Step {original_step}[/bold yellow]\n\n"
+                    for step in new_steps:
+                        step_id = step.get("step_id", "?")
+                        action = escape(str(step.get("action", "N/A")))
+                        thought = escape(str(step.get("thought", "")))
+                        recovery_text += f"[b]{step_id}. {action}[/b]\n   [dim]💭 {thought}[/dim]\n"
+                    
+                    self._write_to_log(Panel(recovery_text, title="[yellow]🔄 Recovery Plan[/yellow]", border_style="yellow"))
+
+                elif update_type == "final_result":
+                    final_exec_result = update.get('result_object')
+                    execution_time = update.get('execution_time', 0)
+                    stats = update.get('stats', {})
+                    
+                    success_text = f"[bold green]✅ Enhanced Task Completed Successfully![/bold green]\n\n"
+                    success_text += f"[dim]⏱️ Total execution time: {execution_time:.2f}s[/dim]\n"
+                    success_text += f"[dim]📊 Steps executed: {stats.get('total_steps', 0)}[/dim]"
+                    
+                    self._write_to_log(Panel(success_text, title="[bold green]🎉 Success[/bold green]", border_style="green"))
+                    
+                    if final_exec_result and final_exec_result.executed_script:
+                        self._write_to_log(Panel(
+                            Syntax(final_exec_result.executed_script, "dos", theme="monokai", line_numbers=True),
+                            title="[yellow]📜 Final Successful Script[/yellow]", border_style="yellow"
+                        ))
+                    
+                    if final_exec_result and final_exec_result.data is not None:
+                        result_str = str(final_exec_result.data)
+                        self._write_to_log(Panel(result_str, title="[cyan]📊 Result Data[/cyan]", border_style="cyan"))
+
+                elif update_type == "error":
+                    error_msg = update.get('message', 'Unknown error')
+                    stats = update.get('stats', {})
+                    
+                    error_text = f"[bold red]❌ Enhanced Task Failed[/bold red]\n\n"
+                    error_text += f"[bold]Error:[/bold] {escape(error_msg)}\n\n"
+                    error_text += f"[dim]📊 Steps attempted: {stats.get('total_steps', 0)}[/dim]\n"
+                    error_text += f"[dim]🔄 Recovery attempts: {stats.get('recovery_attempts', 0)}[/dim]"
+                    
+                    self._write_to_log(Panel(error_text, title="[bold red]💥 Failure[/bold red]", border_style="red"))
+                    
+        except Exception as e:
+            self._write_to_log(Panel(f"[bold red]An unexpected error occurred during the enhanced coding task:[/bold red]\n{e}", border_style="red"))
         
 if __name__ == "__main__":
     try:

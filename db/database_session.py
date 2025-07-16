@@ -12,6 +12,7 @@ class DatabaseSession:
         self.reconnect = reconnect
         self.session = ddb.session()
         self.logger = logger
+        self.isConnected = False
 
     def __enter__(self):
         self.session.connect(
@@ -22,10 +23,13 @@ class DatabaseSession:
             keepAliveTime=self.keep_alive_time, 
             reconnect=self.reconnect
         )
+        self.isConnected = True
         return self 
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.session.close()
+        self.isConnected = False
+
     
     def execute(self, script: str) -> Tuple[bool, Any]:
         """执行DolphinDB脚本并返回结果或错误"""
@@ -34,3 +38,21 @@ class DatabaseSession:
             return True, result
         except Exception as e:
             return False, str(e) 
+
+    def connect(self):
+        """显式建立连接（可多次调用，已连则跳过）"""
+        if not self.isConnected:
+            self.session.connect(
+                self.host, 
+                int(self.port), 
+                self.user, 
+                self.passwd,
+                keepAliveTime=self.keep_alive_time, 
+                reconnect=self.reconnect
+            )
+
+    def close(self):
+        """显式关闭连接"""
+        if self.isConnected:
+            self.session.close()
+            self.isConnected = False
