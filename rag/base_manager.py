@@ -1,6 +1,7 @@
 # file: ddb_agent/rag/base_manager.py
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import hashlib
 import json
 import os
 import threading
@@ -141,6 +142,19 @@ class BaseIndexManager(ABC):
                     discovered_files.append(full_path)
         
         return discovered_files
+    
+    def _calculate_md5(self, file_path: str) -> str:
+        """Calculates the MD5 hash of a file."""
+        hash_md5 = hashlib.md5()
+        try:
+            with open(file_path, "rb") as f:
+                # Read file in chunks to handle large files efficiently
+                for chunk in iter(lambda: f.read(4096), b""):
+                    hash_md5.update(chunk)
+            return hash_md5.hexdigest()
+        except FileNotFoundError:
+            return "" # Return empty string if file not found
+
     
     def build_index(self, file_extensions: Optional[Union[str, List[str]]] = None, max_workers: int = 4):
         """

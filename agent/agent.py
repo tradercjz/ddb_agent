@@ -25,7 +25,6 @@ from agent.enhanced_planner import EnhancedPlanner
 from agent.enhanced_executor import EnhancedExecutor
 from utils.json_parser import parse_json_string
 
-
 class DDBAgent:
     """
     The main agent orchestrating all components: session, RAG, context, and LLM.
@@ -40,16 +39,16 @@ class DDBAgent:
         # 初始化工具管理器（包含增强工具集）
         self.tool_manager = ToolManager([
             # 基础工具
-            RunDolphinDBScriptTool(),
+            RunDolphinDBScriptTool(executor=self.code_executor),
             GetFunctionSignatureTool(),
             # 增强工具集
-            InspectDatabaseTool(),
-            ListTablesTool(),
-            DescribeTableTool(),
-            ValidateScriptTool(),
-            QueryDataTool(),
-            CreateSampleDataTool(),
-            OptimizeQueryTool()
+            InspectDatabaseTool(executor=self.code_executor),
+            ListTablesTool(executor=self.code_executor),
+            DescribeTableTool(executor=self.code_executor),
+            ValidateScriptTool(executor=self.code_executor),
+            QueryDataTool(executor=self.code_executor),
+            CreateSampleDataTool(executor=self.code_executor),
+            OptimizeQueryTool(executor=self.code_executor)
         ])
         
         # 初始化增强规划器和执行器
@@ -329,9 +328,15 @@ class DDBAgent:
                 yield update
                 
         except Exception as e:
+            if e is None:
+                print("捕获到了 None 异常对象！")
+                message = "Enhanced coding task failed: Unknown error (NoneType)"
+            else:
+                message = f"Enhanced coding task failed: {str(e)}"
+
             yield {
-                "type": "error", 
-                "message": f"Enhanced coding task failed: {str(e)}"
+                "type": "error",
+                "message": message
             }
 
     def save_last_script(self, file_path: str) -> Tuple[bool, str]:

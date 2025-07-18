@@ -49,6 +49,7 @@ class ExecutionPlan:
         for step in self.steps[self.current_step:]:
             if step.status == StepStatus.PENDING:
                 # 检查依赖是否满足
+                #TODO：注意这里是否存在问题
                 if all(self.steps[dep_id-1].status == StepStatus.SUCCESS 
                       for dep_id in step.dependencies):
                     return step
@@ -56,7 +57,12 @@ class ExecutionPlan:
     
     def mark_step_completed(self, step_id: int, success: bool, result: Any = None, error: str = None):
         """标记步骤完成状态"""
-        step = self.steps[step_id - 1]
+        
+        step = None
+        for s in self.steps:
+            if s.step_id == step_id:
+                step = s
+                break
         step.status = StepStatus.SUCCESS if success else StepStatus.FAILED
         step.result = result
         step.error_message = error
@@ -145,6 +151,7 @@ class EnhancedPlanner:
         ```
 
         注意，输出的时候，不要有额外的开头，必须保证是以```json开头，```结束的json格式
+        注意，DolphinDB有分布式表和内存表。内存表，不需要使用loadTable来加载，只有dfs表需要
         
         ## Available Actions
         Use only the tool names from the available tools list above.
@@ -193,6 +200,9 @@ class EnhancedPlanner:
           ]
         }
         ```
+
+        注意，输出的时候，不要有额外的开头，必须保证是以```json开头，```结束的json格式
+        注意，DolphinDB有分布式表和内存表。内存表，不需要使用loadTable来加载，只有dfs表需要
         """
         pass
     

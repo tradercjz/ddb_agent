@@ -8,7 +8,7 @@ class ExecutionResult(BaseModel):
     A structured container for the result of executing a code script.
     """
     success: bool
-    executed_script: str 
+    executed_script: Optional[str] = None 
     data: Optional[Any] = None
     error_message: Optional[str] = None
     

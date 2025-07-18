@@ -34,8 +34,8 @@ class RunDolphinDBScriptTool(BaseTool):
     description = "Executes a given DolphinDB script. Returns the data output on success or an error message on failure."
     args_schema = RunDolphinDBScriptInput
     
-    def __init__(self):
-        self.executor = CodeExecutor()
+    def __init__(self, executor: CodeExecutor):
+        self.executor = executor
 
     def run(self, args: RunDolphinDBScriptInput) -> ExecutionResult:
         return self.executor.run(args.script)

@@ -72,7 +72,7 @@ class EnhancedExecutor:
                     plan.context[f"step_{next_step.step_id}_result"] = step_result["result"]
                     
                     # 如果是最后一步，保存最终结果
-                    if next_step.step_id == len(plan.steps):
+                    if next_step == plan.steps[-1]:
                         final_result = step_result["result"]
                 
                 else:
@@ -81,7 +81,7 @@ class EnhancedExecutor:
                     plan.mark_step_completed(
                         next_step.step_id, 
                         False, 
-                        error=step_result["error"]
+                        error = step_result.get("error") if step_result else None
                     )
                     
                     # 尝试恢复
@@ -90,7 +90,7 @@ class EnhancedExecutor:
                     else:
                         yield {
                             "type": "error",
-                            "message": f"❌ Step {next_step.step_id} failed after {next_step.max_retries} retries: {step_result['error']}"
+                            "message": f"❌ Step {next_step.step_id} failed after {next_step.max_retries} retries: {step_result.get('error') if step_result else 'Unknown error'}"
                         }
                         break
             
@@ -116,6 +116,8 @@ class EnhancedExecutor:
         
         except Exception as e:
             self.execution_stats["failed_tasks"] += 1
+            import traceback
+            self.logger.error(f"Unexpected error during task execution: {traceback.format_exc()}")
             yield {
                 "type": "error",
                 "message": f"💥 Unexpected error during task execution: {str(e)}"
@@ -146,6 +148,7 @@ class EnhancedExecutor:
                 result_data = tool_result.data if success else tool_result.error_message
                 observation = str(result_data)
             else:
+                #TODO： 这里有个问题，不一定是success的，也有可能是失败的，比如运行脚本，query_data等
                 success = True
                 result_data = tool_result
                 observation = str(tool_result)
@@ -194,11 +197,13 @@ class EnhancedExecutor:
             # 生成恢复计划
             recovery_plan = self.planner.handle_step_failure(plan, failed_step)
             
+
+            len_successful_steps = len([s for s in recovery_plan.steps if s.status == StepStatus.SUCCESS])
             yield {
                 "type": "recovery_plan",
                 "original_step": failed_step.step_id,
-                "new_steps": [asdict(step) for step in recovery_plan.steps[len(plan.steps):]],
-                "message": f"🔄 Generated recovery plan with {len(recovery_plan.steps) - len(plan.steps)} new steps"
+                "new_steps": [asdict(step) for step in recovery_plan.steps[len_successful_steps:]],
+                "message": f"🔄 Generated recovery plan with {len(recovery_plan.steps) - len_successful_steps} new steps"
             }
             
             # 更新计划

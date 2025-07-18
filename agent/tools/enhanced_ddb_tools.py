@@ -20,8 +20,8 @@ class InspectDatabaseTool(BaseTool):
     description = "Check database connection status and get basic system information like version, memory usage, and available databases."
     args_schema = InspectDatabaseInput
     
-    def __init__(self):
-        self.executor = CodeExecutor()
+    def __init__(self, executor: CodeExecutor):
+        self.executor = executor
     
     def run(self, args: InspectDatabaseInput) -> str:
         """检查数据库状态"""
@@ -62,8 +62,8 @@ class ListTablesTool(BaseTool):
     description = "List all tables in a database or current session, optionally filtered by pattern."
     args_schema = ListTablesInput
     
-    def __init__(self):
-        self.executor = CodeExecutor()
+    def __init__(self, executor: CodeExecutor):
+        self.executor = executor
     
     def run(self, args: ListTablesInput) -> str:
         if args.database_name:
@@ -95,8 +95,8 @@ class DescribeTableTool(BaseTool):
     description = "Get detailed schema information about a table including column names, types, and sample data."
     args_schema = DescribeTableInput
     
-    def __init__(self):
-        self.executor = CodeExecutor()
+    def __init__(self, executor: CodeExecutor):
+        self.executor = executor
     
     def run(self, args: DescribeTableInput) -> str:
         if args.database_name:
@@ -140,8 +140,8 @@ class ValidateScriptTool(BaseTool):
     description = "Check a DolphinDB script for syntax errors without executing it."
     args_schema = ValidateScriptInput
     
-    def __init__(self):
-        self.executor = CodeExecutor()
+    def __init__(self, executor: CodeExecutor):
+        self.executor = executor
     
     def run(self, args: ValidateScriptInput) -> str:
         # DolphinDB doesn't have a built-in syntax validator, so we'll try to parse it
@@ -171,8 +171,8 @@ class QueryDataTool(BaseTool):
     description = "Execute a SELECT query and return results with optional row limit."
     args_schema = QueryDataInput
     
-    def __init__(self):
-        self.executor = CodeExecutor()
+    def __init__(self, executor: CodeExecutor):
+        self.executor = executor
     
     def run(self, args: QueryDataInput) -> str:
         # Add limit to query if not already present
@@ -199,8 +199,8 @@ class CreateSampleDataTool(BaseTool):
     description = "Create sample data for testing purposes. Supports common financial data types."
     args_schema = CreateSampleDataInput
     
-    def __init__(self):
-        self.executor = CodeExecutor()
+    def __init__(self, executor: CodeExecutor):
+        self.executor = executor
     
     def run(self, args: CreateSampleDataInput) -> str:
         table_name = args.table_name or f"sample_{args.data_type}"
@@ -264,8 +264,8 @@ class OptimizeQueryTool(BaseTool):
     description = "Analyze a query and suggest optimizations for better performance."
     args_schema = OptimizeQueryInput
     
-    def __init__(self):
-        self.executor = CodeExecutor()
+    def __init__(self, executor: CodeExecutor):
+        self.executor = executor
     
     def run(self, args: OptimizeQueryInput) -> str:
         # This is a simplified optimization analyzer
