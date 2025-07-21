@@ -38,4 +38,4 @@ def setup_llm_logger(log_file_path: str = None):
             print(f"Failed to set up LLM request logger at {log_file_path}: {e}")
 
 # 在模块加载时，可以不设置文件日志，等待配置
-# setup_llm_logger()
+setup_llm_logger("app.log")

@@ -1,9 +1,10 @@
 # file: agent/tools/enhanced_ddb_tools.py
 
 import dolphindb as ddb
-from pydantic import Field
+from pydantic import Field, field_validator
 from typing import List, Dict, Any, Optional
 import json
+import os
 
 from agent.execution_result import ExecutionResult 
 from .tool_interface import BaseTool, ToolInput
@@ -23,34 +24,21 @@ class InspectDatabaseTool(BaseTool):
     def __init__(self, executor: CodeExecutor):
         self.executor = executor
     
-    def run(self, args: InspectDatabaseInput) -> str:
+    def run(self, args: InspectDatabaseInput) -> ExecutionResult:
         """检查数据库状态"""
         inspection_script = """
         // Database inspection script
         info = dict(STRING, ANY)
         info["version"] = version()
         info["license"] = license()
-        info["memory_usage"] = memory()
         info["node_count"] = getClusterPerf().size()
-        info["current_user"] = getCurrentUser()
-        info["current_session"] = getCurrentSessionId()
-        
-        // Get available databases
-        try {
-            info["databases"] = exec sql from getClusterDFSDatabases()
-        } catch(ex) {
-            info["databases"] = "No DFS databases or insufficient permissions"
-        }
-        
+        info["databases"] =  getClusterDFSDatabases()
+      
         info
         """
         
         result = self.executor.run(inspection_script)
-        if result.success:
-            return f"Database inspection successful:\n{result.data}"
-        else:
-            return f"Database inspection failed: {result.error_message}"
-
+        return result
 
 class ListTablesInput(ToolInput):
     database_name: Optional[str] = Field(default=None, description="Database name to list tables from. If not provided, lists tables from current session.")
@@ -65,7 +53,7 @@ class ListTablesTool(BaseTool):
     def __init__(self, executor: CodeExecutor):
         self.executor = executor
     
-    def run(self, args: ListTablesInput) -> str:
+    def run(self, args: ListTablesInput) -> ExecutionResult:
         if args.database_name:
             script = f"""
             database("{args.database_name}").listTables()
@@ -79,10 +67,7 @@ class ListTablesTool(BaseTool):
             """
         
         result = self.executor.run(script)
-        if result.success:
-            return f"Tables found:\n{result.data}"
-        else:
-            return f"Failed to list tables: {result.error_message}"
+        return result
 
 
 class DescribeTableInput(ToolInput):
@@ -98,7 +83,7 @@ class DescribeTableTool(BaseTool):
     def __init__(self, executor: CodeExecutor):
         self.executor = executor
     
-    def run(self, args: DescribeTableInput) -> str:
+    def run(self, args: DescribeTableInput) -> ExecutionResult:
         if args.database_name:
             table_ref = f'database("{args.database_name}").loadTable("{args.table_name}")'
         else:
@@ -125,10 +110,7 @@ class DescribeTableTool(BaseTool):
         """
         
         result = self.executor.run(script)
-        if result.success:
-            return f"Table description:\n{result.data}"
-        else:
-            return f"Failed to describe table: {result.error_message}"
+        return result
 
 
 class ValidateScriptInput(ToolInput):
@@ -143,7 +125,7 @@ class ValidateScriptTool(BaseTool):
     def __init__(self, executor: CodeExecutor):
         self.executor = executor
     
-    def run(self, args: ValidateScriptInput) -> str:
+    def run(self, args: ValidateScriptInput) -> ExecutionResult:
         # DolphinDB doesn't have a built-in syntax validator, so we'll try to parse it
         validation_script = f"""
         try {{
@@ -155,10 +137,7 @@ class ValidateScriptTool(BaseTool):
         """
         
         result = self.executor.run(validation_script)
-        if result.success:
-            return str(result.data)
-        else:
-            return f"Validation failed: {result.error_message}"
+        return result
 
 
 class QueryDataInput(ToolInput):
@@ -174,7 +153,7 @@ class QueryDataTool(BaseTool):
     def __init__(self, executor: CodeExecutor):
         self.executor = executor
     
-    def run(self, args: QueryDataInput) -> str:
+    def run(self, args: QueryDataInput) -> ExecutionResult:
         # Add limit to query if not already present
         query = args.query.strip()
         if args.limit and not query.lower().startswith('select top'):
@@ -182,10 +161,7 @@ class QueryDataTool(BaseTool):
                 query = query.replace('select', f'select top {args.limit}', 1)
         
         result = self.executor.run(query)
-        if result.success:
-            return f"Query results:\n{result.data}"
-        else:
-            return f"Query failed: {result.error_message}"
+        return result
 
 
 class CreateSampleDataInput(ToolInput):
@@ -202,7 +178,7 @@ class CreateSampleDataTool(BaseTool):
     def __init__(self, executor: CodeExecutor):
         self.executor = executor
     
-    def run(self, args: CreateSampleDataInput) -> str:
+    def run(self, args: CreateSampleDataInput) -> ExecutionResult:
         table_name = args.table_name or f"sample_{args.data_type}"
         
         if args.data_type.lower() == "trades":
@@ -249,10 +225,7 @@ class CreateSampleDataTool(BaseTool):
             return f"Unsupported data type: {args.data_type}. Supported types: trades, quotes, timeseries"
         
         result = self.executor.run(script)
-        if result.success:
-            return f"Sample data created successfully. Table '{table_name}' with {result.data} rows."
-        else:
-            return f"Failed to create sample data: {result.error_message}"
+        return result
 
 
 class OptimizeQueryInput(ToolInput):
@@ -267,7 +240,7 @@ class OptimizeQueryTool(BaseTool):
     def __init__(self, executor: CodeExecutor):
         self.executor = executor
     
-    def run(self, args: OptimizeQueryInput) -> str:
+    def run(self, args: OptimizeQueryInput) -> ExecutionResult:
         # This is a simplified optimization analyzer
         # In practice, you might want to use DolphinDB's query plan analysis
         
@@ -297,7 +270,94 @@ class OptimizeQueryTool(BaseTool):
         """
         
         result = self.executor.run(analysis_script)
-        if result.success:
-            return f"Query optimization analysis:\n{result.data}"
-        else:
-            return f"Failed to analyze query: {result.error_message}"
+        return result
+        
+
+class GetFunctionDocumentationInput(ToolInput):
+    """Input model for the function documentation tool."""
+    function_name: str = Field(description="The name of the DolphinDB function to look up documentation for. Should not be empty.")
+
+    # Pydantic v2 的写法
+    @field_validator('function_name')
+    @classmethod
+    def function_name_must_not_be_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError('function_name must not be empty')
+        return v
+
+class GetFunctionDocumentationTool(BaseTool):
+    """
+    A tool to retrieve detailed documentation for a specific DolphinDB function.
+    """
+    name = "get_function_documentation"
+    description = (
+        "Retrieves the full documentation for a specific DolphinDB function from the knowledge base. "
+        "Use this when you are unsure about a function's arguments, behavior, or see an error message "
+        "related to a specific function call (e.g., 'wrong number of arguments')."
+    )
+    args_schema = GetFunctionDocumentationInput
+
+    def __init__(self, project_path: str):
+        """
+        Initializes the tool.
+        
+        Args:
+            project_path: The root path of the project, used to locate the 'documentation/funcs' folder.
+        """
+        # 路径现在指向 funcs 子目录
+        self.base_doc_path = os.path.join(project_path, "documentation", "funcs")
+
+    def run(self, args: GetFunctionDocumentationInput) -> ExecutionResult:
+        """
+        Reads and returns the content of a function's documentation file 
+        from the structured directory: documentation/funcs/{first_char}/{function_name}.md
+        """
+        function_name = args.function_name.strip()
+
+        # 1. 获取函数名的首字母
+        first_char = function_name[0].lower()
+        
+        # 2. 检查首字母是否是合法的目录名 (例如，a-z)
+        if not 'a' <= first_char <= 'z':
+            return f"Error: Invalid function name '{function_name}'. It must start with a letter."
+
+        # 3. 构造完整的文件路径
+        #    函数名本身也统一转为小写，以匹配文件名
+        doc_file_path = os.path.join(self.base_doc_path, first_char, f"{function_name.lower()}.md")
+
+        # 4. 检查文件是否存在
+        if not os.path.exists(doc_file_path):
+            # 可以提供更友好的提示，比如建议Agent检查函数名拼写
+            return (
+                f"Error: Documentation for function '{function_name}' not found. "
+                f"Searched at: '{doc_file_path}'. "
+                "Please ensure the function name is spelled correctly."
+            )
+
+        try:
+            # 5. 读取文件内容
+            with open(doc_file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # 6. 检查文件内容是否为空
+            if not content or not content.strip():
+                return (
+                    f"Warning: Documentation for function '{function_name}' was found, "
+                    "but the file is empty. No details are available."
+                )
+
+            return ExecutionResult(
+                success=True,
+                executed_script=f"Documentation for function '{function_name}' retrieved successfully.",
+                data=(
+                f"--- Documentation for {function_name} ---\n\n"
+                f"{content}\n\n"
+                f"--- End of Documentation ---"
+            )
+            )
+        except Exception as e:
+            return ExecutionResult(
+                success=False,
+                executed_script=f"Failed to read documentation for function '{function_name}'.",
+                error_message=str(e)
+            )

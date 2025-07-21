@@ -1,5 +1,6 @@
 # file: ddb_agent/agent.py (之前在main.py中虚构的，现在正式实现)
 
+import datetime
 import json
 import os
 from typing import Generator, List, Dict, Any, Tuple
@@ -16,10 +17,11 @@ from llm.llm_prompt import llm # 假设llm实例在这里
 from rich.pretty import pprint
 
 from agent.tool_manager import ToolManager
-from agent.tools.ddb_tools import GetFunctionSignatureTool, RunDolphinDBScriptTool
+from agent.tools.ddb_tools import  RunDolphinDBScriptTool
 from agent.tools.enhanced_ddb_tools import (
     InspectDatabaseTool, ListTablesTool, DescribeTableTool, 
-    ValidateScriptTool, QueryDataTool, CreateSampleDataTool, OptimizeQueryTool
+    ValidateScriptTool, QueryDataTool, CreateSampleDataTool, OptimizeQueryTool,
+    GetFunctionDocumentationTool
 )
 from agent.enhanced_planner import EnhancedPlanner
 from agent.enhanced_executor import EnhancedExecutor
@@ -40,12 +42,11 @@ class DDBAgent:
         self.tool_manager = ToolManager([
             # 基础工具
             RunDolphinDBScriptTool(executor=self.code_executor),
-            GetFunctionSignatureTool(),
+            GetFunctionDocumentationTool("/home/jzchen/ddb_agent"),
             # 增强工具集
             InspectDatabaseTool(executor=self.code_executor),
             ListTablesTool(executor=self.code_executor),
             DescribeTableTool(executor=self.code_executor),
-            ValidateScriptTool(executor=self.code_executor),
             QueryDataTool(executor=self.code_executor),
             CreateSampleDataTool(executor=self.code_executor),
             OptimizeQueryTool(executor=self.code_executor)
@@ -63,8 +64,7 @@ class DDBAgent:
             You are a helpful DolphinDB assistant. Continue the conversation naturally.
             The user's latest message is the last one in the history.
             """
-            # 这个函数只用于传递历史，所以返回空字典
-            return {"model": self.llm_model_name}
+
         
         self.chat_prompt_func = _default_chat_prompt
 
@@ -333,6 +333,23 @@ class DDBAgent:
                 message = "Enhanced coding task failed: Unknown error (NoneType)"
             else:
                 message = f"Enhanced coding task failed: {str(e)}"
+
+            import traceback
+            tb = traceback.format_exc()
+            timestamp = datetime.datetime.now().isoformat()
+            # 日志或调试信息
+            print("=== Enhanced Coding Task Error ===")
+            print(f"Time: {timestamp}")
+      
+            print(f"User Input: {user_input}")
+            print(f"Message: {message}")
+            print("Traceback:")
+            print(tb)
+
+            # 也可以写入日志文件
+            with open("error_log.txt", "a") as f:
+                f.write(f"[{timestamp}] : {message}\n{tb}\nUser Input: {user_input}\n\n")
+
 
             yield {
                 "type": "error",

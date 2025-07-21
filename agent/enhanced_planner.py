@@ -1,9 +1,14 @@
 # file: agent/enhanced_planner.py
 
-from typing import List, Dict, Any, Optional, Generator
+import logging
+from typing import List, Dict, Any, Optional, Generator, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 import json
+
+import numpy as np
+import pandas as pd
+from agent.execution_result import ExecutionResult
 from llm.llm_prompt import llm
 from utils.json_parser import parse_json_string
 
@@ -35,7 +40,12 @@ class PlanStep:
     retry_count: int = 0
     max_retries: int = 2
 
-
+# 设置日志记录器
+logging.basicConfig(
+    filename='execution_errors.log',  # 日志文件的名称
+    level=logging.ERROR,  # 记录错误及更严重的日志
+    format='%(asctime)s - %(levelname)s - %(message)s'  # 日志格式
+)
 @dataclass
 class ExecutionPlan:
     task_description: str
@@ -48,11 +58,30 @@ class ExecutionPlan:
         """获取下一个可执行的步骤"""
         for step in self.steps[self.current_step:]:
             if step.status == StepStatus.PENDING:
-                # 检查依赖是否满足
                 #TODO：注意这里是否存在问题
-                if all(self.steps[dep_id-1].status == StepStatus.SUCCESS 
-                      for dep_id in step.dependencies):
-                    return step
+                try:
+
+                    if step.dependencies:
+                        # 确保索引合法
+                        if all(self.steps[dep_id - 1].status == StepStatus.SUCCESS for dep_id in step.dependencies):
+                            return step
+                    else:
+                        return step
+                except IndexError as e:
+                    # 异常处理，输出错误信息
+                    print(f"IndexError: Invalid index while checking step dependencies for step {step}")
+                    print(f"Step information: {step}")
+                    print(f"Dependencies: {step.dependencies}")
+                    print(f"Error details: {e}")
+
+                    logging.error(f"IndexError: Invalid index while checking step dependencies for step {step}")
+                    logging.error(f"Step information: {step}")
+                    logging.error(f"Dependencies: {step.dependencies}")
+                    logging.error(f"Error details: {e}")
+
+                    
+                    
+                    continue
         return None
     
     def mark_step_completed(self, step_id: int, success: bool, result: Any = None, error: str = None):
@@ -99,7 +128,7 @@ class EnhancedPlanner:
         """
         pass
     
-    @llm.prompt(model="deepseek")
+    @llm.prompt()
     def _generate_initial_plan(self, task_description: str, complexity: str, 
                               available_tools: str, rag_context: str) -> str:
         """
@@ -152,13 +181,14 @@ class EnhancedPlanner:
 
         注意，输出的时候，不要有额外的开头，必须保证是以```json开头，```结束的json格式
         注意，DolphinDB有分布式表和内存表。内存表，不需要使用loadTable来加载，只有dfs表需要
-        
+        sql中，不要top和limit一起使用
+
         ## Available Actions
         Use only the tool names from the available tools list above.
         """
         pass
     
-    @llm.prompt(model="deepseek")
+    @llm.prompt(model="gemini-2.5-pro")
     def _replan_after_failure(self, original_plan: str, failed_step: str, 
                              error_message: str, execution_context: str) -> str:
         """
@@ -183,6 +213,9 @@ class EnhancedPlanner:
            - Fixes the failed step and continues
            - Takes an alternative approach
            - Gracefully handles the failure
+
+        如果遇到变量已经定义的，切不是这一次定义的话，那可以使用undef函数
+        sql要筛选条数数据的话，有limit就行，no top clause, no top clause，不要加上top语句
         
         Return a JSON object with:
         ```json
@@ -206,10 +239,25 @@ class EnhancedPlanner:
         """
         pass
     
-    def create_execution_plan(self, task_description: str) -> ExecutionPlan:
+    def create_execution_plan(self, task_description: str) -> Generator[ExecutionPlan, Dict[str, Any], None]:
         """创建执行计划"""
         # 1. 获取相关上下文
+        yield {
+            "type": "planner_info",
+            "subtype": "rag_context",
+            "content": "开始检索上下文",
+            "message": "Retrieved RAG context."
+        }
+
         rag_context = self._get_rag_context(task_description)
+
+        yield {
+            "type": "planner_info",
+            "subtype": "rag_context",
+            "content": rag_context,
+            "message": "Retrieved RAG context."
+        }
+
         
         # 2. 分析任务复杂度
         available_tools = json.dumps(self.tool_manager.get_tool_definitions(), indent=2)
@@ -223,9 +271,19 @@ class EnhancedPlanner:
             available_tools=available_tools,
             rag_context=rag_context
         )
+
+        yield {
+            "type": "planner_info",
+            "subtype": "llm_prompt",
+            "content": plan_json,
+            "message": "Generated prompt for plan generation."
+        }
         
         # 4. 解析计划
         plan_data = parse_json_string(plan_json)
+
+        if plan_data is None:
+            raise ValueError("无法创建执行计划，请再试一次")
         steps = [
             PlanStep(
                 step_id=step["step_id"],
@@ -242,6 +300,8 @@ class EnhancedPlanner:
             complexity=complexity,
             steps=steps
         )
+    
+   
     
     def handle_step_failure(self, plan: ExecutionPlan, failed_step: PlanStep) -> ExecutionPlan:
         """处理步骤失败，生成恢复计划"""
@@ -265,8 +325,32 @@ class EnhancedPlanner:
             "error": failed_step.error_message
         }, indent=2)
         
-        execution_context = json.dumps(plan.context, indent=2)
+        def custom_serializer(obj):
+            if isinstance(obj, np.ndarray):
+                # 将 numpy 数组转换为 python 列表
+                return obj.tolist()
+            if isinstance(obj, np.datetime64):
+                return pd.Timestamp(obj).isoformat()
+            if isinstance(obj, np.integer):
+                return int(obj)
+            if isinstance(obj, np.floating):
+                return float(obj)
+            if isinstance(obj, np.bool_):
+                return bool(obj)
+            if isinstance(obj, (pd.DataFrame, pd.Series)):
+                 # 将 DataFrame 转换为 JSON 字符串（记录导向）
+                 # orient='records' -> [{'col1': val1, 'col2': val2}, ...]
+                 # orient='split' -> {'columns': [...], 'index': [...], 'data': [[...], [...]]}
+                 # 'split' 格式通常更紧凑
+                return obj.to_json(orient='split', date_format='iso')
+            elif isinstance(obj, ExecutionResult):
+                return obj.dict()  # Convert ExecutionResult to dict
+            elif isinstance(obj, pd.DataFrame):
+                return obj.to_dict(orient="records")  # 常用于 JSON 结构
+            raise TypeError(f'Object of type {obj.__class__.__name__} is not serializable')
         
+        execution_context = json.dumps(plan.context, indent=2, default=custom_serializer)
+   
         # 生成恢复计划
         recovery_json = self._replan_after_failure(
             original_plan=original_plan_json,
@@ -276,6 +360,21 @@ class EnhancedPlanner:
         )
         
         recovery_data = parse_json_string(recovery_json)
+
+        if recovery_data is None or "recovery_strategy" not in recovery_data:
+            # 如果解析失败或返回的数据结构不符合预期
+            error_msg = (
+                "Failed to generate a valid recovery plan from LLM. "
+                f"The model's response was either not valid JSON or lacked the required 'recovery_strategy' key. "
+                f"Raw response was: {recovery_json}"
+            )
+            # 我们可以选择抛出一个更明确的异常，或者让 Agent 放弃
+            print(f"CRITICAL: {error_msg}")
+            # 标记失败步骤为不可恢复，并返回原计划，让执行器知道任务失败
+            failed_step.status = StepStatus.FAILED 
+            failed_step.error_message = f"{failed_step.error_message}\n\n[Planner Error]: {error_msg}"
+            failed_step.retry_count = failed_step.max_retries # 标记为无法重试
+            return plan # 返回原计划，让 executor 终止
         
         # 根据恢复策略更新计划
         if recovery_data["recovery_strategy"] == "fix_and_continue":
@@ -298,10 +397,10 @@ class EnhancedPlanner:
         
         return plan
     
-    def _get_rag_context(self, task_description: str) -> str:
+    def _get_rag_context(self, task_description: str) -> Generator[Dict[str, Any],str, None]:
         """获取RAG上下文"""
         try:
-            relevant_docs = self.rag_system.retrieve(task_description, top_k=3)
+            relevant_docs = yield from self.rag_system.retrieve(task_description, top_k=3)
             return "\n---\n".join(
                 f"File: {doc.file_path}\n\n{doc.source_code}" 
                 for doc in relevant_docs

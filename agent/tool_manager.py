@@ -1,5 +1,6 @@
 # file: agent/tool_manager.py (新建)
 
+from agent.execution_result import ExecutionResult
 from agent.tools.tool_interface import BaseTool, PresentPlanTool
 
 class ToolNotFoundError(Exception):
@@ -31,7 +32,7 @@ class ToolManager:
        
         
 
-    def call_tool(self, tool_name: str, args: dict) -> str:
+    def call_tool(self, tool_name: str, args: dict) -> ExecutionResult:
         if tool_name not in self.tools:
             raise ToolNotFoundError(f"Tool '{tool_name}' not found.")
     

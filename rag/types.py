@@ -30,6 +30,7 @@ class CodeIndex(BaseIndexModel):
     is_aggregated: bool = pydantic.Field(default=False, description="Indicates if this index is an aggregation of multiple chunks.")
     chunk_count: Optional[int] = pydantic.Field(None, description="Number of chunks if aggregated.")
     tokens: Optional[int] = pydantic.Field(None, description="file tokens.")
+    file_hash: Optional[str] = pydantic.Field(None, description="The MD5 hash of the file content at the time of indexing.")
 
 class TextChunkIndex(BaseIndexModel):
     """
@@ -48,6 +49,8 @@ class TextChunkIndex(BaseIndexModel):
     keywords: List[str] = pydantic.Field(description="A list of keywords representing the chunk's topics.")
     hypothetical_question: Optional[str] = pydantic.Field(None, description="A representative question this chunk can answer.")
     tokens: Optional[int] = pydantic.Field(None, description="file tokens.")
+    file_hash: Optional[str] = pydantic.Field(None, description="The MD5 hash of the file content at the time of indexing.")
+
 
 class ProjectIndex(BaseIndexModel):
     """

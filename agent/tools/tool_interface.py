@@ -3,6 +3,8 @@ from abc import ABC, abstractmethod
 from typing import List, Any, Dict
 from pydantic import BaseModel, Field
 
+from agent.execution_result import ExecutionResult
+
 class ToolInput(BaseModel):
     pass
 
@@ -12,7 +14,7 @@ class BaseTool(ABC):
     args_schema: type[BaseModel]
 
     @abstractmethod
-    def run(self, args: BaseModel) -> str:
+    def run(self, args: BaseModel) -> ExecutionResult:
         """Executes the tool and returns a string representation of the result."""
         pass
 

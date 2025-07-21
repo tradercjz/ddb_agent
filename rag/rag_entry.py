@@ -5,7 +5,7 @@ import os
 
 from context.pruner import Document, get_pruner
 from llm.llm_prompt import llm
-from typing import Dict, List
+from typing import Any, Dict, Generator, List
 
 from llm.models import ModelManager
 from rag.types import BaseIndexModel
@@ -126,7 +126,7 @@ class DDBRAG:
         return sources
     
     
-    def retrieve(self, query: str, top_k: int = 5) -> List[Document]:
+    def retrieve(self, query: str, top_k: int = 5) -> Generator[List[Document], Dict[str, Any], None]:
         """
         Retrieves the most relevant documents using a two-step process.
         """
@@ -140,6 +140,10 @@ class DDBRAG:
             print("No indices found to search from.")
             return []
 
+        yield {
+            "type": "status",
+            "message": f"Found {len(all_indices)} total indices. Starting candidate selection..."
+        }
         # 2. 阶段一：粗筛 (Candidate Selection)
         candidates: List[BaseIndexModel]
         if self.selection_strategy == 'llm':
@@ -157,6 +161,10 @@ class DDBRAG:
         
         print(f"Found {len(candidates)} candidates. Proceeding to Phase 2...")
 
+        yield {
+            "type": "status",
+            "message": f"Selected {len(candidates)} candidates. Starting LLM re-ranking..."
+        }
         # 3. 阶段二：精排 (Re-ranking by LLM)
         print("Phase 2: Re-ranking candidates with LLM...")
         #  先用列表推导式和 .model_dump() 将 Pydantic 对象列表转换为字典列表
@@ -174,6 +182,10 @@ class DDBRAG:
         
         try:
             # LLM 返回最终的、排序好的标识符列表
+            yield {
+                "type": "status",
+                "message": "LLM re-ranking completed. Parsing response..."
+            }
             final_identifiers = parse_json_string(response_str)
         except Exception as e:
             print(f"Error parsing LLM re-ranking response: {e}. Falling back to top candidates from selection.")

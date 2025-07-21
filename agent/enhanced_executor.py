@@ -1,5 +1,6 @@
 # file: agent/enhanced_executor.py
 
+import logging
 from typing import Generator, Dict, Any, Optional
 import time
 import json
@@ -17,7 +18,7 @@ class EnhancedExecutor:
     def __init__(self, tool_manager: ToolManager, planner: EnhancedPlanner, logger=None):
         self.tool_manager = tool_manager
         self.planner = planner
-        self.logger = logger or setup_llm_logger()
+        self.logger = logger or setup_llm_logger("app.log")
         
         # 执行统计
         self.execution_stats = {
@@ -38,7 +39,7 @@ class EnhancedExecutor:
         try:
             # 1. 创建执行计划
             yield {"type": "status", "message": "🧠 Analyzing task and creating execution plan..."}
-            plan = self.planner.create_execution_plan(task_description)
+            plan = yield from self.planner.create_execution_plan(task_description)
             
             yield {
                 "type": "plan", 
@@ -97,7 +98,8 @@ class EnhancedExecutor:
             # 3. 任务完成
             execution_time = time.time() - execution_start_time
             
-            if final_result and isinstance(final_result, ExecutionResult) and final_result.success:
+            
+            if final_result is None or (final_result and isinstance(final_result, ExecutionResult) and final_result.success):
                 self.execution_stats["successful_tasks"] += 1
                 yield {
                     "type": "final_result",
@@ -106,6 +108,21 @@ class EnhancedExecutor:
                     "stats": self.execution_stats.copy(),
                     "message": f"✅ Task completed successfully in {execution_time:.2f}s"
                 }
+
+                final_script = None
+             
+                for step in plan.steps:
+                    if step.action == 'run_dolphindb_script' :
+                        final_script = step.args.get('script')
+                        if final_script:
+                            break # 找到第一个就停止
+
+                if final_script:
+                    yield {
+                        "type": "final_script",
+                        "script": final_script,
+                        "message": "Extracted the final successful script from the plan."
+                    }
             else:
                 self.execution_stats["failed_tasks"] += 1
                 yield {
@@ -211,9 +228,24 @@ class EnhancedExecutor:
             plan.current_step = recovery_plan.current_step
             
         except Exception as e:
+            import traceback
+            import datetime
+            timestamp = datetime.datetime.now().isoformat()
+            exc_type = type(e).__name__
+            exc_msg = str(e)
+            tb = traceback.format_exc()
+
+            with open("recovery_errors.log", "a") as log_file:
+                log_file.write(f"[{timestamp}] Recovery planning error: {exc_type}: {exc_msg}\n")
+                log_file.write(f"Failed Step: {asdict(failed_step)}\n")
+                log_file.write(f"Traceback:\n{tb}\n\n")
+
             yield {
                 "type": "error",
-                "message": f"🚨 Recovery planning failed: {str(e)}"
+                "message": f"🚨 Recovery planning failed ({exc_type}): {exc_msg}",
+                "time": timestamp,
+                "failed_step": asdict(failed_step) if failed_step else None,
+                "traceback": tb  # 如果你担心暴露内部路径，可以注释掉这个字段
             }
     
     def get_execution_stats(self) -> Dict[str, Any]:

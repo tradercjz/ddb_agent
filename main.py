@@ -387,7 +387,28 @@ class DDBAgentApp(App):
                 update_type = update.get("type")
                 message = escape(update.get("message", ""))
 
-                if update_type == "status":
+                if update_type == "planner_info":
+                    subtype = update.get("subtype", "unknown")
+                    content = update.get("content", "")
+                    message = escape(update.get("message", ""))
+                    
+                    panel_title = f"[bold blue]Planner Info: {subtype.replace('_', ' ').title()}[/bold blue]"
+                    renderable_content = None
+
+                    if subtype in ["rag_context", "analysis_result"]:
+                        renderable_content = Text(f"{message}\n\n[dim]{escape(str(content))}[/dim]")
+                    elif subtype == "llm_prompt":
+                        renderable_content = Text(f"{message}\n\n[dim]{escape(str(content))}[/dim]")
+                    elif subtype == "llm_raw_response":
+                        # 对 JSON 使用语法高亮
+                        renderable_content = Syntax(str(content), "json", theme="monokai", word_wrap=True)
+                    
+                    if renderable_content:
+                        self._write_to_log(Panel(renderable_content, title=panel_title, border_style="blue"))
+                    else:
+                        self._write_to_log(Panel(message, title=panel_title, border_style="blue"))
+
+                elif update_type == "status":
                     self._write_to_log(Panel(f"⚙️ {message}", border_style="yellow"))
                 
                 elif update_type == "plan":
@@ -467,6 +488,14 @@ class DDBAgentApp(App):
                     if final_exec_result and final_exec_result.data is not None:
                         result_str = str(final_exec_result.data)
                         self._write_to_log(Panel(result_str, title="[cyan]📊 Result Data[/cyan]", border_style="cyan"))
+                
+                elif update_type == "final_script":
+                    script_content = update.get("script", "# No script found.")
+                    self._write_to_log(Panel(
+                        Syntax(script_content, "dos", theme="monokai", line_numbers=True, word_wrap=True),
+                        title="[yellow]📜 Final Successful Script[/yellow]",
+                        border_style="yellow"
+                    ))
 
                 elif update_type == "error":
                     error_msg = update.get('message', 'Unknown error')
@@ -487,7 +516,7 @@ if __name__ == "__main__":
         project_path = os.path.dirname(os.path.abspath(__file__))
         log_dir = ".ddb_agent/logs"
         os.makedirs(log_dir, exist_ok=True)
-        setup_llm_logger(log_file_path=os.path.join(log_dir, "llm_requests.log"))
+        #setup_llm_logger(log_file_path=os.path.join(log_dir, "llm_requests.log"))
 
         ModelManager.load_models()
 

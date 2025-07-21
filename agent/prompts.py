@@ -19,6 +19,8 @@ def generate_initial_script(user_query: str, rag_context: str) -> str:
     {{ rag_context }}
     </CONTEXT>
 
+    sql中，不要top和limit一起使用，如果要筛选前几条数据，使用select top n * from xx 这样的语句，后面不要再带limit了
+    
     ## Your Task
     - Write a complete, executable DolphinDB script that directly addresses the user's request.
     - **Do not** add any explanations, comments, or markdown formatting around the code.
