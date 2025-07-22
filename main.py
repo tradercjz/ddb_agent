@@ -1,5 +1,6 @@
 import os
 import shlex
+import time
 from functools import partial
 from typing import Any, Dict, Generator, Tuple, Union
 import uuid
@@ -135,6 +136,7 @@ class DDBAgentApp(App):
   - `/chat <your query>`: Explicitly start a RAG-based chat query.
   - `/code <your task>`: Ask the agent to write and execute DolphinDB code (basic mode).
   - `/enhanced <your task>`: Use enhanced plan-and-execute mode with advanced tools.
+  - `/spec <your task>`: Enter spec development mode for iterative code development.
   - `/save <file_path>`: Save the last successful script to a file.
   - `/stats`: Show execution statistics for enhanced mode.
   - `/new` or `/reset`: Start a new conversation session (or use `Ctrl+N`).
@@ -181,6 +183,13 @@ class DDBAgentApp(App):
                     self._handle_enhanced_code_task(task_description)
                 else:
                     self._write_to_log(Panel("[yellow]Please provide a task description.[/yellow]", border_style="yellow"))
+            
+            elif cmd == '/spec':
+                if len(parts) > 1:
+                    task_description = " ".join(parts[1:])
+                    self._handle_spec_task(task_description)
+                else:
+                    self._write_to_log(Panel("[yellow]Please provide a task description for spec mode.[/yellow]", border_style="yellow"))
             
             elif cmd == '/stats':
                 stats = self.agent.enhanced_executor.get_execution_stats()
@@ -371,6 +380,117 @@ class DDBAgentApp(App):
                     ))
         except Exception as e:
             self._write_to_log(Panel(f"[bold red]An unexpected error occurred during the coding task:[/bold red]\n{e}", border_style="red"))
+    
+    def _handle_spec_task(self, task_description: str):
+        """处理规范开发模式任务"""
+        self._write_to_log(Panel(
+            f"[bold blue]🔍 Structured Spec Development:[/bold blue] {escape(task_description)}", 
+            title="[bold cyan]EARS Spec Development Mode[/bold cyan]",
+            border_style="cyan"
+        ))
+        
+        try:
+            response_generator = self.agent.run_spec_task(task_description)
+            
+            for update in response_generator:
+                update_type = update.get("type")
+                message = escape(update.get("message", ""))
+                
+                if update_type == "status":
+                    self._write_to_log(Panel(f"⚙️ {message}", border_style="yellow"))
+                
+                elif update_type == "requirements_document":
+                    content = update.get("content", "")
+                    file_path = update.get("file_path", "")
+                    self._write_to_log(Panel(
+                        Markdown(content, code_theme="monokai", inline_code_theme="monokai"),
+                        title="[bold cyan]📋 需求文档 (Requirements Document)[/bold cyan]",
+                        border_style="cyan"
+                    ))
+                    self._write_to_log(Panel(
+                        f"[dim]📁 文档已保存到: {escape(file_path)}[/dim]",
+                        border_style="cyan"
+                    ))
+                
+                elif update_type == "design_document":
+                    content = update.get("content", "")
+                    file_path = update.get("file_path", "")
+                    self._write_to_log(Panel(
+                        Markdown(content, code_theme="monokai", inline_code_theme="monokai"),
+                        title="[bold blue]🏗️ 技术方案设计 (Technical Design)[/bold blue]",
+                        border_style="blue"
+                    ))
+                    self._write_to_log(Panel(
+                        f"[dim]📁 文档已保存到: {escape(file_path)}[/dim]",
+                        border_style="blue"
+                    ))
+                
+                elif update_type == "tasks_document":
+                    content = update.get("content", "")
+                    file_path = update.get("file_path", "")
+                    self._write_to_log(Panel(
+                        Markdown(content, code_theme="monokai", inline_code_theme="monokai"),
+                        title="[bold green]📝 实施计划 (Implementation Tasks)[/bold green]",
+                        border_style="green"
+                    ))
+                    self._write_to_log(Panel(
+                        f"[dim]📁 文档已保存到: {escape(file_path)}[/dim]",
+                        border_style="green"
+                    ))
+                
+                elif update_type == "confirmation_request":
+                    phase = update.get("phase", "")
+                    phase_names = {
+                        "requirements": "需求确认",
+                        "design": "设计确认", 
+                        "tasks": "任务确认"
+                    }
+                    phase_name = phase_names.get(phase, phase)
+                    
+                    self._write_to_log(Panel(
+                        f"⏸️ [bold yellow]{phase_name}[/bold yellow]\n\n{message}",
+                        title="[bold yellow]⏸️ 等待确认 (Awaiting Confirmation)[/bold yellow]",
+                        border_style="yellow"
+                    ))
+                
+                elif update_type == "final_result":
+                    success = update.get("success", False)
+                    spec_name = update.get("spec_name", "")
+                    requirements_path = update.get("requirements_path", "")
+                    design_path = update.get("design_path", "")
+                    tasks_path = update.get("tasks_path", "")
+                    
+                    if success:
+                        summary_text = f"""[bold green]✅ 规范开发工作流程完成！[/bold green]
+
+📂 **规范名称:** {escape(spec_name)}
+
+📋 **需求文档:** {escape(requirements_path)}
+🏗️ **技术设计:** {escape(design_path)}  
+📝 **实施计划:** {escape(tasks_path)}
+
+[dim]所有文档已保存到 specs 目录，您现在可以开始实施任务。[/dim]"""
+                        
+                        self._write_to_log(Panel(
+                            summary_text,
+                            title="[bold green]🎉 规范开发完成 (Spec Development Complete)[/bold green]",
+                            border_style="green"
+                        ))
+                    else:
+                        error_text = f"[bold red]❌ 规范开发失败[/bold red]\n\n{message}"
+                        self._write_to_log(Panel(
+                            error_text,
+                            title="[bold red]失败 (Failed)[/bold red]",
+                            border_style="red"
+                        ))
+                
+        except Exception as e:
+            import traceback
+            tb_str = traceback.format_exc()
+            self._write_to_log(Panel(
+                f"[bold red]规范开发过程中发生意外错误:[/bold red]\n{e}\n\n[dim]{escape(tb_str)}[/dim]",
+                border_style="red"
+            ))
     
     def _handle_enhanced_code_task(self, task_description: str):
         """处理增强的代码任务"""

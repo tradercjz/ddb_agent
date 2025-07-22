@@ -356,6 +356,271 @@ class DDBAgent:
                 "message": message
             }
 
+    def run_spec_task(self, task_description: str) -> Generator[Dict[str, Any], None, None]:
+        """
+        Implements the structured spec development mode following the EARS methodology.
+        
+        Workflow:
+        1. Requirements analysis and documentation (EARS format)
+        2. Technical design documentation  
+        3. Task breakdown and implementation planning
+        
+        Args:
+            task_description: The initial task description from user
+            
+        Yields:
+            Dictionary updates about the progress of the spec development
+        """
+        import re
+        import time
+        
+        # Generate a spec name from the task description
+        spec_name = re.sub(r'[^\w\s-]', '', task_description.lower())
+        spec_name = re.sub(r'[-\s]+', '_', spec_name)[:50]
+        timestamp = int(time.time())
+        spec_name = f"{spec_name}_{timestamp}"
+        
+        yield {"type": "status", "message": f"🔍 Starting structured spec development mode for: {spec_name}"}
+        
+        # Create specs directory structure
+        specs_dir = f"specs/{spec_name}"
+        os.makedirs(specs_dir, exist_ok=True)
+        
+        # 1. Retrieve relevant context with RAG
+        yield {"type": "status", "message": "Retrieving context from codebase..."}
+        relevant_files = yield from self.rag.retrieve(task_description, top_k=5)
+        context_str = "\n---\n".join(
+            f"File: {doc.file_path}\n\n{doc.source_code}" for doc in relevant_files
+        )
+        
+        # Phase 1: Requirements Analysis and Documentation
+        yield {"type": "status", "message": "📋 Phase 1: 搞清楚问题和需求，生成需求文档..."}
+        
+        @llm.prompt()
+        def generate_requirements_document(task: str, context: str):
+            """
+            你是一名高级业务分析师和需求工程师。分析用户的任务并使用 EARS（Easy Approach to Requirements Syntax）方法创建结构化需求文档。
+            
+            用户任务: {task}
+            
+            技术上下文:
+            {context}
+            
+            请严格按照以下格式创建需求文档：
+            
+            # 需求文档
+            
+            ## 介绍
+            
+            [清楚地描述用户想要实现什么]
+            
+            ## 需求
+            
+            ### 需求 1 - [需求名称]
+            
+            **用户故事：** [从用户角度描述需求的用户故事]
+            
+            #### 验收标准
+            
+            1. While [可选前置条件], when [可选触发器], the [系统名称] shall [系统响应]
+            2. [使用 EARS 格式的其他验收标准]
+            3. [根据需要添加更多标准]
+            
+            ### 需求 2 - [如果需要的话添加更多需求]
+            
+            [根据需要继续添加更多需求]
+            
+            重点关注:
+            - 清晰、可测试的验收标准
+            - EARS 格式: While <前置条件>, when <触发器>, the <系统名称> shall <响应>
+            - 功能性和非功能性需求
+            - DolphinDB 特定考虑事项
+            
+            例如: "When 选择"静音"时，笔记本电脑应当抑制所有音频输出。"
+            """
+        
+        requirements_doc = generate_requirements_document(task=task_description, context=context_str)
+        requirements_path = f"{specs_dir}/requirements.md"
+        
+        # Save requirements document
+        with open(requirements_path, 'w', encoding='utf-8') as f:
+            f.write(requirements_doc)
+        
+        yield {
+            "type": "requirements_document",
+            "spec_name": spec_name,
+            "content": requirements_doc,
+            "file_path": requirements_path,
+            "message": f"需求文档已生成并保存到 {requirements_path}"
+        }
+        
+        # Wait for user confirmation
+        yield {
+            "type": "confirmation_request",
+            "phase": "requirements",
+            "message": "请审查需求文档。确认它准确捕获了您的需求后，我们将进入技术设计阶段。"
+        }
+        
+        # Phase 2: Technical Design
+        yield {"type": "status", "message": "🏗️ Phase 2: 根据确认的需求进行技术方案设计..."}
+        
+        @llm.prompt()
+        def generate_design_document(task: str, requirements: str, context: str):
+            """
+            你是一名专门从事 DolphinDB 系统的高级软件架构师,你需要使用dolphindb脚本来完成用户需求。基于确认的需求创建技术设计文档。
+            
+            原始任务: {task}
+            
+            需求文档:
+            {requirements}
+            
+            技术上下文:
+            {context}
+            
+            请创建包含以下结构的技术设计文档：
+            
+            # 技术方案设计
+            
+            ## 概述
+            [技术方法的简要概述]
+            
+            ## 架构设计
+            [系统架构描述]
+            
+            ## 技术栈
+            - 使用的 DolphinDB 版本和功能
+            - 附加库或工具
+            - 数据结构和算法
+            
+            ## 数据库设计
+            [数据库模式、表、分区策略（如适用）]
+            
+            ## 接口设计
+            [API 端点、函数签名、数据格式]
+            
+            ## 实施策略
+            [逐步实施方法]
+            
+            ## 测试策略
+            [如何测试实施]
+            
+            ## 安全性考虑
+            [安全影响和措施]
+            
+            ## 性能考虑
+            [性能影响和优化]
+            
+            在有助于架构或流程可视化的地方使用 mermaid 图表。
+            """
+        
+        design_doc = generate_design_document(
+            task=task_description,
+            requirements=requirements_doc,
+            context=context_str
+        )
+        design_path = f"{specs_dir}/design.md"
+        
+        # Save design document
+        with open(design_path, 'w', encoding='utf-8') as f:
+            f.write(design_doc)
+        
+        yield {
+            "type": "design_document",
+            "spec_name": spec_name,
+            "content": design_doc,
+            "file_path": design_path,
+            "message": f"技术设计文档已创建并保存到 {design_path}"
+        }
+        
+        # Wait for user confirmation
+        yield {
+            "type": "confirmation_request",
+            "phase": "design",
+            "message": "请审查技术设计文档。确认架构和方法后，我们将进入任务拆分阶段。"
+        }
+        
+        # Phase 3: Task Breakdown
+        yield {"type": "status", "message": "📝 Phase 3: 根据需求文档和技术方案进行任务拆分..."}
+        
+        @llm.prompt()
+        def generate_task_breakdown(requirements: str, design: str):
+            """
+            你是一名高级项目经理和技术负责人。基于需求和设计文档创建详细的任务分解。
+            
+            需求:
+            {requirements}
+            
+            设计:
+            {design}
+            
+            请按照以下格式创建实施计划：
+            
+            # 实施计划
+            
+            ## 任务列表
+            
+            - [ ] 1. [任务标题]
+              - 具体要做的事情: [需要做什么的详细描述]
+              - 预估时间: [预估时间]
+              - 依赖: [对其他任务的依赖]
+              - 需求: [相关需求编号]
+              - 验收标准: [如何验证完成]
+            
+            - [ ] 2. [下一个任务]
+              - 具体要做的事情: [描述]
+              - 预估时间: [时间估计]
+              - 依赖: [依赖关系]
+              - 需求: [需求]
+              - 验收标准: [验收标准]
+            
+            [继续所有必要的任务]
+            
+            ## 实施顺序
+            [推荐的实施顺序及理由]
+            
+            重点关注:
+            - 逻辑任务分解
+            - 清晰的依赖关系
+            - 可测试的交付物
+            - 增量开发方法
+            """
+        
+        tasks_doc = generate_task_breakdown(
+            requirements=requirements_doc,
+            design=design_doc
+        )
+        tasks_path = f"{specs_dir}/tasks.md"
+        
+        # Save tasks document
+        with open(tasks_path, 'w', encoding='utf-8') as f:
+            f.write(tasks_doc)
+        
+        yield {
+            "type": "tasks_document",
+            "spec_name": spec_name,
+            "content": tasks_doc,
+            "file_path": tasks_path,
+            "message": f"实施任务分解已完成并保存到 {tasks_path}"
+        }
+        
+        # Wait for user confirmation
+        yield {
+            "type": "confirmation_request",
+            "phase": "tasks",
+            "message": "请审查任务分解。确认实施计划后，您可以开始正式执行任务。"
+        }
+        
+        # Final summary
+        yield {
+            "type": "final_result",
+            "success": True,
+            "spec_name": spec_name,
+            "requirements_path": requirements_path,
+            "design_path": design_path,
+            "tasks_path": tasks_path,
+            "message": "结构化规范开发工作流程已成功完成！所有文档已保存到 specs 目录。"
+        }
+
     def save_last_script(self, file_path: str) -> Tuple[bool, str]:
         """
         Saves the last successfully executed script to a file.
