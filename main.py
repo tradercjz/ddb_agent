@@ -19,7 +19,7 @@ from rich.spinner import Spinner
 
 from utils.logger import setup_llm_logger
 from agent.agent import DDBAgent
-from llm.llm_client import LLMResponse
+from llm.llm_client import LLMResponse, StreamChunk
 from llm.models import ModelManager
 
 from textual.message import Message
@@ -234,9 +234,9 @@ class DDBAgentApp(App):
                 # 这是确保滚动到底部的最可靠时机。
                 self.parent.scroll_end(animate=False)
             
-        spinner = Spinner("dots", text=" Agent is thinking...")
+        spinner = Spinner("dots", text=" 发送请求...")
         truncated_query = escape(user_input[:70] + '...' if len(user_input) > 70 else user_input)
-        context_title = f"Agent 🤖  [dim]: {truncated_query}[/dim]"
+        context_title = f"You👨💻 [dim]: {truncated_query}[/dim]"
         assistant_panel = Panel(spinner, title=context_title, border_style="yellow", title_align="left")
         
         # 使用我们自定义的 StreamingStatic 类来创建 widget
@@ -248,46 +248,132 @@ class DDBAgentApp(App):
         self.post_message(StartSpinner(streaming_widget_id))
         
         final_renderable = None
+        
+        # 跟踪状态的变量
+        reasoning_content = ""
+        full_response = ""
+        in_reasoning_phase = False
+        in_content_phase = False
 
         try:
-            response_generator = self.agent.run_task(user_input, stream=True)
-            full_response = ""
-            first_token_received = False
-            
-            for part in response_generator:
-                if isinstance(part, str):
-                    if not first_token_received:
-                        self.post_message(StopSpinner())
-                        assistant_panel.border_style = "green"
-                        first_token_received = True
-                    
-                    full_response += part
-                    assistant_panel.renderable = Markdown(full_response, code_theme="monokai", inline_code_theme="monokai")
-                    
-                    def update_ui():
-                        try:
-                            widget_to_update = self.query_one(f"#{streaming_widget_id}", Static)
-                            # 只需更新内容，滚动将由 on_resize 事件自动处理
-                            widget_to_update.update(assistant_panel)
-                        except Exception:
-                            pass
-                    
-                    self.call_from_thread(update_ui)
+            response_generator = self.agent.run_task(user_input)
 
-                elif isinstance(part, LLMResponse) and not part.success:
+            try:
+                while True:
+                    part = next(response_generator)
+
+                    if isinstance(part, StreamChunk):
+                        if part.type == "reasoning":
+                            if not in_reasoning_phase:
+                                self.post_message(StopSpinner())
+                                assistant_panel.border_style = "cyan" # 思考时用青色
+                                assistant_panel.title = "🌊 Agent is thinking..."
+                                in_reasoning_phase = True
+                            reasoning_content += part.data
+                            assistant_panel.renderable = Markdown(reasoning_content, code_theme="monokai", style="dim cyan")
+                           
+                        elif part.type == "content":
+                            if not in_content_phase:
+                                assistant_panel.border_style = "green" # 内容时用绿色
+                                assistant_panel.title = "🐬 Assistant"
+                                in_content_phase = True
+
+                            full_response += part.data
+                            
+                            # 根据是否有推理内容来决定显示方式
+                            if reasoning_content:
+                                from rich.console import Group
+                                from rich.panel import Panel as RichPanel
+                                from rich.rule import Rule
+                                
+                                # 创建推理部分的小面板
+                                reasoning_section = RichPanel(
+                                    Markdown(reasoning_content, code_theme="monokai", style="dim cyan"),
+                                    title="[dim]🌊 Reasoning[/dim]",
+                                    border_style="grey50",
+                                    padding=(0, 1)
+                                )
+                                
+                                # 创建响应内容
+                                response_markdown = Markdown(full_response, code_theme="monokai") if full_response else Text("")
+                                
+                                # 使用Group组合内容，用Rule作为分隔线
+                                combined_content = Group(
+                                    reasoning_section,
+                                    Rule(style="grey50"),  # 分隔线
+                                    response_markdown
+                                )
+                                
+                                assistant_panel.renderable = combined_content
+                            else:
+                                # 如果没有思考过程，直接显示内容
+                                assistant_panel.renderable = Markdown(full_response, code_theme="monokai")
+                            
+                        else:
+                            raise Exception(f"Unexpected chunk type: {part.type}")
+                        
+                        def update_ui():
+                            try:
+                                widget_to_update = self.query_one(f"#{streaming_widget_id}", Static)
+                                # 只需更新内容，滚动将由 on_resize 事件自动处理
+                                widget_to_update.update(assistant_panel)
+                            except Exception:
+                                pass
+                        
+                        self.call_from_thread(update_ui)
+
+                    else:
+                        raise Exception(f"Unexpected chunk type: {type(part)}")
+                        
+            except StopIteration as e:
+                final_result = e.value
+
+                if isinstance(final_result, LLMResponse) and not final_result.success:
                     self.post_message(StopSpinner())
-                    error_message = f"[bold red]Error:[/bold red]\n{escape(part.error_message)}"
+                    error_message = f"[bold red]Error:[/bold red]\n{escape(final_result.error_message)}"
                     final_renderable = Panel(error_message, title="Agent", border_style="red", title_align="left")
-                    break
             
             if final_renderable is None:
-                response_markdown = Markdown(full_response, code_theme="monokai", inline_code_theme="monokai") if full_response else Text("Empty response.")
-                final_renderable = Panel(
-                    response_markdown,
-                    title="Agent",
-                    border_style="green",
-                    title_align="left"
-                )
+                # 构建最终的渲染内容
+                if reasoning_content and full_response:
+                    from rich.console import Group
+                    from rich.panel import Panel as RichPanel
+                    from rich.rule import Rule
+                    
+                    # 创建推理部分的小面板
+                    reasoning_section = RichPanel(
+                        Markdown(reasoning_content, code_theme="monokai"),
+                        title="[dim]🌊 Reasoning[/dim]",
+                        border_style="grey50",
+                        padding=(0, 1)
+                    )
+                    
+                    # 创建响应内容
+                    response_markdown = Markdown(full_response, code_theme="monokai", inline_code_theme="monokai")
+                    
+                    # 使用Group组合内容
+                    combined_content = Group(
+                        reasoning_section,
+                        Rule(style="grey50"),
+                        response_markdown
+                    )
+                    
+                    final_renderable = Panel(
+                        combined_content,
+                        title="Agent",
+                        border_style="green",
+                        title_align="left"
+                    )
+                else:
+                    # 只有内容或只有推理
+                    content_to_show = full_response if full_response else reasoning_content
+                    response_markdown = Markdown(content_to_show, code_theme="monokai", inline_code_theme="monokai") if content_to_show else Text("Empty response.")
+                    final_renderable = Panel(
+                        response_markdown,
+                        title="Agent",
+                        border_style="green",
+                        title_align="left"
+                    )
 
         except Exception as e:
             self.post_message(StopSpinner())

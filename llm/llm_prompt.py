@@ -1,11 +1,11 @@
 import functools
 import inspect
-from typing import Any, Callable, Dict, Optional, Type, TypeVar, List
+from typing import Any, Callable, Dict, Generator, Optional, Type, TypeVar, List
 from jinja2 import Environment, BaseLoader
 
 from context.context_manager import ContextManager
 from llm.models import ModelManager
-from .llm_client import LLMClientManager
+from .llm_client import LLMClientManager, LLMResponse, StreamChunk
 from dotenv import load_dotenv
 
 
@@ -24,7 +24,6 @@ class PromptDecorator:
                  api_key: Optional[str] = None,
                  base_url: Optional[str] = None,
                  response_model: Optional[Type] = None, 
-                 stream: bool = False,
                  log_requests: Optional[bool] = None,
                  **kwargs):
         """
@@ -39,7 +38,6 @@ class PromptDecorator:
         self.override_api_key = api_key
         self.override_base_url = base_url
         self.response_model = response_model
-        self.stream = stream
         self.override_log_requests = log_requests
         self.kwargs = kwargs
         self.jinja_env = Environment(loader=BaseLoader())
@@ -155,23 +153,11 @@ class PromptDecorator:
                 log_requests = final_log_requests
             )
             
-            # 如果指定了响应模型，则进行类型转换
-            if self.response_model:
-                return self._convert_to_model(llm_result)
-            
-            # 如果原函数返回非字典，且LLM结果可以转换为相同类型，则尝试转换
-            if not isinstance(func_result, dict):
-                try:
-                    return type(func_result)(llm_result)
-                except (TypeError, ValueError):
-                    pass
-            
             return llm_result
         
         # 将原始模板和其他元数据附加到包装函数
         wrapper.prompt_template = docstring
         wrapper.response_model = self.response_model
-        wrapper.stream = self.stream
         wrapper.template_variables = template_variables
         
         # 添加调试辅助方法
@@ -184,7 +170,7 @@ class PromptDecorator:
         
         return wrapper
     
-    def _call_llm_api(self, messages: List[Dict[str, str]], model: Optional[str] = None, api_key: Optional[str] = None, base_url: Optional[str] = None,  log_requests: bool = False) -> str:
+    def _call_llm_api(self, messages: List[Dict[str, str]], model: Optional[str] = None, api_key: Optional[str] = None, base_url: Optional[str] = None,  log_requests: bool = False) -> Generator[StreamChunk, None, LLMResponse]:
         """
         调用LLM API (这里是一个模拟实现)
         
@@ -196,48 +182,14 @@ class PromptDecorator:
         """
         llm_client = LLMClientManager.get_client(api_key=api_key, base_url=base_url)
 
+        response = llm_client.generate_response(
+            conversation_history=messages,
+            model=model,
+            log_requests=log_requests
+        )
+        
+        return response
 
-        if self.stream:
-            return llm_client.stream_generate_response(
-                conversation_history=messages,
-                model=model,
-                log_requests=log_requests
-            )
-        else:
-            response = llm_client.generate_response(
-                conversation_history=messages,
-                model=model,
-                log_requests=log_requests
-            )
-            if response.success:
-                return response.content
-            else:
-                return response.error_message
-    
-    def _convert_to_model(self, text: str) -> Any:
-        """
-        将文本转换为指定的响应模型
-        
-        Args:
-            text: LLM返回的文本
-            
-        Returns:
-            转换后的模型实例
-        """
-        if not self.response_model:
-            return text
-        
-        # 如果是基本类型，直接转换
-        if self.response_model in (str, int, float, bool):
-            return self.response_model(text)
-        
-        # 对于复杂类型，可能需要解析JSON等
-        # 这里简化处理，实际应用中可能需要更复杂的逻辑
-        try:
-            return self.response_model(text)
-        except Exception as e:
-            raise ValueError(f"无法将响应转换为 {self.response_model.__name__}: {e}")
-    
     def _extract_variables(self, template_text: str) -> list:
         """
         从模板中提取变量名
