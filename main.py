@@ -17,6 +17,7 @@ from textual.containers import VerticalScroll
 from textual.binding import Binding
 from rich.spinner import Spinner
 
+from snippets.tui_components import SnippetEditorScreen
 from utils.logger import setup_llm_logger
 from agent.agent import DDBAgent
 from llm.llm_client import LLMResponse, StreamChunk
@@ -130,18 +131,28 @@ class DDBAgentApp(App):
             if cmd == '/help':
                 help_text = """
 **DDB-Coding-Agent Help**
-
+---
+**Core Modes**
 - Type your query directly to chat with the agent (RAG-based Q&A).
-- Use the following slash commands for special actions:
-  - `/chat <your query>`: Explicitly start a RAG-based chat query.
-  - `/code <your task>`: Ask the agent to write and execute DolphinDB code (basic mode).
-  - `/enhanced <your task>`: Use enhanced plan-and-execute mode with advanced tools.
-  - `/spec <your task>`: Enter spec development mode for iterative code development.
-  - `/save <file_path>`: Save the last successful script to a file.
-  - `/stats`: Show execution statistics for enhanced mode.
-  - `/new` or `/reset`: Start a new conversation session (or use `Ctrl+N`).
-  - `/help`: Show this help message.
-  - `/exit` or `/quit`: Exit the agent (or use `Ctrl+Q`).
+- `/chat <your query>`: Explicitly start a RAG-based chat query.
+- `/code <your task>`: Ask the agent to write and execute DolphinDB code (basic mode).
+- `/enhanced <your task>`: Use enhanced plan-and-execute mode for complex tasks.
+- `/spec <your task>`: Enter structured spec development mode (EARS methodology).
+
+---
+**Snippet Management**
+- `/snippet new`: Open an editor to create a new snippet.
+- `/snippet list`: Show all your saved snippets.
+- `/snippet edit <name>`: Open an editor to modify an existing snippet.
+- `/snippet delete <name>`: Remove a snippet.
+- `/snippet search <query>`: Search snippets by name, description, or tags.
+---
+**Utility Commands**
+- `/save <file_path>`: Save the last successful script from an enhanced task to a file.
+- `/stats`: Show execution statistics for the enhanced mode.
+- `/new` or `/reset`: Start a new conversation session (or use `Ctrl+N`).
+- `/help`: Show this help message.
+- `/exit` or `/quit`: Exit the agent (or use `Ctrl+Q`).
                 """
                 self._write_to_log(Panel(Markdown(help_text), title="[bold cyan]Help[/bold cyan]", border_style="blue"))
             
@@ -183,6 +194,9 @@ class DDBAgentApp(App):
                     self._handle_enhanced_code_task(task_description)
                 else:
                     self._write_to_log(Panel("[yellow]Please provide a task description.[/yellow]", border_style="yellow"))
+
+            elif cmd == '/snippet':
+                self._handle_snippet_command(parts)
             
             elif cmd == '/spec':
                 if len(parts) > 1:
@@ -213,6 +227,53 @@ class DDBAgentApp(App):
         finally:
             self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
             self.call_from_thread(self.query_one(Input).focus)
+
+    def _handle_snippet_command(self, parts: list[str]):
+        """Handles all /snippet subcommands."""
+        if len(parts) < 2:
+            help_text = """
+**Snippet Command Usage**
+- `/snippet new`: Create a new snippet.
+- `/snippet list`: List all your snippets.
+- `/snippet search <query>`: Search for snippets.
+- `/snippet edit <name>`: Edit an existing snippet.
+- `/snippet delete <name>`: Delete a snippet.
+            """
+            self._write_to_log(Panel(Markdown(help_text), title="[cyan]Snippet Help[/cyan]"))
+            return
+
+        sub_cmd = parts[1].lower()
+        snippet_manager = self.agent.snippet_manager
+
+        if sub_cmd == 'new':
+            self.call_from_thread(self.push_screen, SnippetEditorScreen(snippet_manager))
+        
+        elif sub_cmd == 'list':
+            all_snippets = snippet_manager.get_all_snippets()
+            if not all_snippets:
+                self._write_to_log(Panel("You don't have any snippets yet. Use `/snippet new` to create one.", title="Snippets"))
+                return
+            
+            list_text = ""
+            for s in all_snippets:
+                list_text += f"- [bold cyan]{s.name}[/bold cyan]: {escape(s.description or 'No description.')}\n"
+            self._write_to_log(Panel(Markdown(list_text), title="Your Snippets"))
+
+        elif sub_cmd == 'edit':
+            if len(parts) < 3:
+                self._write_to_log(Panel("[yellow]Usage: /snippet edit <snippet_name>[/yellow]"))
+                return
+            snippet_name = parts[2]
+            snippet_to_edit = snippet_manager.get_snippet(snippet_name)
+            if snippet_to_edit:
+                self.call_from_thread(
+                    self.push_screen, 
+                    SnippetEditorScreen(snippet_manager, snippet_to_edit=snippet_to_edit)
+                )
+            else:
+                self._write_to_log(Panel(f"[red]Snippet '{escape(snippet_name)}' not found.[/red]"))
+        
+
 
     def _handle_chat_task(self, user_input: str):
         """

@@ -13,6 +13,7 @@ from session.session_manager import SessionManager
 from context.context_builder import ContextBuilder
 from rag.rag_entry import DDBRAG
 from llm.llm_prompt import llm # 假设llm实例在这里
+from snippets.snippet_manager import SnippetManager
 
 from rich.pretty import pprint
 
@@ -34,6 +35,7 @@ class DDBAgent:
     def __init__(self, project_path: str, model_name: str, max_window_size: int):
         self.project_path = project_path
         self.session_manager = SessionManager(project_path=project_path)
+        self.snippet_manager = SnippetManager(project_path=project_path)
         self.context_builder = ContextBuilder(model_name=model_name, max_window_size=max_window_size)
         self.rag = DDBRAG(project_path=project_path)
         self.llm_model_name = model_name
