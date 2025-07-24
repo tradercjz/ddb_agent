@@ -8,6 +8,7 @@ from agent.code_executor import CodeExecutor
 from agent.coding_task_state import CodingTaskState
 from agent.execution_result import ExecutionResult
 from agent.prompts import debugging_planner, fix_script_from_error, generate_initial_script
+from agent.task_status import AnyTaskStatus, PlanGenerationEnd, PlanGenerationStart, StepExecutionEnd, StepExecutionStart, TaskEnd, TaskError, TaskStart
 from llm.llm_client import LLMResponse, StreamChunk
 from rag.rag_status import AnyRagStatus
 from session.session_manager import SessionManager
@@ -180,31 +181,43 @@ class DDBAgent:
         print("❌ Task Failed after maximum attempts.")
         return state.execution_history[-1] # 返回最后一次的失败结果
     
-    def run_coding_task_with_planner(self, user_input: str) -> Generator[Dict[str, Any], None, None]:
+    def run_coding_task_with_planner(self, user_input: str) -> Generator[Union[AnyTaskStatus, StreamChunk], None, ExecutionResult]:
         """
         Orchestrates the plan-and-execute loop for a coding task, yielding state updates.
         """
-        yield {"type": "status", "message": "Starting new PLAN-and-EXECUTE coding task..."}
-
+        yield TaskStart(
+            task_description=user_input,
+            message="🚀 Starting new PLAN-and-EXECUTE coding task..."
+        )
 
         # 2. 生成初始计划
-        yield {"type": "status", "message": "Generating initial plan..."}
+        yield PlanGenerationStart(
+            message="🧠 Generating initial plan...",
+            reason="initial"
+        )
+
         # 这里我们简化，直接生成一个包含run_dolphindb_script的计划
         # 实际中可能需要一个Planner来生成
         try:
-            initial_script = generate_initial_script(user_query=user_input, rag_context="...") # 假设有rag_context
+            initial_script_gen = generate_initial_script(user_query=user_input, rag_context="...") # 假设有rag_context
+            try:
+                while True:
+                    yield next(initial_script_gen)
+            except StopIteration as e:
+                initial_script = e.value
+
             plan = [
                 {
                     "step": 1, 
                     "thought": "I will start by generating a script to address the user's request and then execute it.", 
                     "action": "run_dolphindb_script", 
-                    "args": {"script": initial_script}
+                    "args": {"script": initial_script.content}
                 }
             ]
-            yield {"type": "plan", "plan": plan, "message": "Initial plan generated."}
+            yield PlanGenerationEnd(plan=plan, message="✅ Initial plan generated.")
         except Exception as e:
-            yield {"type": "error", "message": f"Failed to generate initial script: {e}"}
-            return
+            yield TaskError(message=f"Failed to generate initial script: {e}", error_details=str(e))
+            return ExecutionResult(success=False, error_message=str(e))
 
         # 3. 执行计划循环
         step_index = 0
@@ -215,9 +228,13 @@ class DDBAgent:
             action = current_step["action"]
             args = current_step["args"]
             thought = current_step["thought"]
-            
-            # Yield 当前步骤的思考过程
-            yield {"type": "step_start", "step": step_index + 1, "thought": thought, "action": action, "args": args}
+
+            yield StepExecutionStart(
+                step_index=step_index + 1,
+                total_steps=len(plan),
+                step_info=current_step,
+                message=f"▶️ Executing step {step_index + 1}/{len(plan)}: {current_step.get('action')}"
+            )
 
             # 执行工具调用
             tool_result = self.tool_manager.call_tool(action, args)
@@ -229,36 +246,49 @@ class DDBAgent:
             else: # It's a string from another tool like get_function_signature
                 observation_str = str(tool_result)
 
-            yield {"type": "step_result", "step": step_index + 1, "observation": observation_str}
+            yield StepExecutionEnd(
+                step_index=step_index + 1,
+                observation=observation_str,
+                is_success=is_success,
+                message=f"{'✅' if is_success else '❌'} Step {step_index + 1} finished.",
+                script=args.get("script", None) if action == "run_dolphindb_script" else None
+            )
 
             
             # 检查是否需要启动调试子流程
             if action == "run_dolphindb_script" and  not is_success:
-                yield {"type": "status", "message": "Execution failed. Entering debugging sub-task..."}
+                yield PlanGenerationStart(
+                    message="🛠️ Execution failed. Entering debugging sub-task to generate a new plan...",
+                    reason="debug_fix"
+                )
                 
                 failed_code = args["script"]
                 error_message = observation_str.split("Error:\n", 1)[1]
                 tool_defs_str = json.dumps(self.tool_manager.get_tool_definitions(), indent=2)
 
                 try:
-                    # 调用调试Planner
-                    new_plan_str = debugging_planner(
+                    new_plan_str_gen = debugging_planner(
                         original_query=user_input,
                         failed_code=failed_code,
                         error_message=error_message,
                         tool_definitions=tool_defs_str
                     )
-                    new_plan = parse_json_string(new_plan_str)
+                    try:
+                        while True:
+                            yield next(new_plan_str_gen)
+                    except StopIteration as e:
+                        new_plan_str = e.value
+                    
+                    new_plan = parse_json_string(new_plan_str.content)
 
-                    # Yield 新的调试计划
-                    yield {"type": "plan", "plan": new_plan, "message": "Generated a new debugging plan."}
+                    yield PlanGenerationEnd(plan=new_plan, message="✅ New debugging plan generated.")
                     
                     plan = new_plan
                     step_index = 0
                     continue # 重置循环，从新计划的第一步开始
                 except Exception as e:
-                    yield {"type": "error", "message": f"Failed to generate debugging plan: {e}"}
-                    return
+                    yield TaskError(message=f"Failed to generate debugging plan: {e}", error_details=str(e))
+                    return ExecutionResult(success=False, error_message=str(e))
 
             execution_context[f"step_{step_index + 1}_result"] = tool_result
             step_index += 1
@@ -266,12 +296,15 @@ class DDBAgent:
         final_result_obj = execution_context.get(f"step_{len(plan)}_result")
 
         if final_result_obj and isinstance(final_result_obj, ExecutionResult) and final_result_obj.success:
-            self.last_successful_script = final_result_obj.executed_script 
+            self.last_successful_script = final_result_obj.executed_script
+            yield TaskEnd(success=True, final_message="🎉 Task completed successfully!", message = final_result_obj.executed_script)
         else:
             # If the task fails or doesn't end with a script, clear the last script
             self.last_successful_script = None 
-
-        yield {"type": "final_result", "result_object": final_result_obj}
+            error_msg = final_result_obj.error_message if isinstance(final_result_obj, ExecutionResult) else str(final_result_obj)
+            yield TaskEnd(success=False, final_message=f"❌ Task failed. Final status: {error_msg}")
+        
+        return final_result_obj
     
     def run_enhanced_coding_task(self, user_input: str) -> Generator[Dict[str, Any], None, None]:
         """

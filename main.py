@@ -13,10 +13,11 @@ from rich.pretty import pprint
 
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, Input, RichLog, Static
-from textual.containers import VerticalScroll
+from textual.containers import VerticalScroll, Container, VerticalGroup
 from textual.binding import Binding
 from rich.spinner import Spinner
 
+from agent.task_status import BaseTaskStatus, PlanGenerationEnd, StepExecutionEnd, StepExecutionStart, TaskEnd
 from rag.rag_status import AnyRagStatus, BaseRagStatus, RagError, RagSelectionProgress
 from snippets.tui_components import SnippetEditorScreen
 from utils.logger import setup_llm_logger
@@ -486,67 +487,254 @@ class DDBAgentApp(App):
                 output_container.scroll_end(animate=True, duration=0.2)
 
             self.call_from_thread(cleanup_and_finalize)
-
+    
     def _handle_code_task(self, task_description: str):
-        self._write_to_log(Panel(f"[bold blue]Received coding task:[/bold blue] {escape(task_description)}", title="[bold magenta]Coding Task[/bold magenta]"))
+        """处理基于 Planner 的代码任务，使用统一的动态容器展示所有输出。"""
+        log = self.query_one("#output-log", RichLog)
+        output_container = self.query_one("#output-container")
         
+        # 1. 创建最外层的动态容器
+        task_widget_id = f"task-container-{uuid.uuid4()}"
+
+        # --- 定义自定义Widget ---
+        class TaskContainerWidget(Container):
+            """包含主状态面板和详细日志滚动的最外层容器。"""
+            def compose(self):
+                # 确保子组件正确布局
+                yield self.main_panel
+                yield self.detail_container
+            
+            def __init__(self, main_panel, detail_container, **kwargs):
+                self.main_panel = main_panel
+                self.detail_container = detail_container
+                super().__init__(**kwargs)
+            
+            def on_mount(self) -> None:
+                # 挂载后确保滚动到底部
+                self.scroll_end(animate=False)
+            
+            def on_resize(self, event) -> None:
+                # 确保当内容增加时，整个容器能滚动到底部
+                self.scroll_end(animate=False)
+        class MainTaskPanelWidget(Static):
+            """可更新的主任务面板 Widget"""
+            def __init__(self, initial_content, initial_title="", initial_border_style="yellow", **kwargs):
+                self.panel_title = initial_title
+                self.panel_content = initial_content
+                self.panel_border_style = initial_border_style
+                super().__init__(self._create_panel(), **kwargs)
+            
+            def _create_panel(self):
+                return Panel(
+                    self.panel_content,
+                    title=self.panel_title,
+                    border_style=self.panel_border_style
+                )
+            
+            def update_panel(self, new_title: str, new_content: Any, border_style: str):
+                """更新面板内容"""
+                self.panel_title = new_title
+                self.panel_content = new_content
+                self.panel_border_style = border_style
+                self.update(self._create_panel())
+                if hasattr(self.parent, 'scroll_end'):
+                    self.parent.scroll_end(animate=False)
+                # 如果有祖父容器，也要滚动
+                if hasattr(self.parent, 'parent') and hasattr(self.parent.parent, 'scroll_end'):
+                    self.parent.parent.scroll_end(animate=False)
+
+        # --- 初始化UI组件 ---
+        # A. 主状态面板 (初始状态) - 使用自定义 Widget
+        initial_content = f"[bold]任务目标:[/bold]\n{escape(task_description)}"
+        main_task_panel_widget = MainTaskPanelWidget(
+            initial_content,
+            "[yellow]🟡 任务准备中...[/yellow]",
+            "yellow",
+            id="main-task-panel"  # 现在可以设置 ID 了
+        )
+
+        # B. 详细日志容器 (初始为空)
+        detail_log_container = VerticalScroll(id="detail-log-container")
+
+        # C. 组装最外层容器
+        task_widget = TaskContainerWidget(
+            main_task_panel_widget,
+            detail_log_container,
+            id=task_widget_id
+        )
+
+        # --- 挂载到界面 ---
+        self.call_from_thread(log.add_class, "defocused")
+        self.call_from_thread(output_container.mount, task_widget)
+        self.query_one(Input).disabled = True
+
+        # --- 定义线程安全的UI更新函数 ---
+        def update_main_panel(new_title: str, new_content: Any, border_style: str):
+            try:
+                # 在 task_widget 内部查询主面板 Widget 并更新
+                panel_widget = task_widget.query_one("#main-task-panel", MainTaskPanelWidget)
+                self.call_from_thread(panel_widget.update_panel, new_title, new_content, border_style)
+                # 确保更新后滚动到可见区域
+                self.call_from_thread(output_container.scroll_end, animate=True)
+                self.call_from_thread(detail_log_container.scroll_end, animate=True)
+            except Exception as e:
+                # 添加错误日志便于调试
+                print(f"更新主面板时出错: {e}")
+
+        def append_detail_log(renderable_item: Any):
+            try:
+                # 在 task_widget 内部查询日志容器并挂载新内容
+                container = task_widget.query_one("#detail-log-container", VerticalScroll)
+                new_static = Static(renderable_item)
+                self.call_from_thread(container.mount, new_static)
+                # 确保容器滚动到最新内容
+                self.call_from_thread(container.scroll_end, animate=True)
+                # 同时确保外层容器也滚动到底部
+                self.call_from_thread(output_container.scroll_end, animate=True)
+                self.call_from_thread(detail_log_container.scroll_end, animate=True)
+            except Exception as e:
+                print(f"添加详细日志时出错: {e}")
+        
+        initial_message_displayed = False
+
         try:
             response_generator = self.agent.run_coding_task_with_planner(task_description)
             
             for update in response_generator:
-                update_type = update.get("type")
-                message = escape(update.get("message", ""))
-
-                if update_type == "status":
-                    self._write_to_log(Panel(f"⚙️ {message}", border_style="yellow"))
                 
-                elif update_type == "plan":
-                    plan_text = ""
-                    plan_data = update.get("plan", [])
-                    if isinstance(plan_data, list):
-                        for i, step in enumerate(plan_data):
+                # --- 核心逻辑：一旦有任何更新，就替换掉初始内容 ---
+                if not initial_message_displayed:
+                    # 第一次收到更新时，清空主面板的初始"任务目标"内容
+                    update_main_panel("...", Text(""), "cyan") 
+                    initial_message_displayed = True
+
+                # --- A. 处理任务状态更新 ---
+                if isinstance(update, BaseTaskStatus):
+                    # 更新主面板标题以反映宏观状态
+                    # 获取当前内容（如果需要保持的话）
+                    current_content = Text("")  # 或者保持之前的内容
+                    try:
+                        panel_widget = task_widget.query_one("#main-task-panel", MainTaskPanelWidget)
+                        current_content = panel_widget.panel_content
+                    except:
+                        pass
+                    
+                    update_main_panel(
+                        f"⚙️ {escape(update.message)}",
+                        current_content,
+                        "cyan"
+                    )
+
+                    # 将详细结果作为新Panel追加到下方
+                    if isinstance(update, PlanGenerationEnd):
+                        plan_text = ""
+                        for i, step in enumerate(update.plan):
                             action = escape(str(step.get("action", "N/A")))
                             thought = escape(str(step.get("thought", "No thought.")))
                             plan_text += f"[b]{i+1}. {action}[/b]\n   [dim]Thought: {thought}[/dim]\n"
-                    self._write_to_log(Panel(plan_text, title="[yellow]Execution Plan[/yellow]", border_style="yellow"))
-                
-                elif update_type == "step_start":
-                    step_num = update.get('step', '?')
-                    action = escape(str(update.get("action", "N/A")))
-                    thought = escape(str(update.get("thought", "")))
-                    log_entry = f"[bold green]▶️ Step {step_num}: {action}[/bold green]\n[dim]   Thought: {thought}[/dim]"
-                    self._write_to_log(Panel(log_entry, title=f"Step {step_num} Start", border_style="green"))
+                        append_detail_log(Panel(plan_text, title="📋 执行计划", border_style="yellow"))
 
-                elif update_type == "step_result":
-                    observation = update.get('observation', '')
-                    obs_renderable = escape(observation)
-                    self._write_to_log(Panel(obs_renderable, title="[cyan]Observation[/cyan]", border_style="cyan"))
+                    elif isinstance(update, StepExecutionStart):
+                        step = update.step_info
+                        action = escape(str(step.get("action", "N/A")))
+                        update_main_panel(f"▶️ 执行步骤 {update.step_index}/{update.total_steps}: {action}", current_content, "green")
+                    
+                    elif isinstance(update, StepExecutionEnd):
+                        obs_renderable = escape(update.observation)
+                        status_icon = "✅" if update.is_success else "❌"
+                        border_color = "green" if update.is_success else "red"
+                        title = f"{status_icon} 步骤 {update.step_index} 结果"
+                        
+                        if update.script is not None:
+                            append_detail_log(Panel(update.script, title="执行脚本", border_style="blue"))
+                        append_detail_log(Panel(obs_renderable, title=title, border_style=border_color))
 
-                elif update_type == "final_result":
-                    final_exec_result = update.get('result_object')
-                    self._write_to_log(Panel(
-                        "[bold green]✅ Task Completed Successfully![/bold green]",
-                        title="[bold green]Success[/bold green]",
-                        border_style="green"
-                    ))
-                    if final_exec_result and final_exec_result.executed_script:
-                        self._write_to_log(Panel(
-                            Syntax(final_exec_result.executed_script, "dos", theme="monokai", line_numbers=True),
-                            title="[yellow]Final Successful Script[/yellow]", border_style="yellow"
-                        ))
-                    if final_exec_result and final_exec_result.data is not None:
-                        result_str = str(final_exec_result.data)
-                        self._write_to_log(Panel(result_str, title="[cyan]Result Data[/cyan]", border_style="cyan"))
+                    elif isinstance(update, TaskEnd):
+                        final_content = "所有步骤已成功执行。" if update.success else f"最终错误: {escape(update.final_message)}"
+                        final_border = "green" if update.success else "red"
+                        final_title = "✅ 任务成功完成" if update.success else "❌ 任务失败"
+                        update_main_panel(final_title, final_content, final_border)
 
-                elif update_type == "error":
-                    self._write_to_log(Panel(
-                        f"[bold red]❌ Task Failed.[/bold red]\n\n[bold]Final Error:[/bold]\n{escape(update.get('message', 'Unknown error.'))}",
-                        title="[bold red]Failure[/bold red]",
-                        border_style="red"
-                    ))
+                # --- B. 处理LLM流式块 ---
+                elif isinstance(update, StreamChunk):
+                    if update.type == "reasoning":
+                        current_content = ""
+                        try:
+                            panel_widget = task_widget.query_one("#main-task-panel", MainTaskPanelWidget)
+                            if isinstance(panel_widget.panel_content, Markdown):
+                                current_content = panel_widget.panel_content.markup
+                            elif isinstance(panel_widget.panel_content, str):
+                                current_content = panel_widget.panel_content
+                        except:
+                            pass
+                        
+                        update_main_panel(
+                            "🧠 Agent 正在思考...",
+                            Markdown(current_content + update.data, code_theme="monokai"),
+                            "cyan"
+                        )
+
+                        def force_scroll():
+                            try:
+                                # 滚动主容器到底部
+                                output_container.scroll_end(animate=False)
+                                # 如果主面板内容很长，确保能看到最新部分
+                                panel_widget = task_widget.query_one("#main-task-panel", MainTaskPanelWidget)
+                                if hasattr(panel_widget, 'scroll_end'):
+                                    panel_widget.scroll_end(animate=False)
+                            except:
+                                pass
+                        
+                        self.call_from_thread(force_scroll)
+                        
         except Exception as e:
-            self._write_to_log(Panel(f"[bold red]An unexpected error occurred during the coding task:[/bold red]\n{e}", border_style="red"))
-    
+            # 错误处理
+            error_msg = f"任务执行出错: {str(e)}"
+            update_main_panel("❌ 执行错误", Text(error_msg), "red")
+        
+        finally:
+            # --- 3. 任务结束，固化整个容器内容到永久日志 ---
+            def cleanup_and_finalize():
+                final_renderable_group = None
+                from rich.console import Group
+                try:
+                    # 获取最终的渲染内容
+                    widget = self.query_one(f"#{task_widget_id}", TaskContainerWidget)
+                    final_main_panel_widget = widget.query_one("#main-task-panel", MainTaskPanelWidget)
+                    detail_logs_container = widget.query_one("#detail-log-container", VerticalScroll)
+                    
+                    # 获取主面板的最终渲染内容
+                    final_main_panel = final_main_panel_widget._create_panel()
+                    
+                    # 获取所有详细日志
+                    detail_logs = [child.renderable for child in detail_logs_container.children if hasattr(child, 'renderable')]
+
+                    # 使用 Group 将主面板和所有详细日志组合在一起
+                    final_renderable_group = Group(final_main_panel, *detail_logs)
+                    
+                    widget.remove()
+                except Exception as e:
+                    print(f"清理和固化时出错: {e}")
+                
+                log.remove_class("defocused")
+
+                # 将用户提问和Agent的完整回答写入日志
+                user_panel = Panel(escape(task_description), title="You", border_style="blue", title_align="right")
+                agent_final_panel = Panel(
+                    final_renderable_group if final_renderable_group else Text("任务未产生输出。"),
+                    title="Agent",
+                    border_style="green" # 统一用绿色边框表示一次完整的回答
+                )
+                
+                log.write(user_panel)
+                log.write(agent_final_panel)
+
+                self.query_one(Input).disabled = False
+                self.query_one(Input).focus()
+                log.scroll_end(animate=True, duration=0.2)
+
+            self.call_from_thread(cleanup_and_finalize)
+
     def _handle_spec_task(self, task_description: str):
         """处理规范开发模式任务"""
         self._write_to_log(Panel(
