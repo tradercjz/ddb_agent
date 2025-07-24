@@ -2,9 +2,11 @@
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
-from typing import List, Dict, Any
+from typing import Generator, List, Dict, Any
 import re
+from llm.llm_client import StreamChunk
 from rag.base_manager import BaseIndexManager
+from rag.rag_status import AnyRagStatus, RagError, RagSelectionEnd, RagSelectionProgress
 from rag.types import BaseIndexModel
 from token_counter import count_tokens
 from utils.json_parser import parse_json_string
@@ -80,7 +82,8 @@ class LLMCandidateSelector:
         self.all_items = all_index_items
         self.index_manager = index_manager
 
-    @llm.prompt()
+    # 指定使用chat模型快一些
+    @llm.prompt(model="deepseek-chat")
     def _select_from_chunk_prompt(self, user_query: str, index_chunk_json: str) -> str:
         """
         You are an expert retrieval assistant. Your task is to analyze a CHUNK of a project's index 
@@ -147,18 +150,28 @@ class LLMCandidateSelector:
         """The target function for each thread, processing one chunk."""
         try:
             chunk_json_str = json.dumps(index_chunk, indent=2, ensure_ascii=False)
-            response_str = self._select_from_chunk_prompt(
+
+            prompt_generator = self._select_from_chunk_prompt(
                 user_query=query,
                 index_chunk_json=chunk_json_str
             )
+
+            # RAG阶段，忽略筛选相关的LLM请求处理的中间过程
+            try:
+                while True:
+                    chunk = next(prompt_generator)
+                    pass 
+            except StopIteration as e:
+                response_str = e.value
+
             # 解析LLM返回的JSON列表
-            relevant_items_in_chunk = parse_json_string(response_str)
+            relevant_items_in_chunk = parse_json_string(response_str.content)
             return relevant_items_in_chunk
         except Exception as e:
             print(f"Error processing an index chunk with LLM: {e}")
             return []
 
-    def select(self, query: str, max_workers: int = 4) -> List[BaseIndexModel]:
+    def select(self, query: str, max_workers: int = 4) -> Generator[AnyRagStatus, None, List[BaseIndexModel]]:
         """
         Performs the parallel selection process.
         """
@@ -167,11 +180,16 @@ class LLMCandidateSelector:
         if not index_chunks:
             return []
         
-        print(f"Split {len(self.all_items)} index items into {len(index_chunks)} chunks for parallel LLM screening.")
-
+        yield RagSelectionProgress(
+            message=f"Phase 1: Split index into {len(index_chunks)} chunks for parallel filter.",
+            processed_count=0,
+            total_count=len(index_chunks),
+            found_count=0
+        )
         # 2. 并行筛选
         all_candidates = []
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            processed_chunks = 0
             future_to_chunk_index = {
                 executor.submit(self._select_candidates_from_chunk, query, chunk): i
                 for i, chunk in enumerate(index_chunks)
@@ -183,9 +201,18 @@ class LLMCandidateSelector:
                     result = future.result()
                     if result:
                         all_candidates.extend(result)
-                        print(f"  - Chunk {chunk_index + 1}/{len(index_chunks)} returned {len(result)} candidates.")
+                        yield RagSelectionProgress(
+                            message=f"Phase 1: filter index  {processed_chunks}/{len(index_chunks)} chunks...",
+                            processed_count=processed_chunks,
+                            total_count=len(index_chunks),
+                            found_count=len(result)
+                        )
                 except Exception as exc:
-                    print(f"  - Chunk {chunk_index + 1} generated an exception: {exc}")
+                    yield RagError(
+                        message=f"Chunk {chunk_index + 1} processing failed.",
+                        step="selection",
+                        error_details=str(exc)
+                    )
 
         # 3. 合并与去重
         unique_lst = list(set(all_candidates))
@@ -193,5 +220,8 @@ class LLMCandidateSelector:
         for item in unique_lst:
             final_candidates.append(self.index_manager.get_index_by_filepath(item))
 
-        print(f"Total unique candidates found after parallel screening: {len(final_candidates)}")
+        yield RagSelectionEnd(
+            message=f"Phase 1: Found {len(final_candidates)} unique candidates after screening.",
+            candidate_count=len(final_candidates)
+        )
         return final_candidates

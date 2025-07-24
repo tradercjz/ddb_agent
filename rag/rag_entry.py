@@ -8,6 +8,7 @@ from llm.llm_prompt import llm
 from typing import Any, Dict, Generator, List
 
 from llm.models import ModelManager
+from rag.rag_status import AnyRagStatus, RagEnd, RagError, RagIndexLoaded, RagRerankEnd, RagRerankStart, RagSelectionStart, RagStart
 from rag.types import BaseIndexModel
 from utils.json_parser import parse_json_string
 from .code_index_manager import CodeIndexManager
@@ -80,7 +81,7 @@ class DDBRAG:
         """
         pass
 
-    @llm.prompt()
+    @llm.prompt(model="deepseek-chat")
     def _rerank_candidates_prompt(self, user_query: str, candidates_json: str) -> str:
         """
         You are an expert re-ranking system. Your task is to analyze a list of candidate documents
@@ -126,11 +127,11 @@ class DDBRAG:
         return sources
     
     
-    def retrieve(self, query: str, top_k: int = 5) -> Generator[List[Document], Dict[str, Any], None]:
+    def retrieve(self, query: str, top_k: int = 5) -> Generator[AnyRagStatus, None, List[Document]]:
         """
         Retrieves the most relevant documents using a two-step process.
         """
-        print("--- Starting Two-Step Retrieval ---")
+        yield RagStart(message="🚀 Starting retrieval process...")
         
         # 1. 从所有索引源获取全部索引数据
         all_text_indices = self.index_manager.get_all_indices()
@@ -140,15 +141,17 @@ class DDBRAG:
             print("No indices found to search from.")
             return []
 
-        yield {
-            "type": "status",
-            "message": f"Found {len(all_indices)} total indices. Starting candidate selection..."
-        }
+        yield RagIndexLoaded(message=f"🔍 Found {len(all_indices)} total index items.", total_items=len(all_indices))
+        yield RagSelectionStart(
+            message=f"Phase 1: Selecting candidates using '{self.selection_strategy}' strategy...",
+            strategy=self.selection_strategy
+        )
+        
         # 2. 阶段一：粗筛 (Candidate Selection)
         candidates: List[BaseIndexModel]
         if self.selection_strategy == 'llm':
             selector = LLMCandidateSelector(all_indices, self.index_manager)
-            candidates = selector.select(query, max_workers=10) # 并发LLM筛选
+            candidates = yield from selector.select(query, max_workers=10) # 并发LLM筛选
         elif self.selection_strategy == 'keyword':
             selector = CandidateSelector(all_indices)
             candidates = selector.select_by_keyword(query, top_n=50) # 关键词筛选
@@ -159,42 +162,48 @@ class DDBRAG:
             print("No relevant candidates found after initial selection.")
             return []
         
-        print(f"Found {len(candidates)} candidates. Proceeding to Phase 2...")
+        yield RagRerankStart(
+            message="Phase 2: Using LLM to re-rank candidates...",
+            candidate_count=len(candidates)
+        )
 
-        yield {
-            "type": "status",
-            "message": f"Selected {len(candidates)} candidates. Starting LLM re-ranking..."
-        }
         # 3. 阶段二：精排 (Re-ranking by LLM)
-        print("Phase 2: Re-ranking candidates with LLM...")
-        #  先用列表推导式和 .model_dump() 将 Pydantic 对象列表转换为字典列表
-        print("candidates:", candidates)
         candidates_for_llm = [c.model_dump() for c in candidates if c is not None]
         #  然后再对这个字典列表进行 JSON 序列化
         candidates_json_str = json.dumps(candidates_for_llm, indent=2, ensure_ascii=False)
-
-        print("candidates_json_str:", candidates_json_str)
         
-        response_str = self._rerank_candidates_prompt(
+        response_generator = self._rerank_candidates_prompt(
             user_query=query,
             candidates_json=candidates_json_str
         )
         
         try:
-            # LLM 返回最终的、排序好的标识符列表
-            yield {
-                "type": "status",
-                "message": "LLM re-ranking completed. Parsing response..."
-            }
-            final_identifiers = parse_json_string(response_str)
+            try:
+                while True:
+                    part = next(response_generator)
+                    pass
+            except StopIteration as e:
+                response_str = e.value
+                final_identifiers = parse_json_string(response_str.content)
+                yield RagRerankEnd(
+                    message="✅ Re-ranking complete.",
+                    final_count=len(final_identifiers)
+                )
         except Exception as e:
-            print(f"Error parsing LLM re-ranking response: {e}. Falling back to top candidates from selection.")
+            yield RagError(
+                message="Error parsing re-ranking response. Falling back.",
+                step="rerank",
+                error_details=str(e)
+            )
             # 后备方案：如果LLM精排失败，直接使用粗筛结果
             final_identifiers = [
                 c.get('module_name') or c.get('chunk_id') for c in candidates
             ]
 
-        print(f"LLM selected and re-ranked {len(final_identifiers)} items.")
+        yield RagEnd(
+            message="Retrieval process completed successfully.",
+            final_document_count=len(final_identifiers)
+        )
 
         # 4. 根据最终的标识符列表，获取并返回文件/文本块内容
         return self._get_files_content(final_identifiers)

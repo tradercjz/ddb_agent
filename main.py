@@ -17,6 +17,7 @@ from textual.containers import VerticalScroll
 from textual.binding import Binding
 from rich.spinner import Spinner
 
+from rag.rag_status import AnyRagStatus, BaseRagStatus, RagError, RagSelectionProgress
 from snippets.tui_components import SnippetEditorScreen
 from utils.logger import setup_llm_logger
 from agent.agent import DDBAgent
@@ -323,7 +324,25 @@ class DDBAgentApp(App):
                 while True:
                     part = next(response_generator)
 
-                    if isinstance(part, StreamChunk):
+                    def update_ui(new_renderable):
+                        """线程安全的UI更新函数"""
+                        try:
+                            widget_to_update = self.query_one(f"#{streaming_widget_id}", Static)
+                            widget_to_update.update(new_renderable)
+                        except Exception:
+                            pass # Widget 可能已被移除
+
+                    if isinstance(part, BaseRagStatus):
+                        # 如果是RAG状态，只更新Spinner的文本
+                        spinner.text = f" {part.message}"
+                        
+                        # 如果RAG出错，改变边框颜色并保持Spinner
+                        if isinstance(part, RagError):
+                            assistant_panel.border_style = "red"
+                        
+                        self.call_from_thread(update_ui, assistant_panel)
+
+                    elif isinstance(part, StreamChunk):
                         if part.type == "reasoning":
                             if not in_reasoning_phase:
                                 self.post_message(StopSpinner())

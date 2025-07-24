@@ -3,12 +3,13 @@
 import datetime
 import json
 import os
-from typing import Generator, List, Dict, Any, Tuple
+from typing import Generator, List, Dict, Any, Tuple, Union
 from agent.code_executor import CodeExecutor
 from agent.coding_task_state import CodingTaskState
 from agent.execution_result import ExecutionResult
 from agent.prompts import debugging_planner, fix_script_from_error, generate_initial_script
-from llm.llm_client import LLMResponse
+from llm.llm_client import LLMResponse, StreamChunk
+from rag.rag_status import AnyRagStatus
 from session.session_manager import SessionManager
 from context.context_builder import ContextBuilder
 from rag.rag_entry import DDBRAG
@@ -74,7 +75,7 @@ class DDBAgent:
         self.session_manager.new_session()
 
 
-    def run_task(self, user_input: str, task_type: str = 'chat') -> any:
+    def run_task(self, user_input: str, task_type: str = 'chat') -> Generator[Union[AnyRagStatus, StreamChunk], None, LLMResponse]:
         """
         Handles a user request by orchestrating RAG, context building, and LLM interaction.
         """
@@ -84,7 +85,7 @@ class DDBAgent:
 
         # 2. 使用 RAG 检索相关文件上下文
         # 我们用最新的用户输入去检索
-        relevant_files = self.rag.retrieve(user_input, top_k=5)
+        relevant_files = yield from self.rag.retrieve(user_input, top_k=5)
 
         # 3. 准备构建上下文所需的所有材料
         system_prompt = "You are a world-class DolphinDB expert. Answer the user's query based on the provided context. If file context is provided, prioritize it. Be concise, accurate, and provide code examples where appropriate."
