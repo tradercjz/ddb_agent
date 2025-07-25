@@ -19,7 +19,7 @@ class TextIndexManager(BaseIndexManager):
     def __init__(self, project_path: str, index_file: str = ".ddb_agent/text_index"):
         super().__init__(project_path, index_file)
 
-    @llm.prompt()
+    @llm.prompt(model="deepseek-chat")
     def _create_index_for_small_file(self, file_path: str, file_content: str):
         """
         你是一位专业的文档分析专家。你的任务是处DolphinDB文档，并为其提取用于搜索引擎的关键元数据。
@@ -185,12 +185,19 @@ class TextIndexManager(BaseIndexManager):
             chunks = []
             final_chunk_index = []
             if total_tokens <= self.MAX_TOKENS_PER_CHUNK:
-                response_str = self._create_index_for_small_file(
+                response_generator = self._create_index_for_small_file(
                     file_path=file_path,
                     file_content=full_text
                 )
+                
+                try:
+                    while True:
+                        part = next(response_generator)
+                        pass
+                except StopIteration as e:
+                    response_str = e.value 
 
-                json_content = parse_json_string(response_str)
+                json_content = parse_json_string(response_str.content)
                 final_chunk_index = [TextChunkIndex(**json_content)]
             else:
                 chunks = self._chunk_text(full_text)

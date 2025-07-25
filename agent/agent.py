@@ -34,12 +34,12 @@ class DDBAgent:
     """
     The main agent orchestrating all components: session, RAG, context, and LLM.
     """
-    def __init__(self, project_path: str, model_name: str, max_window_size: int):
+    def __init__(self, project_path: str, model_name: str, max_window_size: int, index_file: str = None):
         self.project_path = project_path
         self.session_manager = SessionManager(project_path=project_path)
         self.snippet_manager = SnippetManager(project_path=project_path)
         self.context_builder = ContextBuilder(model_name=model_name, max_window_size=max_window_size)
-        self.rag = DDBRAG(project_path=project_path)
+        self.rag = DDBRAG(project_path=project_path, index_file=index_file)
         self.llm_model_name = model_name
         self.code_executor = CodeExecutor()
         # 初始化工具管理器（包含增强工具集）
@@ -113,7 +113,7 @@ class DDBAgent:
     def run_coding_task(self, user_input: str):
         """
         Orchestrates the iterative process of generating, executing, and fixing code.
-        """
+        """  
         print(f"--- Starting new coding task for: '{user_input}' ---")
 
         # 1. 初始 RAG
@@ -223,6 +223,9 @@ class DDBAgent:
         step_index = 0
         execution_context = {}
 
+        total_failed_steps = 0
+
+        final_script = ""
         while step_index < len(plan):
             current_step = plan[step_index]
             action = current_step["action"]
@@ -254,9 +257,18 @@ class DDBAgent:
                 script=args.get("script", None) if action == "run_dolphindb_script" else None
             )
 
+            final_script += args.get("script", None) if action == "run_dolphindb_script" else None
+
             
             # 检查是否需要启动调试子流程
             if action == "run_dolphindb_script" and  not is_success:
+                total_failed_steps += 1
+                if total_failed_steps >= 5:
+                    yield TaskError(
+                        message="连续执行失败超过3次，任务失败退出...",
+                        error_details=observation_str
+                    )
+
                 yield PlanGenerationStart(
                     message="🛠️ Execution failed. Entering debugging sub-task to generate a new plan...",
                     reason="debug_fix"
@@ -302,7 +314,7 @@ class DDBAgent:
             # If the task fails or doesn't end with a script, clear the last script
             self.last_successful_script = None 
             error_msg = final_result_obj.error_message if isinstance(final_result_obj, ExecutionResult) else str(final_result_obj)
-            yield TaskEnd(success=False, final_message=f"❌ Task failed. Final status: {error_msg}")
+            yield TaskEnd(success=False, final_message=f"❌ Task failed. Final status: {error_msg}", final_script=final_script)
         
         return final_result_obj
     

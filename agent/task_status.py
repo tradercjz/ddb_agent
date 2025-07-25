@@ -21,6 +21,7 @@ class TaskEnd(BaseTaskStatus):
     subtype: Literal["end"] = "end"
     success: bool
     final_message: str
+    final_script: Optional[str] = Field(default=None, description="如果任务生成了脚本，则包含该脚本。")
 
 class TaskError(BaseTaskStatus):
     """表示任务中发生严重错误。"""

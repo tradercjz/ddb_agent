@@ -70,7 +70,7 @@ def fix_script_from_error(
     """
     pass
 
-@llm.prompt(model="deepseek") # Planner需要最强的模型
+@llm.prompt(model="deepseek-reasoner") # Planner需要最强的模型
 def debugging_planner(
     original_query: str,
     failed_code: str,
