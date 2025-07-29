@@ -19,16 +19,19 @@ from snippets.snippet_manager import SnippetManager
 
 from rich.pretty import pprint
 
-from agent.tool_manager import ToolManager
 from agent.tools.ddb_tools import  RunDolphinDBScriptTool
 from agent.tools.enhanced_ddb_tools import (
     InspectDatabaseTool, ListTablesTool, DescribeTableTool, 
     ValidateScriptTool, QueryDataTool, CreateSampleDataTool, OptimizeQueryTool,
     GetFunctionDocumentationTool
 )
+from utils.json_parser import parse_json_string
+
+
+from agent.enhanced_executor_status import AnyExecutorStatus, TaskExecutionEnd, FinalScriptExtracted
 from agent.enhanced_planner import EnhancedPlanner
 from agent.enhanced_executor import EnhancedExecutor
-from utils.json_parser import parse_json_string
+from agent.tool_manager_enhanced import EnhancedToolManager
 
 class DDBAgent:
     """
@@ -43,7 +46,7 @@ class DDBAgent:
         self.llm_model_name = model_name
         self.code_executor = CodeExecutor()
         # 初始化工具管理器（包含增强工具集）
-        self.tool_manager = ToolManager([
+        self.tool_manager = EnhancedToolManager([
             # 基础工具
             RunDolphinDBScriptTool(executor=self.code_executor),
             GetFunctionDocumentationTool("/home/jzchen/ddb_agent"),
@@ -325,15 +328,14 @@ class DDBAgent:
         yield {"type": "status", "message": "🚀 Starting enhanced coding task..."}
         
         try:
-            # 使用增强执行器执行任务
             for update in self.enhanced_executor.execute_task(user_input):
                 # 保存最后成功的脚本
-                if (update.get("type") == "final_result" and 
-                    update.get("result_object") and 
-                    isinstance(update["result_object"], ExecutionResult) and 
-                    update["result_object"].success):
-                    self.last_successful_script = update["result_object"].executed_script
-                
+                # 在任务成功结束时，从 final_result 中获取脚本
+                if isinstance(update, TaskExecutionEnd) and update.success:
+                    if update.final_result and update.final_result.executed_script:
+                        self.last_successful_script = update.final_result.executed_script
+
+                # 将状态更新原封不动地传递给上层
                 yield update
                 
         except Exception as e:
@@ -360,10 +362,11 @@ class DDBAgent:
                 f.write(f"[{timestamp}] : {message}\n{tb}\nUser Input: {user_input}\n\n")
 
 
-            yield {
-                "type": "error",
-                "message": message
-            }
+            from agent.enhanced_executor_status import ExecutorError
+            yield ExecutorError(
+                message=message,
+                error_details=tb
+            )
 
     def run_spec_task(self, task_description: str) -> Generator[Dict[str, Any], None, None]:
         """

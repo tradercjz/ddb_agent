@@ -70,3 +70,6 @@ loguru
 # Found in: llm/llm_client.py and configured in utils/logger.py
 
 dolphindb
+
+
+textual

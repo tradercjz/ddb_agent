@@ -8,6 +8,7 @@ import json
 
 import numpy as np
 import pandas as pd
+from agent.enhanced_planner_status import AnyPlannerStatus, ComplexityAnalysisEnd, ComplexityAnalysisStart, InitialPlanGenerationStart, PlannerError, RAGContextEnd, RAGContextStart
 from agent.execution_result import ExecutionResult
 from llm.llm_prompt import llm
 from utils.json_parser import parse_json_string
@@ -49,10 +50,10 @@ logging.basicConfig(
 @dataclass
 class ExecutionPlan:
     task_description: str
-    complexity: TaskComplexity
     steps: List[PlanStep]
     current_step: int = 0
     context: Dict[str, Any] = field(default_factory=dict)
+    complexity: Optional[TaskComplexity] = TaskComplexity('simple')
     
     def get_next_executable_step(self) -> Optional[PlanStep]:
         """获取下一个可执行的步骤"""
@@ -128,63 +129,75 @@ class EnhancedPlanner:
         """
         pass
     
-    @llm.prompt()
-    def _generate_initial_plan(self, task_description: str, complexity: str, 
+    @llm.prompt(model="deepseek")
+    def _generate_initial_plan(self, task_description: str,
                               available_tools: str, rag_context: str) -> str:
         """
-        You are an expert DolphinDB task planner. Create a detailed execution plan.
-        
-        ## Task Description
+        You are an expert DolphinDB automation engineer. Your goal is to create a step-by-step execution plan to accomplish the user's task. You must think iteratively and use the available tools to break down the problem.
+
+        ## Primary Goal
         {{ task_description }}
-        
-        ## Task Complexity
-        {{ complexity }}
-        
+
         ## Available Tools
+        You have access to a set of tools. You must choose the most appropriate tool for each step.
+        ```json
         {{ available_tools }}
-        
-        ## Relevant Context
+        ```
+
+        ### Key Tool Explanations:
+        - **run_dolphindb_script**: Use this to execute DolphinDB code. This should often be the final step after preparing data or the environment. Do not use it for simple queries if a more specific tool like `query_data` exists.
+        - **get_function_documentation**: If you encounter an error with a DolphinDB function or are unsure of its usage, use this tool to get help before attempting to fix the code.
+        - **filesystem.read_file / filesystem.write_file**: These are MCP tools. Use them when you need to read external data files (like CSVs) or write results to a file on the local system.
+        - **Other MCP tools (e.g., `filesystem.*`)**: These tools allow you to interact with the local environment. Use them for tasks that are not directly related to DolphinDB execution, such as listing files to find data, or creating directories.
+
+        ## Relevant Context from Knowledge Base
         {{ rag_context }}
-        
-        ## Planning Guidelines
-        
-        For SIMPLE tasks:
-        - Start with environment inspection if needed
-        - Execute the main operation
-        - Validate results
-        
-        For MEDIUM tasks:
-        - Inspect environment and gather requirements
-        - Prepare data or setup environment
-        - Execute main operations in logical sequence
-        - Validate and format results
-        
-        For COMPLEX tasks:
-        - Break down into logical phases
-        - Include validation steps between phases
-        - Plan for potential error scenarios
-        - Include result verification and optimization
-        
+
+        ## Planning Guidelines & Thought Process
+        1.  **Understand the Goal**: What is the user's final objective?
+        2.  **Information Gathering**: Do I have all the information I need? Do I need to check if a file exists first (`filesystem.list_files`)? Do I need to read a schema (`describe_table`)?
+        3.  **Environment Preparation**: Does a table need to be created (`create_sample_data` or `run_dolphindb_script`)? Does a file need to be created on disk (`filesystem.write_file`)?
+        4.  **Core Logic Execution**: Now, execute the main part of the task, which might be running a complex DolphinDB script (`run_dolphindb_script`) or querying data (`query_data`).
+        5.  **Result Handling**: What should be done with the result? Should it be written to a file (`filesystem.write_file`)?
+
         ## Output Format
-        Return a JSON array of steps with this structure:
+        Your response MUST be a valid JSON array of steps. Each step must be an object with the following keys:
+        - `step_id`: A sequential integer starting from 1.
+        - `action`: The name of the tool to use from the "Available Tools" list.
+        - `args`: An object containing the parameters for the chosen tool.
+        - `thought`: Your detailed reasoning for this step. Explain WHY you are taking this action and what you expect to achieve.
+        - `dependencies`: A list of `step_id`s that must be completed successfully before this step can run. An empty list `[]` means no dependencies.
+
+        ### Example Plan Structure:
         ```json
         [
           {
             "step_id": 1,
-            "action": "tool_name",
-            "args": {"param": "value"},
-            "thought": "Why this step is needed",
+            "thought": "First, I need to check what files are in the '/data' directory to find the correct CSV file the user mentioned.",
+            "action": "filesystem.list_files",
+            "args": {
+              "path": "/data"
+            },
             "dependencies": []
+          },
+          {
+            "step_id": 2,
+            "thought": "Now that I have the filename, I'll create a DolphinDB script to load this CSV into a table and then perform a calculation.",
+            "action": "run_dolphindb_script",
+            "args": {
+              "script": "t = loadText('/data/trades.csv'); select avg(price) from t"
+            },
+            "dependencies": [1]
           }
         ]
         ```
 
-        注意，输出的时候，不要有额外的开头，必须保证是以```json开头，```结束的json格式
-        注意，DolphinDB有分布式表和内存表。内存表，不需要使用loadTable来加载，只有dfs表需要
-        sql中，不要top和limit一起使用
+        ## Important Rules
+        - **Tool First**: Always prefer using a specific tool over writing a script if a tool can accomplish the sub-task.
+        - **DolphinDB Specifics**: Remember that DolphinDB has distributed tables (DFS) which need `loadTable`, and in-memory tables which do not.
+        - **SQL Syntax**: In DolphinDB SQL, `select top N ...` is used for limiting results. Do not use `LIMIT`.
 
-        ## Available Actions
-        Use only the tool names from the available tools list above.
+        Now, create the execution plan for the user's request.
         """
         pass
     
@@ -242,68 +255,79 @@ class EnhancedPlanner:
     def create_execution_plan(self, task_description: str) -> Generator[ExecutionPlan, Dict[str, Any], None]:
         """创建执行计划"""
         # 1. 获取相关上下文
-        yield {
-            "type": "planner_info",
-            "subtype": "rag_context",
-            "content": "开始检索上下文",
-            "message": "Retrieved RAG context."
-        }
-
-        rag_context = self._get_rag_context(task_description)
-
-        yield {
-            "type": "planner_info",
-            "subtype": "rag_context",
-            "content": rag_context,
-            "message": "Retrieved RAG context."
-        }
-
-        
-        # 2. 分析任务复杂度
-        available_tools = json.dumps(self.tool_manager.get_tool_definitions(), indent=2)
-        complexity_str = self._analyze_task_complexity(task_description, available_tools)
-        complexity = TaskComplexity(complexity_str.lower())
-        
-        # 3. 生成初始计划
-        plan_json = self._generate_initial_plan(
-            task_description=task_description,
-            complexity=complexity_str,
-            available_tools=available_tools,
-            rag_context=rag_context
-        )
-
-        yield {
-            "type": "planner_info",
-            "subtype": "llm_prompt",
-            "content": plan_json,
-            "message": "Generated prompt for plan generation."
-        }
-        
-        # 4. 解析计划
-        plan_data = parse_json_string(plan_json)
-
-        if plan_data is None:
-            raise ValueError("无法创建执行计划，请再试一次")
-        steps = [
-            PlanStep(
-                step_id=step["step_id"],
-                action=step["action"],
-                args=step["args"],
-                thought=step["thought"],
-                dependencies=step.get("dependencies", [])
+        try:
+            # yield RAGContextStart(message="Retrieving RAG context...")
+            # rag_context_gen = self._get_rag_context(task_description)
+            # try:
+            #     while True:
+            #         rag_status = next(rag_context_gen)
+            #         yield rag_status 
+            # except StopIteration as e:
+            #     rag_context = e.value # _get_rag_context 返回最终的字符串
+            # yield RAGContextEnd(message="RAG context retrieved.", context=rag_context)
+            
+            # 2. 分析任务复杂度
+            # yield ComplexityAnalysisStart(message="Analyzing task complexity...")
+            available_tools = json.dumps(self.tool_manager.get_tool_definitions(), indent=2)
+            # complexity_str_gen = self._analyze_task_complexity(task_description, available_tools)
+            # try:
+            #     while True:
+            #         next(complexity_str_gen)
+            # except StopIteration as e:
+            #     complexity_str = e.value
+            # complexity = TaskComplexity(complexity_str.content.lower())
+            # yield ComplexityAnalysisEnd(message=f"Task complexity: {complexity.value.upper()}", complexity=complexity.value)
+                
+            # 3. 生成初始计划
+            yield InitialPlanGenerationStart(message="Generating initial plan from LLM...")
+            plan_json_gen = self._generate_initial_plan(
+                task_description=task_description,
+                available_tools=available_tools,
+                rag_context=""
             )
-            for step in plan_data
-        ]
+
+            try:
+                while True:
+                    yield next(plan_json_gen)
+            except StopIteration as e:
+                plan_json = e.value
+
+            yield {
+                "type": "planner_info",
+                "subtype": "llm_prompt",
+                "content": plan_json,
+                "message": "Generated prompt for plan generation."
+            }
+            
+            # 4. 解析计划
+            plan_data = parse_json_string(plan_json.content)
+
+            if plan_data is None:
+                raise ValueError("无法创建执行计划，请再试一次")
+            steps = [
+                PlanStep(
+                    step_id=step["step_id"],
+                    action=step["action"],
+                    args=step["args"],
+                    thought=step["thought"],
+                    dependencies=step.get("dependencies", [])
+                )
+                for step in plan_data
+            ]
+            
+            return ExecutionPlan(
+                task_description=task_description,
+                complexity="",
+                steps=steps
+            )
         
-        return ExecutionPlan(
-            task_description=task_description,
-            complexity=complexity,
-            steps=steps
-        )
+        except Exception as e:
+            error_details = f"{type(e).__name__}: {e}"
+            yield PlannerError(message="An error occurred during planning.", error_details=error_details)
     
    
     
-    def handle_step_failure(self, plan: ExecutionPlan, failed_step: PlanStep) -> ExecutionPlan:
+    def handle_step_failure(self, plan: ExecutionPlan, failed_step: PlanStep) -> Generator[AnyPlannerStatus, None, ExecutionPlan]:
         """处理步骤失败，生成恢复计划"""
         # 准备上下文信息
         original_plan_json = json.dumps([
@@ -352,14 +376,20 @@ class EnhancedPlanner:
         execution_context = json.dumps(plan.context, indent=2, default=custom_serializer)
    
         # 生成恢复计划
-        recovery_json = self._replan_after_failure(
+        recovery_json_gen = self._replan_after_failure(
             original_plan=original_plan_json,
             failed_step=failed_step_json,
             error_message=failed_step.error_message or "Unknown error",
             execution_context=execution_context
         )
+
+        try:
+            while True:
+                yield(next(recovery_json_gen))
+        except StopIteration as e:
+            recovery_json = e.value
         
-        recovery_data = parse_json_string(recovery_json)
+        recovery_data = parse_json_string(recovery_json.content)
 
         if recovery_data is None or "recovery_strategy" not in recovery_data:
             # 如果解析失败或返回的数据结构不符合预期

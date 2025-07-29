@@ -26,6 +26,22 @@ from llm.llm_client import LLMResponse, StreamChunk
 from llm.models import ModelManager
 
 from textual.message import Message
+
+from agent.enhanced_executor_status import (
+    AnyExecutorStatus, ExecutorStatusUpdate, TaskExecutionStart, PlanGenerationStart,
+    PlanGenerationEnd, StepExecutionStart, StepExecutionEnd, ExecutorError,
+    RecoveryPlanStart, RecoveryPlanEnd, TaskExecutionEnd, FinalScriptExtracted
+)
+
+# MCP相关导入
+#try:
+from mcp.ui.mcp_market_screen import MCPMarketScreen
+from mcp.ui.mcp_manager_screen import MCPManagerScreen
+from mcp.market.market_manager import MCPMarketManager
+from mcp.server.server_manager import MCPServerManager
+MCP_AVAILABLE = True
+#except ImportError:
+   # MCP_AVAILABLE = False
 class StartSpinner(Message):
     """请求开始一个 Spinner 动画的消息。"""
     def __init__(self, widget_id: str) -> None:
@@ -49,6 +65,16 @@ class DDBAgentApp(App):
         super().__init__()
         self.agent = agent
         self._spinner_timer = None
+        
+        # 初始化MCP组件
+        self.mcp_market_manager = None
+        self.mcp_server_manager = None
+        if MCP_AVAILABLE:
+            try:
+                self.mcp_market_manager = MCPMarketManager()
+                self.mcp_server_manager = MCPServerManager(self.mcp_market_manager)
+            except Exception as e:
+                print(f"Warning: Failed to initialize MCP components: {e}")
 
     def compose(self) -> ComposeResult:
         """创建应用的UI布局"""
@@ -57,6 +83,14 @@ class DDBAgentApp(App):
             yield RichLog(id="output-log", wrap=False, highlight=True, markup=True)
         yield Input(placeholder="Type your query, /command, or press Ctrl+N for a new session...", id="input-box")
         yield Footer()
+
+    async def _bootstrap_mcp(self):
+        """在后台工作线程中执行MCP内置服务器的引导过程。"""
+        if self.mcp_server_manager:
+            self._write_to_log(Panel("🚀 [dim]正在自动安装和加载内置 MCP 服务器...[/dim]", border_style="yellow"))
+            await self.mcp_server_manager.bootstrap_builtin_servers()
+            self._write_to_log(Panel("✅ [dim]内置 MCP 服务器加载完成。[/dim]", border_style="green"))
+
 
     def on_mount(self) -> None:
         """应用加载完成时调用，用于初始化"""
@@ -68,6 +102,8 @@ class DDBAgentApp(App):
         )
         log.write(welcome_panel)
         self.query_one(Input).focus()
+
+        self.run_worker(self._bootstrap_mcp, exclusive=True, group="mcp_bootstrap", thread=True)
     
     def on_start_spinner(self, message: StartSpinner) -> None:
         """在主线程中处理 StartSpinner 消息。"""
@@ -149,6 +185,15 @@ class DDBAgentApp(App):
 - `/snippet delete <name>`: Remove a snippet.
 - `/snippet search <query>`: Search snippets by name, description, or tags.
 ---
+**MCP (Model Context Protocol) Commands**
+- `/mcp market`: Open MCP market to browse and install MCP servers.
+- `/mcp manager`: Open MCP server management interface.
+- `/mcp list`: List all installed MCP servers and their status.
+- `/mcp start <server_name>`: Start a specific MCP server.
+- `/mcp stop <server_name>`: Stop a specific MCP server.
+- `/mcp tools`: List all available MCP tools.
+- `/mcp install <server_name>`: Install an MCP server from the market.
+---
 **Utility Commands**
 - `/save <file_path>`: Save the last successful script from an enhanced task to a file.
 - `/stats`: Show execution statistics for the enhanced mode.
@@ -199,6 +244,9 @@ class DDBAgentApp(App):
 
             elif cmd == '/snippet':
                 self._handle_snippet_command(parts)
+            
+            elif cmd == '/mcp':
+                self._handle_mcp_command(parts)
             
             elif cmd == '/spec':
                 if len(parts) > 1:
@@ -274,8 +322,197 @@ class DDBAgentApp(App):
                 )
             else:
                 self._write_to_log(Panel(f"[red]Snippet '{escape(snippet_name)}' not found.[/red]"))
-        
 
+    def _handle_mcp_command(self, parts: list[str]):
+        """处理MCP相关命令"""
+        if not MCP_AVAILABLE:
+            self._write_to_log(Panel("[red]MCP功能不可用。请检查MCP模块是否正确安装。[/red]", border_style="red"))
+            return
+        
+        if len(parts) < 2:
+            help_text = """
+**MCP Command Usage**
+- `/mcp market`: Open MCP market to browse and install servers.
+- `/mcp manager`: Open MCP server management interface.
+- `/mcp list`: List all installed MCP servers and their status.
+- `/mcp start <server_name>`: Start a specific MCP server.
+- `/mcp stop <server_name>`: Stop a specific MCP server.
+- `/mcp tools`: List all available MCP tools.
+- `/mcp install <server_name>`: Install an MCP server from the market.
+            """
+            self._write_to_log(Panel(Markdown(help_text), title="[cyan]MCP Help[/cyan]"))
+            return
+
+        sub_cmd = parts[1].lower()
+
+        if sub_cmd == 'market':
+            if self.mcp_market_manager:
+                self.call_from_thread(self.push_screen, MCPMarketScreen(self.mcp_market_manager))
+            else:
+                self._write_to_log(Panel("[red]MCP市场管理器未初始化[/red]", border_style="red"))
+        
+        elif sub_cmd == 'manager':
+            if self.mcp_market_manager and self.mcp_server_manager:
+                self.call_from_thread(self.push_screen, MCPManagerScreen(self.mcp_server_manager, self.mcp_market_manager))
+            else:
+                self._write_to_log(Panel("[red]MCP管理器未初始化[/red]", border_style="red"))
+        
+        elif sub_cmd == 'list':
+            self._handle_mcp_list()
+        
+        elif sub_cmd == 'start':
+            if len(parts) < 3:
+                self._write_to_log(Panel("[yellow]Usage: /mcp start <server_name>[/yellow]"))
+                return
+            server_name = parts[2]
+            self._handle_mcp_start(server_name)
+        
+        elif sub_cmd == 'stop':
+            if len(parts) < 3:
+                self._write_to_log(Panel("[yellow]Usage: /mcp stop <server_name>[/yellow]"))
+                return
+            server_name = parts[2]
+            self._handle_mcp_stop(server_name)
+        
+        elif sub_cmd == 'tools':
+            self._handle_mcp_tools()
+        
+        elif sub_cmd == 'install':
+            if len(parts) < 3:
+                self._write_to_log(Panel("[yellow]Usage: /mcp install <server_name>[/yellow]"))
+                return
+            server_name = parts[2]
+            self._handle_mcp_install(server_name)
+        
+        else:
+            self._write_to_log(Panel(f"[red]Unknown MCP command: {sub_cmd}[/red]", border_style="red"))
+
+    def _handle_mcp_list(self):
+        """列出所有已安装的MCP服务器"""
+        if not self.mcp_market_manager:
+            self._write_to_log(Panel("[red]MCP市场管理器未初始化[/red]", border_style="red"))
+            return
+        
+        try:
+            installed_servers = self.mcp_market_manager.get_installed_servers()
+            
+            if not installed_servers:
+                self._write_to_log(Panel("没有已安装的MCP服务器。使用 `/mcp market` 浏览和安装服务器。", title="MCP服务器"))
+                return
+            
+            list_text = "## 已安装的MCP服务器\n\n"
+            for server in installed_servers:
+                status = self.mcp_server_manager.get_server_status(server.info.name) if self.mcp_server_manager else server.status
+                status_emoji = {
+                    "running": "🟢",
+                    "stopped": "🔴", 
+                    "installed": "🟡",
+                    "error": "❌",
+                    "installing": "🔄"
+                }.get(status.value, "❓")
+                
+                list_text += f"- **{server.info.display_name}** {status_emoji} ({status.value})\n"
+                list_text += f"  - 版本: {server.info.version}\n"
+                list_text += f"  - 描述: {server.info.description}\n"
+                if server.process_id:
+                    list_text += f"  - 进程ID: {server.process_id}\n"
+                list_text += "\n"
+            
+            self._write_to_log(Panel(Markdown(list_text), title="[cyan]MCP服务器列表[/cyan]"))
+            
+        except Exception as e:
+            self._write_to_log(Panel(f"[red]获取服务器列表失败: {str(e)}[/red]", border_style="red"))
+
+    def _handle_mcp_start(self, server_name: str):
+        """启动MCP服务器"""
+        if not self.mcp_server_manager:
+            self._write_to_log(Panel("[red]MCP服务器管理器未初始化[/red]", border_style="red"))
+            return
+        
+        async def start_server():
+            try:
+                self._write_to_log(Panel(f"正在启动MCP服务器: {server_name}...", border_style="yellow"))
+                success = await self.mcp_server_manager.start_server(server_name)
+                
+                if success:
+                    self._write_to_log(Panel(f"✅ MCP服务器 {server_name} 启动成功", border_style="green"))
+                else:
+                    self._write_to_log(Panel(f"❌ MCP服务器 {server_name} 启动失败", border_style="red"))
+            except Exception as e:
+                self._write_to_log(Panel(f"❌ 启动失败: {str(e)}", border_style="red"))
+        
+        import asyncio
+        asyncio.create_task(start_server())
+
+    def _handle_mcp_stop(self, server_name: str):
+        """停止MCP服务器"""
+        if not self.mcp_server_manager:
+            self._write_to_log(Panel("[red]MCP服务器管理器未初始化[/red]", border_style="red"))
+            return
+        
+        async def stop_server():
+            try:
+                self._write_to_log(Panel(f"正在停止MCP服务器: {server_name}...", border_style="yellow"))
+                success = await self.mcp_server_manager.stop_server(server_name)
+                
+                if success:
+                    self._write_to_log(Panel(f"✅ MCP服务器 {server_name} 停止成功", border_style="green"))
+                else:
+                    self._write_to_log(Panel(f"❌ MCP服务器 {server_name} 停止失败", border_style="red"))
+            except Exception as e:
+                self._write_to_log(Panel(f"❌ 停止失败: {str(e)}", border_style="red"))
+        
+        import asyncio
+        asyncio.create_task(stop_server())
+
+    def _handle_mcp_tools(self):
+        """列出所有可用的MCP工具"""
+        if not self.mcp_server_manager:
+            self._write_to_log(Panel("[red]MCP服务器管理器未初始化[/red]", border_style="red"))
+            return
+        
+        try:
+            all_tools = self.mcp_server_manager.get_all_tools()
+            
+            if not all_tools:
+                self._write_to_log(Panel("没有可用的MCP工具。请先启动一些MCP服务器。", title="MCP工具"))
+                return
+            
+            tools_text = "## 可用的MCP工具\n\n"
+            current_server = None
+            
+            for tool in all_tools:
+                if tool.server_name != current_server:
+                    current_server = tool.server_name
+                    tools_text += f"### 来自 {current_server}\n\n"
+                
+                tools_text += f"- **{tool.name}**: {tool.description}\n"
+            
+            self._write_to_log(Panel(Markdown(tools_text), title="[cyan]MCP工具列表[/cyan]"))
+            
+        except Exception as e:
+            self._write_to_log(Panel(f"[red]获取工具列表失败: {str(e)}[/red]", border_style="red"))
+
+    def _handle_mcp_install(self, server_name: str):
+        """安装MCP服务器"""
+        if not self.mcp_market_manager:
+            self._write_to_log(Panel("[red]MCP市场管理器未初始化[/red]", border_style="red"))
+            return
+        
+        async def install_server():
+            try:
+                self._write_to_log(Panel(f"正在安装MCP服务器: {server_name}...", border_style="yellow"))
+                success = await self.mcp_market_manager.install_server(server_name)
+                
+                if success:
+                    self._write_to_log(Panel(f"✅ MCP服务器 {server_name} 安装成功", border_style="green"))
+                else:
+                    self._write_to_log(Panel(f"❌ MCP服务器 {server_name} 安装失败", border_style="red"))
+            except Exception as e:
+                self._write_to_log(Panel(f"❌ 安装失败: {str(e)}", border_style="red"))
+        
+        import asyncio
+        asyncio.create_task(install_server())
 
     def _handle_chat_task(self, user_input: str):
         """
@@ -788,133 +1025,97 @@ class DDBAgentApp(App):
             response_generator = self.agent.run_enhanced_coding_task(task_description)
             
             for update in response_generator:
-                update_type = update.get("type")
-                message = escape(update.get("message", ""))
+                if isinstance(update, ExecutorStatusUpdate):
+                    self._write_to_log(Panel(f"⚙️ {escape(update.message)}", border_style="yellow"))
 
-                if update_type == "planner_info":
-                    subtype = update.get("subtype", "unknown")
-                    content = update.get("content", "")
-                    message = escape(update.get("message", ""))
-                    
-                    panel_title = f"[bold blue]Planner Info: {subtype.replace('_', ' ').title()}[/bold blue]"
-                    renderable_content = None
-
-                    if subtype in ["rag_context", "analysis_result"]:
-                        renderable_content = Text(f"{message}\n\n[dim]{escape(str(content))}[/dim]")
-                    elif subtype == "llm_prompt":
-                        renderable_content = Text(f"{message}\n\n[dim]{escape(str(content))}[/dim]")
-                    elif subtype == "llm_raw_response":
-                        # 对 JSON 使用语法高亮
-                        renderable_content = Syntax(str(content), "json", theme="monokai", word_wrap=True)
-                    
-                    if renderable_content:
-                        self._write_to_log(Panel(renderable_content, title=panel_title, border_style="blue"))
-                    else:
-                        self._write_to_log(Panel(message, title=panel_title, border_style="blue"))
-
-                elif update_type == "status":
-                    self._write_to_log(Panel(f"⚙️ {message}", border_style="yellow"))
-                
-                elif update_type == "plan":
+                elif isinstance(update, PlanGenerationEnd):
                     plan_text = ""
-                    plan_data = update.get("plan", [])
-                    complexity = update.get("complexity", "unknown")
+                    plan_data = update.plan.steps
+                    complexity = update.plan.complexity.value
                     
                     plan_text += f"[bold]Task Complexity:[/bold] {complexity.upper()}\n\n"
                     
-                    if isinstance(plan_data, list):
-                        for step in plan_data:
-                            step_id = step.get("step_id", "?")
-                            action = escape(str(step.get("action", "N/A")))
-                            thought = escape(str(step.get("thought", "No thought.")))
-                            args = step.get("args", {})
-                            
-                            plan_text += f"[b]{step_id}. {action}[/b]\n"
-                            plan_text += f"   [dim]💭 {thought}[/dim]\n"
-                            if args:
-                                plan_text += f"   [dim]📋 Args: {escape(str(args))}[/dim]\n"
-                            plan_text += "\n"
+                    for step in plan_data:
+                        action = escape(str(step.action))
+                        thought = escape(str(step.thought))
+                        args = step.args
+                        
+                        plan_text += f"[b]{step.step_id}. {action}[/b]\n"
+                        plan_text += f"   [dim]💭 {thought}[/dim]\n"
+                        if args:
+                            plan_text += f"   [dim]📋 Args: {escape(str(args))}[/dim]\n"
+                        plan_text += "\n"
                     
                     self._write_to_log(Panel(plan_text, title="[yellow]📋 Execution Plan[/yellow]", border_style="yellow"))
-                
-                elif update_type == "step_start":
-                    step_num = update.get('step', '?')
-                    action = escape(str(update.get("action", "N/A")))
-                    thought = escape(str(update.get("thought", "")))
-                    log_entry = f"[bold green]▶️ Step {step_num}: {action}[/bold green]\n[dim]   💭 {thought}[/dim]"
-                    self._write_to_log(Panel(log_entry, title=f"Step {step_num} Start", border_style="green"))
 
-                elif update_type == "step_result":
-                    step_num = update.get('step', '?')
-                    success = update.get('success', False)
-                    observation = update.get('observation', '')
-                    execution_time = update.get('execution_time', 0)
+                elif isinstance(update, StepExecutionStart):
+                    step = update.step
+                    log_entry = f"[bold green]▶️ Step {step.step_id}: {escape(step.action)}[/bold green]\n[dim]   💭 {escape(step.thought)}[/dim]"
+                    self._write_to_log(Panel(log_entry, title=f"Step {step.step_id} Start", border_style="green"))
+
+                elif isinstance(update, StepExecutionEnd):
+                    step = update.step
+                    result = update.result
+                    success = result.success
+                    observation = str(result.data) if success else result.error_message
                     
                     status_icon = "✅" if success else "❌"
                     status_color = "green" if success else "red"
                     
                     obs_text = f"{status_icon} [bold]Result:[/bold]\n{escape(observation)}"
-                    if execution_time:
-                        obs_text += f"\n\n[dim]⏱️ Execution time: {execution_time:.2f}s[/dim]"
+                    if update.execution_time:
+                        obs_text += f"\n\n[dim]⏱️ Execution time: {update.execution_time:.2f}s[/dim]"
                     
-                    self._write_to_log(Panel(obs_text, title=f"[{status_color}]Step {step_num} Result[/{status_color}]", border_style=status_color))
+                    self._write_to_log(Panel(obs_text, title=f"[{status_color}]Step {step.step_id} Result[/{status_color}]", border_style=status_color))
 
-                elif update_type == "recovery_plan":
-                    original_step = update.get('original_step', '?')
-                    new_steps = update.get('new_steps', [])
-                    
-                    recovery_text = f"[bold yellow]🔧 Recovery for Step {original_step}[/bold yellow]\n\n"
-                    for step in new_steps:
-                        step_id = step.get("step_id", "?")
-                        action = escape(str(step.get("action", "N/A")))
-                        thought = escape(str(step.get("thought", "")))
-                        recovery_text += f"[b]{step_id}. {action}[/b]\n   [dim]💭 {thought}[/dim]\n"
+                elif isinstance(update, RecoveryPlanEnd):
+                    recovery_text = f"[bold yellow]🔧 Recovery for Step {update.new_plan.steps[0].dependencies[0] if update.new_plan.steps and update.new_plan.steps[0].dependencies else '?'}[/bold yellow]\n\n"
+                    for step in update.new_plan.steps:
+                         if step.status == "pending": # Only show new steps
+                            action = escape(str(step.action))
+                            thought = escape(str(step.thought))
+                            recovery_text += f"[b]{step.step_id}. {action}[/b]\n   [dim]💭 {thought}[/dim]\n"
                     
                     self._write_to_log(Panel(recovery_text, title="[yellow]🔄 Recovery Plan[/yellow]", border_style="yellow"))
 
-                elif update_type == "final_result":
-                    final_exec_result = update.get('result_object')
-                    execution_time = update.get('execution_time', 0)
-                    stats = update.get('stats', {})
-                    
-                    success_text = f"[bold green]✅ Enhanced Task Completed Successfully![/bold green]\n\n"
-                    success_text += f"[dim]⏱️ Total execution time: {execution_time:.2f}s[/dim]\n"
-                    success_text += f"[dim]📊 Steps executed: {stats.get('total_steps', 0)}[/dim]"
-                    
-                    self._write_to_log(Panel(success_text, title="[bold green]🎉 Success[/bold green]", border_style="green"))
-                    
-                    if final_exec_result and final_exec_result.executed_script:
-                        self._write_to_log(Panel(
-                            Syntax(final_exec_result.executed_script, "dos", theme="monokai", line_numbers=True),
-                            title="[yellow]📜 Final Successful Script[/yellow]", border_style="yellow"
-                        ))
-                    
-                    if final_exec_result and final_exec_result.data is not None:
-                        result_str = str(final_exec_result.data)
-                        self._write_to_log(Panel(result_str, title="[cyan]📊 Result Data[/cyan]", border_style="cyan"))
-                
-                elif update_type == "final_script":
-                    script_content = update.get("script", "# No script found.")
+                elif isinstance(update, TaskExecutionEnd):
+                    stats = update.stats
+                    if update.success:
+                        success_text = f"[bold green]✅ Enhanced Task Completed Successfully![/bold green]\n\n"
+                        success_text += f"[dim]⏱️ Total execution time: {update.execution_time:.2f}s[/dim]\n"
+                        success_text += f"[dim]📊 Steps executed: {stats.get('total_steps', 0)}[/dim]"
+                        self._write_to_log(Panel(success_text, title="[bold green]🎉 Success[/bold green]", border_style="green"))
+                        
+                        if update.final_result and update.final_result.data is not None:
+                            result_str = str(update.final_result.data)
+                            self._write_to_log(Panel(result_str, title="[cyan]📊 Result Data[/cyan]", border_style="cyan"))
+                    else:
+                        error_text = f"[bold red]❌ Enhanced Task Failed[/bold red]\n\n"
+                        error_text += f"[bold]Reason:[/bold] {escape(update.message)}\n\n"
+                        error_text += f"[dim]📊 Steps attempted: {stats.get('total_steps', 0)}[/dim]\n"
+                        error_text += f"[dim]🔄 Recovery attempts: {stats.get('recovery_attempts', 0)}[/dim]"
+                        self._write_to_log(Panel(error_text, title="[bold red]💥 Failure[/bold red]", border_style="red"))
+
+                elif isinstance(update, FinalScriptExtracted):
+                    script_content = update.script
                     self._write_to_log(Panel(
                         Syntax(script_content, "dos", theme="monokai", line_numbers=True, word_wrap=True),
                         title="[yellow]📜 Final Successful Script[/yellow]",
                         border_style="yellow"
                     ))
+                
+                elif isinstance(update, ExecutorError):
+                    error_text = f"[bold red]💥 Execution Error[/bold red]\n\n"
+                    error_text += f"[bold]Message:[/bold] {escape(update.message)}\n"
+                    if update.step:
+                         error_text += f"[bold]Failed Step:[/bold] {update.step.step_id}\n"
+                    error_text += f"[dim]Details: {escape(update.error_details)}[/dim]"
+                    self._write_to_log(Panel(error_text, title="[bold red]Error[/bold red]", border_style="red"))
 
-                elif update_type == "error":
-                    error_msg = update.get('message', 'Unknown error')
-                    stats = update.get('stats', {})
-                    
-                    error_text = f"[bold red]❌ Enhanced Task Failed[/bold red]\n\n"
-                    error_text += f"[bold]Error:[/bold] {escape(error_msg)}\n\n"
-                    error_text += f"[dim]📊 Steps attempted: {stats.get('total_steps', 0)}[/dim]\n"
-                    error_text += f"[dim]🔄 Recovery attempts: {stats.get('recovery_attempts', 0)}[/dim]"
-                    
-                    self._write_to_log(Panel(error_text, title="[bold red]💥 Failure[/bold red]", border_style="red"))
-                    
         except Exception as e:
             self._write_to_log(Panel(f"[bold red]An unexpected error occurred during the enhanced coding task:[/bold red]\n{e}", border_style="red"))
-        
+
+            
 if __name__ == "__main__":
     try:
         project_path = os.path.dirname(os.path.abspath(__file__))
