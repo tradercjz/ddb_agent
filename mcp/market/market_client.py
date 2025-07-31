@@ -106,174 +106,57 @@ class MCPMarketClient:
     def _get_builtin_servers(self) -> List[MCPServerInfo]:
         """获取内置的默认服务器列表"""
         return [
-            MCPServerInfo(
-                name="filesystem",
-                display_name="文件系统工具",
-                description="提供文件系统操作功能，包括读取、写入、搜索文件等",
-                version="1.0.0",
-                author="MCP Community",
-                homepage="https://github.com/modelcontextprotocol/servers",
-                repository="https://github.com/modelcontextprotocol/servers",
-                license="MIT",
-                tags=["filesystem", "files", "utility"],
-                category="utility",
-                install_type="npm",
-                install_command="npm install -g @modelcontextprotocol/server-filesystem",
-                run_command="mcp-server-filesystem",
-                tools=[
-                    {
-                        "name": "read_file",
-                        "description": "读取文件内容",
-                        "input_schema": {
-                            "type": "object",
-                            "properties": {
-                                "path": {"type": "string", "description": "文件路径"}
-                            },
-                            "required": ["path"]
-                        }
-                    },
-                    {
-                        "name": "write_file", 
-                        "description": "写入文件内容",
-                        "input_schema": {
-                            "type": "object",
-                            "properties": {
-                                "path": {"type": "string", "description": "文件路径"},
-                                "content": {"type": "string", "description": "文件内容"}
-                            },
-                            "required": ["path", "content"]
-                        }
-                    }
-                ],
-                downloads=1000,
-                rating=4.5
-            ),
             # MCPServerInfo(
-            #     name="web-search",
-            #     display_name="网络搜索工具",
-            #     description="提供网络搜索功能，支持多种搜索引擎",
-            #     version="1.2.0",
+            #     name="filesystem",
+            #     display_name="文件系统工具",
+            #     description="提供文件系统操作功能，包括读取、写入、搜索文件等",
+            #     version="1.0.0",
             #     author="MCP Community",
             #     homepage="https://github.com/modelcontextprotocol/servers",
             #     repository="https://github.com/modelcontextprotocol/servers",
             #     license="MIT",
-            #     tags=["search", "web", "internet"],
-            #     category="search",
+            #     tags=["filesystem", "files", "utility"],
+            #     category="utility",
             #     install_type="npm",
-            #     install_command="npm install -g @modelcontextprotocol/server-web-search",
-            #     run_command="mcp-server-web-search",
-            #     config_schema={
-            #         "type": "object",
-            #         "properties": {
-            #             "api_key": {"type": "string", "description": "搜索API密钥"},
-            #             "search_engine": {"type": "string", "enum": ["google", "bing", "duckduckgo"], "default": "duckduckgo"}
-            #         }
-            #     },
-            #     tools=[
-            #         {
-            #             "name": "web_search",
-            #             "description": "在网络上搜索信息",
-            #             "input_schema": {
-            #                 "type": "object",
-            #                 "properties": {
-            #                     "query": {"type": "string", "description": "搜索查询"},
-            #                     "max_results": {"type": "integer", "default": 10, "description": "最大结果数"}
-            #                 },
-            #                 "required": ["query"]
-            #             }
-            #         }
-            #     ],
-            #     downloads=800,
-            #     rating=4.2
+            #     install_command="npm install -g @modelcontextprotocol/server-filesystem",
+            #     run_command="mcp-server-filesystem ./",
+            #     tools=[],
+            #     downloads=1000,
+            #     rating=4.5
             # ),
             # MCPServerInfo(
-            #     name="database",
-            #     display_name="数据库工具",
-            #     description="提供数据库连接和查询功能，支持多种数据库",
-            #     version="2.0.0",
+            #     name="mcp-atlassian",
+            #     display_name="mcp-atlassian",
+            #     description="提供搜索jira/confluence等Atlassian产品的功能",
+            #     version="1.1.0",
             #     author="MCP Community",
             #     homepage="https://github.com/modelcontextprotocol/servers",
             #     repository="https://github.com/modelcontextprotocol/servers",
             #     license="MIT",
-            #     tags=["database", "sql", "data"],
-            #     category="database",
+            #     tags=["jira", "confluence", "development"],
+            #     category="development",
             #     install_type="pip",
-            #     install_command="pip install mcp-server-database",
-            #     run_command="mcp-server-database",
-            #     config_schema={
-            #         "type": "object",
-            #         "properties": {
-            #             "connection_string": {"type": "string", "description": "数据库连接字符串"},
-            #             "database_type": {"type": "string", "enum": ["mysql", "postgresql", "sqlite"], "description": "数据库类型"}
-            #         },
-            #         "required": ["connection_string", "database_type"]
-            #     },
-            #     tools=[
-            #         {
-            #             "name": "execute_query",
-            #             "description": "执行SQL查询",
-            #             "input_schema": {
-            #                 "type": "object",
-            #                 "properties": {
-            #                     "query": {"type": "string", "description": "SQL查询语句"},
-            #                     "params": {"type": "array", "description": "查询参数"}
-            #                 },
-            #                 "required": ["query"]
-            #             }
-            #         },
-            #         {
-            #             "name": "get_schema",
-            #             "description": "获取数据库模式信息",
-            #             "input_schema": {
-            #                 "type": "object",
-            #                 "properties": {
-            #                     "table_name": {"type": "string", "description": "表名（可选）"}
-            #                 }
-            #             }
-            #         }
-            #     ],
-            #     downloads=600,
-            #     rating=4.0
+            #     install_command="",
+            #     run_command="uvx mcp-atlassian",
+            #     tools=[],
+            #     downloads=450,
+            #     rating=4.3
             # ),
             MCPServerInfo(
-                name="git",
-                display_name="Git版本控制工具",
-                description="提供Git版本控制操作功能",
+                name="dolphindb-mcp-server",
+                display_name="dolphindb-mcp-server",
+                description="dolphindb的MCP服务器，提供数据查询和分析功能",
                 version="1.1.0",
                 author="MCP Community",
-                homepage="https://github.com/modelcontextprotocol/servers",
-                repository="https://github.com/modelcontextprotocol/servers",
+                homepage="https://github.com/tradercjz/dolphindb-mcp-server",
+                repository="https://github.com/tradercjz/dolphindb-mcp-server",
                 license="MIT",
-                tags=["git", "version-control", "development"],
+                tags=["dolphindb",  "development"],
                 category="development",
                 install_type="pip",
-                install_command="pip install mcp-server-git",
-                run_command="mcp-server-git",
-                tools=[
-                    {
-                        "name": "git_status",
-                        "description": "获取Git仓库状态",
-                        "input_schema": {
-                            "type": "object",
-                            "properties": {
-                                "repo_path": {"type": "string", "description": "仓库路径"}
-                            }
-                        }
-                    },
-                    {
-                        "name": "git_commit",
-                        "description": "提交更改",
-                        "input_schema": {
-                            "type": "object",
-                            "properties": {
-                                "repo_path": {"type": "string", "description": "仓库路径"},
-                                "message": {"type": "string", "description": "提交信息"},
-                                "files": {"type": "array", "items": {"type": "string"}, "description": "要提交的文件"}
-                            },
-                            "required": ["repo_path", "message"]
-                        }
-                    }
-                ],
+                install_command="",
+                run_command="uvx dolphindb-mcp-server",
+                tools=[],
                 downloads=450,
                 rating=4.3
             )

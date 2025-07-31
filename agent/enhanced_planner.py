@@ -134,6 +134,7 @@ class EnhancedPlanner:
                               available_tools: str, rag_context: str) -> str:
         """
         You are an expert DolphinDB automation engineer. Your goal is to create a step-by-step execution plan to accomplish the user's task. You must think iteratively and use the available tools to break down the problem.
+        当涉及到文件系统操作时候，不要用dolphindb的脚本来操作文件系统，而是使用MCP工具来处理文件系统操作
 
         ## Primary Goal
         {{ task_description }}

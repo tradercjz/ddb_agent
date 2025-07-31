@@ -67,14 +67,9 @@ class DDBAgentApp(App):
         self._spinner_timer = None
         
         # 初始化MCP组件
-        self.mcp_market_manager = None
-        self.mcp_server_manager = None
-        if MCP_AVAILABLE:
-            try:
-                self.mcp_market_manager = MCPMarketManager()
-                self.mcp_server_manager = MCPServerManager(self.mcp_market_manager)
-            except Exception as e:
-                print(f"Warning: Failed to initialize MCP components: {e}")
+        self.mcp_market_manager = agent.get_mcp_market_manager()
+        self.mcp_server_manager = agent.get_mcp_server_manager()
+        
 
     def compose(self) -> ComposeResult:
         """创建应用的UI布局"""
@@ -88,7 +83,7 @@ class DDBAgentApp(App):
         """在后台工作线程中执行MCP内置服务器的引导过程。"""
         if self.mcp_server_manager:
             self._write_to_log(Panel("🚀 [dim]正在自动安装和加载内置 MCP 服务器...[/dim]", border_style="yellow"))
-            await self.mcp_server_manager.bootstrap_builtin_servers()
+            self.mcp_server_manager.bootstrap_builtin_servers()
             self._write_to_log(Panel("✅ [dim]内置 MCP 服务器加载完成。[/dim]", border_style="green"))
 
 
@@ -1031,9 +1026,8 @@ class DDBAgentApp(App):
                 elif isinstance(update, PlanGenerationEnd):
                     plan_text = ""
                     plan_data = update.plan.steps
-                    complexity = update.plan.complexity.value
-                    
-                    plan_text += f"[bold]Task Complexity:[/bold] {complexity.upper()}\n\n"
+                 
+
                     
                     for step in plan_data:
                         action = escape(str(step.action))
@@ -1058,7 +1052,8 @@ class DDBAgentApp(App):
                     result = update.result
                     success = result.success
                     observation = str(result.data) if success else result.error_message
-                    
+                    if observation is None: 
+                        observation = ""
                     status_icon = "✅" if success else "❌"
                     status_color = "green" if success else "red"
                     
@@ -1113,7 +1108,9 @@ class DDBAgentApp(App):
                     self._write_to_log(Panel(error_text, title="[bold red]Error[/bold red]", border_style="red"))
 
         except Exception as e:
-            self._write_to_log(Panel(f"[bold red]An unexpected error occurred during the enhanced coding task:[/bold red]\n{e}", border_style="red"))
+            import traceback
+            tb_str = traceback.format_exc()
+            self._write_to_log(Panel(f"[bold red]An unexpected error occurred during the enhanced coding task:[/bold red]\n{tb_str}\n{e}", border_style="red"))
 
             
 if __name__ == "__main__":
@@ -1125,10 +1122,17 @@ if __name__ == "__main__":
 
         ModelManager.load_models()
 
+        mcp_market_manager = MCPMarketManager()
+        mcp_server_manager = MCPServerManager(mcp_market_manager)
+
+        mcp_server_manager.bootstrap_builtin_servers()
+        
         ddb_agent = DDBAgent(
             project_path=project_path,
             model_name="deepseek-chat",
-            max_window_size=64000
+            max_window_size=64000,
+            mcp_market_manager = mcp_market_manager,
+            mcp_server_manager = mcp_server_manager
         )
 
         app = DDBAgentApp(agent=ddb_agent)

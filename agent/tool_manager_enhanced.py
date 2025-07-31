@@ -24,29 +24,28 @@ class ToolArgumentValidationError(Exception):
 class EnhancedToolManager:
     """增强的工具管理器，支持MCP工具"""
     
-    def __init__(self, tools: list[BaseTool], enable_mcp: bool = True):
+    def __init__(self, tools: list[BaseTool], mcp_market_manager: Optional[MCPMarketManager] = None, mcp_server_manager: Optional[MCPServerManager] = None, enable_mcp: bool = False):
         self.tools = {tool.name: tool for tool in tools}
-        self.enable_mcp = enable_mcp and MCP_AVAILABLE
+        self.enable_mcp = enable_mcp
+        self.mcp_market_manager = mcp_server_manager
+        self.mcp_server_manager = mcp_server_manager
+        self.mcp_tool_adapter = MCPToolAdapter(self.mcp_server_manager)
+        self.mcp_tool_registry = MCPToolRegistry(self.mcp_server_manager)
+
         
-        # MCP相关组件
-        self.mcp_market_manager: Optional[MCPMarketManager] = None
-        self.mcp_server_manager: Optional[MCPServerManager] = None
-        self.mcp_tool_adapter: Optional[MCPToolAdapter] = None
-        self.mcp_tool_registry: Optional[MCPToolRegistry] = None
-        
-        if self.enable_mcp:
-            self._initialize_mcp()
     
-    def _initialize_mcp(self):
-        """初始化MCP组件"""
-        try:
-            self.mcp_market_manager = MCPMarketManager()
-            self.mcp_server_manager = MCPServerManager(self.mcp_market_manager)
-            self.mcp_tool_adapter = MCPToolAdapter(self.mcp_server_manager)
-            self.mcp_tool_registry = MCPToolRegistry(self.mcp_server_manager)
-        except Exception as e:
-            print(f"Warning: Failed to initialize MCP components: {e}")
-            self.enable_mcp = False
+    # def _initialize_mcp(self):
+    #     """初始化MCP组件"""
+    #     try:
+    #         self.mcp_market_manager = MCPMarketManager()
+    #         self.mcp_server_manager = MCPServerManager(self.mcp_market_manager)
+    #         self.mcp_tool_adapter = MCPToolAdapter(self.mcp_server_manager)
+    #         self.mcp_tool_registry = MCPToolRegistry(self.mcp_server_manager)
+
+    #         self.mcp_server_manager.bootstrap_builtin_servers()
+    #     except Exception as e:
+    #         print(f"Warning: Failed to initialize MCP components: {e}")
+    #         self.enable_mcp = False
 
     def get_tool_definitions(self, mode: str = "ACT") -> list[dict]:
         """
@@ -81,13 +80,13 @@ class EnhancedToolManager:
             base_tools = [tool.get_definition() for tool in all_tools if tool.name != 'present_plan_and_ask_for_approval']
             return base_tools + mcp_tools
 
-    async def call_tool(self, tool_name: str, args: dict) -> ExecutionResult:
+    def call_tool(self, tool_name: str, args: dict) -> ExecutionResult:
         """调用工具（支持异步MCP工具）"""
         # 检查是否是MCP工具
         print(">>>>call_tool entered")
         if self.enable_mcp and "_" in tool_name and tool_name not in self.tools:
             # 可能是MCP工具（函数名中的点被替换为下划线）
-            return await self._call_mcp_tool(tool_name, args)
+            return self._call_mcp_tool(tool_name, args)
         
         # 调用常规工具
         if tool_name not in self.tools:
@@ -101,7 +100,7 @@ class EnhancedToolManager:
         except Exception as e:
             raise ToolArgumentValidationError(f"Error validating arguments for tool '{tool_name}': {e}") from e
     
-    async def _call_mcp_tool(self, tool_name: str, args: dict) -> ExecutionResult:
+    def _call_mcp_tool(self, tool_name: str, args: dict) -> ExecutionResult:
         """调用MCP工具"""
         try:
             if not self.mcp_tool_adapter:
@@ -123,7 +122,7 @@ class EnhancedToolManager:
                     raise ToolNotFoundError(f"MCP tool '{tool_name}' not found")
             
             # 执行MCP工具
-            result = await self.mcp_tool_adapter.execute_tool(mcp_tool_name, args)
+            result = self.mcp_tool_adapter.execute_tool(mcp_tool_name, args)
             
             # 转换为ExecutionResult格式
             return ExecutionResult(

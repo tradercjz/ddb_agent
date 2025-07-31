@@ -3,13 +3,15 @@
 import datetime
 import json
 import os
-from typing import Generator, List, Dict, Any, Tuple, Union
+from typing import Generator, List, Dict, Any, Optional, Tuple, Union
 from agent.code_executor import CodeExecutor
 from agent.coding_task_state import CodingTaskState
 from agent.execution_result import ExecutionResult
 from agent.prompts import debugging_planner, fix_script_from_error, generate_initial_script
 from agent.task_status import AnyTaskStatus, PlanGenerationEnd, PlanGenerationStart, StepExecutionEnd, StepExecutionStart, TaskEnd, TaskError, TaskStart
 from llm.llm_client import LLMResponse, StreamChunk
+from mcp.market.market_manager import MCPMarketManager
+from mcp.server.server_manager import MCPServerManager
 from rag.rag_status import AnyRagStatus
 from session.session_manager import SessionManager
 from context.context_builder import ContextBuilder
@@ -37,7 +39,7 @@ class DDBAgent:
     """
     The main agent orchestrating all components: session, RAG, context, and LLM.
     """
-    def __init__(self, project_path: str, model_name: str, max_window_size: int, index_file: str = None):
+    def __init__(self, project_path: str, model_name: str, max_window_size: int, index_file: str = None, mcp_market_manager: Optional[MCPMarketManager] = None, mcp_server_manager: Optional[MCPServerManager] = None, enable_mcp: bool = False):
         self.project_path = project_path
         self.session_manager = SessionManager(project_path=project_path)
         self.snippet_manager = SnippetManager(project_path=project_path)
@@ -45,6 +47,8 @@ class DDBAgent:
         self.rag = DDBRAG(project_path=project_path, index_file=index_file)
         self.llm_model_name = model_name
         self.code_executor = CodeExecutor()
+        self.mcp_market_manager = mcp_market_manager
+        self.mcp_server_manager = mcp_server_manager
         # 初始化工具管理器（包含增强工具集）
         self.tool_manager = EnhancedToolManager([
             # 基础工具
@@ -57,7 +61,7 @@ class DDBAgent:
             QueryDataTool(executor=self.code_executor),
             CreateSampleDataTool(executor=self.code_executor),
             OptimizeQueryTool(executor=self.code_executor)
-        ])
+        ], mcp_market_manager=mcp_market_manager, mcp_server_manager=mcp_server_manager, enable_mcp= mcp_market_manager != None and mcp_server_manager != None)
         
         # 初始化增强规划器和执行器
         self.enhanced_planner = EnhancedPlanner(self.tool_manager, self.rag)
@@ -73,6 +77,14 @@ class DDBAgent:
             """
         
         self.chat_prompt_func = _default_chat_prompt
+
+    def get_mcp_market_manager(self) -> Optional[MCPMarketManager]:
+        """Returns the MCP market manager if available."""
+        return self.mcp_market_manager
+
+    def get_mcp_server_manager(self) -> Optional[MCPServerManager]:
+        """Returns the MCP server manager if available."""
+        return self.mcp_server_manager
 
     def start_new_session(self):
         """Starts a new chat session."""
