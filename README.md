@@ -1,49 +1,77 @@
-# ddb_agent: An Intelligent RAG-based AI Agent for DolphinDB
 
-**ddb_agent** 是一个专为 [DolphinDB](https://www.dolphindb.com/) 生态系统设计的、具备高级检索增强生成（RAG）能力的命令行 AI 代理。它不仅仅是一个聊天机器人，更是一个能深入理解你的项目代码库、并结合相关文件上下文为你提供精准回答的智能开发助手。
+# ddb-agent: An Autonomous AI Coding Agent for DolphinDB
+
+**ddb-agent** 是一款专为 [DolphinDB](https://www.dolphindb.com/) 生态系统打造的、具备自主规划与工具使用能力的**自主 AI 编码代理**。它远超传统的 RAG 聊天机器人，是一个能够理解复杂任务、制定多步计划、执行代码、与外部工具交互、并从错误中自我修正的智能开发伙伴。
 
 ---
 
 ## 核心特性
 
--   **🧠 智能检索增强 (RAG)**: 在回答问题前，能自动从项目文件中检索最相关的内容作为上下文，提供有理有据的回答。
--   **📚 智能上下文管理**: 独创的预算分配和剪枝策略，能够处理超长对话历史和巨大的代码文件，有效避免超出模型 Token 限制。
--   **✨ 优雅的命令行界面**: 基于 `rich` 和 `prompt-toolkit` 构建，支持多行输入、历史记录、自动建议和流式 Markdown 输出，提供极致的交互体验。
--   **🚀 声明式 LLM 调用**: 创新的 `@llm.prompt` 装饰器，将函数和文档字符串优雅地转换为 LLM API 调用，让代码更简洁、易读。
--   **🧩 模块化与可扩展架构**: 项目采用高内聚、低耦合的模块化设计，无论是 RAG 策略、上下文剪枝器还是 LLM 模型，都易于替换和扩展。
--   **💾 会话持久化**: 能够自动保存和加载对话历史，支持多轮对话和上下文记忆。
+-   **🧠 自主规划与执行 (Plan-and-Execute)**: 面对复杂任务，能自主生成详细的行动计划，并按计划调用工具、执行代码、分析结果，甚至在失败时进行重规划。
+-   **🔌 模型上下文协议 (MCP - Model Context Protocol)**: 创新的 **"工具即服务" (Tool-as-a-Service)** 架构。允许 Agent 动态地发现、安装和运行外部工具服务器，无限扩展其能力，例如与文件系统、Jira、Confluence 等进行交互。
+-   **🚀 高级 RAG 流程**: 采用两阶段检索策略（并行 LLM 粗筛 + LLM 精排），从海量文档和代码中精准召回最相关的上下文，为决策提供依据。
+-   **📚 智能上下文管理**: 独创的预算分配和剪枝策略。通过动态计算 Token 预算和使用 LLM 提取大文件中的关键代码片段，有效避免了上下文超长的问题。
+-   **🛠️ 丰富的内置工具集**: 内置大量 DolphinDB 专用工具，用于数据库检查、表结构描述、数据查询、脚本验证等。
+-   **📝 结构化需求工程**: 提供独特的 `/spec` 模式，遵循 EARS 方法论，引导 AI 生成标准化的需求、设计和任务分解文档。
+-   **✨ 交互式 TUI 界面**: 基于 `Textual` 构建，提供了一个功能丰富、实时反馈的终端用户界面，清晰地展示 Agent 的每一步思考和行动。
+-   **✂️ 代码片段管理**: 内置代码片段管理器，允许用户保存、搜索和复用常用的代码模板。
 
 ---
 
 ## 架构概览
 
-本代理采用分层模块化架构，各组件职责分明，协同工作。
+`ddb-agent` 采用先进的模块化架构，以一个中央协调器（Agent）为核心，驱动多个专业组件协同工作。
 
 ```mermaid
 graph TD
     subgraph "User Interface (main.py)"
-        CLI
+        A1[TUI Interface]
+        A2[Command Parser]
+        A1 <--> A2
     end
 
-    subgraph "Core Orchestrator (agent.py)"
-        Agent[DDBAgent]
+    subgraph "Core Orchestrator"
+        B[DDBAgent]
     end
-
+    
     subgraph "Core Components"
-        RAG[RAG System rag/]
-        Context[Context Management context/]
-        LLM[LLM Interface llm/]
-        Session[Session Manager session/]
+        C[Planner & Executor]
+        D[Tool Manager]
+        E[RAG System]
+        F[Context Builder]
+        G[Session Manager]
     end
 
-    CLI -- User Input --> Agent
-    Agent -- 1. Retrieve Context --> RAG
-    Agent -- 2. Build Prompt --> Context
-    Agent -- 3. Call Model --> LLM
-    Agent -- 4. Manage History --> Session
-    LLM -- Response --> Agent
-    Agent -- Formatted Output --> CLI
+    subgraph "Tools & Knowledge"
+        H[Local Tools e.g., run_ddb_script]
+        I[Knowledge Base (Index File)]
+        J[MCP Ecosystem (External Tool Servers)]
+    end
 
+    A2 -- User Task --> B
+
+    B -- Task --> C
+    C -- "Analyze, Create/Update Plan" --> C
+    C -- Execute Step --> D
+    
+    D -- Call Tool --> H
+    D -- Call MCP Tool --> J
+
+    C -- "Need Context?" --> E
+    E -- Retrieve --> I
+    E -- Relevant Chunks --> F
+
+    B -- Build Final Prompt --> F
+    F -- Pruned Context --> B
+    B -- Call LLM --> B
+
+    B -- Manage History --> G
+    
+    subgraph "Live Feedback"
+       B -- Status Updates --> A1
+       C -- Status Updates --> A1
+       E -- Status Updates --> A1
+    end
 ```
 
 ---
@@ -115,66 +143,88 @@ pip install -r requirements.txt
 ```dotenv
 # .env file
 # Keys should match the "api_key_env_var" values in models.json
-
 DEEPSEEK_API_KEY="sk-your-deepseek-api-key"
 OPENAI_API_KEY="sk-your-openai-api-key"
+
+# DolphinDB connection details for the CodeExecutor
+DDB_HOST="localhost"
+DDB_PORT="8848"
+DDB_USER="admin"
+DDB_PASSWORD="123456"
 ```
 
 ---
 
 ## 使用方法
 
-使用本代理分为两步：首先为你的项目构建知识库索引，然后启动代理进行交互。
-
 ### 步骤 1: 构建知识库索引
 
-Agent 需要一个索引文件来了解你的项目。运行以下脚本来生成它。
+Agent 需要一个索引文件来了解你的项目。运行以下脚本来扫描指定目录（如 `documentation`）并生成知识库。
 
 ```bash
 python build_index.py
 ```
 
-该脚本会扫描 `documentation` 目录（可在 `build_index.py` 中修改路径）下的所有文件，使用 LLM 为其创建摘要和关键词，并生成一个索引文件（默认为 `.ddb_agent/file_index.json`）。
-
-**注意**: 这个步骤只需要在项目文件发生显著变化时重新运行。
+**注意**: 这个步骤只需要在项目文档或代码发生显著变化时重新运行。
 
 ### 步骤 2: 启动代理
 
-运行 `main.py` 启动交互式命令行界面。
+运行 `main.py` 启动交互式 TUI。
 
 ```bash
 python main.py
 ```
 
-现在你可以开始和 ddb_agent 对话了！
+### 执行模式
+
+`ddb-agent` 提供多种执行模式以应对不同复杂度的任务：
+
+1.  **直接提问 (聊天模式)**: 直接输入你的问题。Agent 会启动 RAG 流程，检索相关知识并回答。适用于问答场景。
+2.  **`/code <任务>` (简单编码模式)**: 让 Agent 为你编写和执行一次性脚本。它会尝试在出错时进行一次简单的修复。
+3.  **`/enhanced <任务>` (增强模式)**: **推荐用于复杂任务**。Agent 会启动强大的“规划-执行”循环，制定详细计划，并能从失败中恢复。
+4.  **`/spec <任务>` (需求工程模式)**: 当你需要对一个新功能进行严谨的设计时，使用此模式。Agent 会引导你完成需求分析、技术设计和任务分解。
 
 ### 可用命令
 
-在代理的提示符后，除了直接提问，你还可以使用以下命令：
-
-| 命令                | 描述                       |
-| ------------------- | -------------------------- |
-| `/new` 或 `/reset`  | 开始一个全新的对话会话。   |
-| `/help`             | 显示此帮助信息。           |
-| `/exit` 或 `/quit`  | 退出代理程序。             |
+| 命令 | 描述 |
+| --- | --- |
+| **核心模式** | |
+| `/chat <query>` | 明确启动 RAG 聊天查询。 |
+| `/code <task>` | 启动简单编码与执行任务。 |
+| `/enhanced <task>` | 启动增强的“规划-执行”任务。 |
+| `/spec <task>` | 进入结构化需求开发模式。 |
+| **会话与工具** | |
+| `/new` 或 `/reset` | 开始一个全新的对话会话 (`Ctrl+N`)。 |
+| `/save <file_path>` | 将增强模式最后成功的脚本保存到文件。 |
+| `/stats` | 显示增强模式的执行统计数据。 |
+| `/help` | 显示此帮助信息。 |
+| `/exit` 或 `/quit` | 退出代理程序 (`Ctrl+Q`)。 |
+| **代码片段 (Snippets)** | |
+| `/snippet new` | 创建一个新的代码片段。 |
+| `/snippet list` | 列出所有已保存的片段。 |
+| `/snippet edit <name>` | 编辑一个指定的片段。 |
+| `/snippet delete <name>`| 删除一个片段。 |
+| `/snippet search <query>`| 搜索片段。 |
+| **MCP 工具协议** | |
+| `/mcp market` | 打开 MCP 市场，浏览/安装工具服务器。 |
+| `/mcp manager` | 打开已安装服务器的管理界面。 |
+| `/mcp list` | 列出所有已安装的 MCP 服务器及其状态。 |
+| `/mcp install <name>` | 从市场安装一个服务器。 |
+| `/mcp start <name>` | 启动一个已安装的服务器。 |
+| `/mcp stop <name>` | 停止一个正在运行的服务器。 |
+| `/mcp tools` | 列出所有已激活的 MCP 工具。 |
 
 ---
 
-## 路线图：演进为真正的 Coding Agent
+## 未来路线图
 
-本项目不仅仅是一个问答系统，它的架构为演进成一个能**编写、执行、调试**代码的自主代理奠定了基础。
+`ddb-agent` 的架构为未来的功能扩展提供了坚实的基础。
 
--   **Phase 1: 实现核心“执行-反思”循环**
-    -   [ ] **代码执行器**: 开发一个能安全执行 DolphinDB 脚本并捕获结果/错误的组件。
-    -   [ ] **自我修正能力**: 让 Agent 在代码执行失败时，能结合错误信息和 RAG 上下文，自动进行调试和代码修复。
-
--   **Phase 2: 引入规划与工具使用能力**
-    -   [ ] **任务规划器**: 对于复杂任务，让 Agent 先生成一个多步骤的行动计划。
-    -   [ ] **工具抽象**: 将“执行 DolphinDB 脚本”、“执行 Python 代码”、“读写文件”等能力抽象为 Agent 可以调用的“工具”。
-
--   **Phase 3: 迈向自主与环境感知**
-    -   [ ] **运行时文件感知**: 监控文件系统变化，当依赖的代码在任务执行中被修改时，Agent 能够感知并做出反应。
-    -   [ ] **应用级交互 (A2A)**: 将 Agent 封装成一个服务，提供 API 或 CLI 接口，使其能被其他程序或自动化流程调用。
+-   [ ] **可视化交互**: 在 TUI 中以图形方式展示执行计划（依赖图），让任务流程更直观。
+-   [ ] **长期记忆与项目状态感知**: 引入向量数据库或类似机制，赋予 Agent 跨会话的长期记忆，并能感知整个项目的宏观状态。
+-   [ ] **更智能的工具发现与组合**: 让 Agent 能根据任务上下文，更智能地选择和组合工具，甚至动态生成新的工具调用序列。
+-   [ ] **多 Agent 协作**: 探索让多个专有 Agent（如一个“DBA Agent”和一个“数据分析 Agent”）协同工作的可能性。
+-   [ ] **性能优化**: 优化 LLM 调用链，减少不必要的 Token 开销和等待时间。
 
 ---
 
