@@ -151,6 +151,15 @@ class MCPServerRuntime:
                 logger.error(f"Failed to initialize MCP connection: {response}")
                 return False
             
+            logger.info(f"[{self.instance.info.name}] Sending 'initialized' notification...")
+            initialized_notification = {
+                "jsonrpc": "2.0",
+                "method": "notifications/initialized",
+                "params": {} 
+            }
+            
+            await self._send_request(initialized_notification)
+                
             await self._discover_capabilities()
             
             self._initialized = True
@@ -189,7 +198,8 @@ class MCPServerRuntime:
             resources_request = {
                 "jsonrpc": "2.0",
                 "id": self._get_next_request_id(),
-                "method": "resources/list"
+                "method": "resources/list",
+                "params": {}
             }
             
             resources_response = await self._send_request(resources_request)
