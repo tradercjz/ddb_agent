@@ -257,23 +257,56 @@ class MCPServerRuntime:
         """处理来自服务器的消息"""
         if not self.stdout_reader:
             return
-        
+            
         try:
             while True:
-                line = await self.stdout_reader.readline()
-                if not line:
-                    break
-                
+                # 使用 readuntil 来读取直到换行符，这比 readline 更健-壮
                 try:
-                    message = json.loads(line.decode().strip())
-                    await self._process_message(message)
-                except json.JSONDecodeError as e:
-                    logger.error(f"Failed to parse JSON message: {e}")
-                except Exception as e:
-                    logger.error(f"Error processing message: {e}")
+                    line_bytes = await self.stdout_reader.readuntil(b'\n')
+                    if not line_bytes:
+                        logger.info(f"[{self.instance.info.name}] stdout stream closed.")
+                        break # 流已关闭
+                except asyncio.IncompleteReadError:
+                    logger.warning(f"[{self.instance.info.name}] Incomplete read from stdout, stream likely closed.")
+                    break
+
+                line_str = line_bytes.decode('utf-8').strip()
+
+                if not line_str:
+                    continue
+
+                # 尝试将该行解析为JSON。如果失败，则将其视为日志/错误信息。
+                try:
+                    message = json.loads(line_str)
+                    # 确保解析出的是一个字典
+                    if isinstance(message, dict):
+                        await self._process_message(message)
+                    else:
+                        # 收到有效的JSON，但不是一个对象（例如，只是一个数字或字符串）
+                        logger.warning(f"[{self.instance.info.name}] Received a valid but non-object JSON from stdout: {line_str}")
+
+                except json.JSONDecodeError:
+                    # 解析失败，这行不是一个有效的JSON-RPC消息。
+                    # 将其记录为服务器的普通输出或启动错误。
+                    logger.warning(f"[{self.instance.info.name}] Received non-JSON line from stdout (likely a log or startup error): {line_str}")
+                        
+                    # (理论上是底层应用问题）检查是否是已知的启动错误，并据此更新服务器状态
+                    if "user name or password is incorrect" in line_str:
+                        self.instance.last_error = f"DolphinDB connection failed: {line_str}"
+                        self.instance.status = MCPServerStatus.ERROR
+                        # 这里可以触发一个状态回调通知UI
+                        
+                    # 即使出错，也要继续尝试读取下一行
+                    continue
                     
+
+                except Exception as e:
+                    logger.error(f"[{self.instance.info.name}] Error processing message: '{line_str}'. Error: {e}", exc_info=True)
+                        
+        except asyncio.CancelledError:
+            logger.info(f"[{self.instance.info.name}] Message handler task cancelled.")
         except Exception as e:
-            logger.error(f"Error in message handler: {e}")
+            logger.error(f"[{self.instance.info.name}] Critical error in message handler: {e}", exc_info=True)
     
     async def _handle_stderr(self):
         """处理stderr输出"""
