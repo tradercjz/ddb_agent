@@ -44,8 +44,8 @@ graph TD
 
     subgraph "Tools & Knowledge"
         H[Local Tools e.g., run_ddb_script]
-        I[Knowledge Base (Index File)]
-        J[MCP Ecosystem (External Tool Servers)]
+        I[Knowledge Base Index File]
+        J[MCP Ecosystem External Tool Servers]
     end
 
     A2 -- User Task --> B
@@ -72,6 +72,7 @@ graph TD
        C -- Status Updates --> A1
        E -- Status Updates --> A1
     end
+
 ```
 
 ---
