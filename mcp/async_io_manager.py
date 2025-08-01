@@ -33,6 +33,7 @@ class MCPAsyncIOManager:
         self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
         self.runtimes: Dict[str, MCPServerRuntime] = {}
+        self._runtimes_lock = threading.Lock()
 
     def _run_event_loop(self):
         """
@@ -203,9 +204,10 @@ class MCPAsyncIOManager:
     # ==============================================================
 
     async def _start_server_async(self, server_name: str, config: Optional[Any] = None) -> bool:
-        if server_name in self.runtimes and self.runtimes[server_name].is_running():
-            logger.warning(f"Server {server_name} is already running.")
-            return True
+        with self._runtimes_lock:
+            if server_name in self.runtimes and self.runtimes[server_name].is_running():
+                logger.warning(f"Server {server_name} is already running.")
+                return True
 
         if self.status_callback:
             self.status_callback(server_name, MCPServerStatus.INSTALLING, "正在启动...")
@@ -219,7 +221,8 @@ class MCPAsyncIOManager:
         success = await runtime.start()
 
         if success:
-            self.runtimes[server_name] = runtime
+            with self._runtimes_lock:
+                self.runtimes[server_name] = runtime
             instance.status = MCPServerStatus.RUNNING
             if self.status_callback:
                 self.status_callback(server_name, MCPServerStatus.RUNNING, "服务器已启动")
@@ -231,14 +234,25 @@ class MCPAsyncIOManager:
         self.market_manager._update_server_instance(instance)
         return success
 
+    def get_server_pid(self, server_name: str) -> Optional[int]:
+        """线程安全地获取指定服务器的 PID。"""
+        with self._runtimes_lock:
+            runtime = self.runtimes.get(server_name)
+            if runtime and runtime.is_running():
+                return runtime.process.pid # 直接从 process 对象获取
+        return None
+    
     async def _stop_server_async(self, server_name: str) -> bool:
-        runtime = self.runtimes.get(server_name)
+        with self._runtimes_lock:
+            runtime = self.runtimes.get(server_name)
         if not runtime:
             logger.warning(f"Server {server_name} not found in runtimes, cannot stop.")
             return True
 
         await runtime.stop()
-        self.runtimes.pop(server_name, None)
+
+        with self._runtimes_lock:
+            self.runtimes.pop(server_name, None)
         
         instance = self.market_manager.get_server_instance(server_name)
         if instance:
@@ -289,12 +303,12 @@ class MCPAsyncIOManager:
         all_tools = []
         for runtime in self.runtimes.values():
             if runtime.is_running():
-                all_tools.extend(runtime.get_tools())
+                all_tools.extend(await runtime.get_tools())
         return all_tools
 
     async def _get_server_tools_async(self, server_name: str) -> List[MCPTool]:
         runtime = self.runtimes.get(server_name)
-        return runtime.get_tools() if runtime and runtime.is_running() else []
+        return await runtime.get_tools() if runtime and runtime.is_running() else []
 
     async def _stop_all_servers_async(self):
         tasks = [self._stop_server_async(name) for name in list(self.runtimes.keys())]

@@ -31,6 +31,7 @@ class MCPMarketManager:
         # 事件回调
         self._status_callbacks: List[Callable[[str, MCPServerStatus, Optional[str]], None]] = []
         self._progress_callbacks: List[Callable[[str, float, str], None]] = []
+        
     
     def add_status_callback(self, callback: Callable[[str, MCPServerStatus, Optional[str]], None]):
         """添加状态变化回调"""
@@ -283,7 +284,7 @@ class MCPMarketManager:
             # 停止服务器（如果正在运行）
             if instance.status == MCPServerStatus.RUNNING:
                 from ..server.server_manager import MCPServerManager
-                server_manager = MCPServerManager()
+                server_manager = MCPServerManager(market_manager=self)
                 await server_manager.stop_server(server_name)
             
             # 删除安装目录

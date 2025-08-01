@@ -424,20 +424,21 @@ class DDBAgentApp(App):
             self._write_to_log(Panel("[red]MCP服务器管理器未初始化[/red]", border_style="red"))
             return
         
-        async def start_server():
+        def start_server_sync():
             try:
-                self._write_to_log(Panel(f"正在启动MCP服务器: {server_name}...", border_style="yellow"))
-                success = await self.mcp_server_manager.start_server(server_name)
+                self._write_to_log(Panel(f"正在启动MCP服务器: {escape(server_name)}...", border_style="yellow"))
+                
+                success = self.mcp_server_manager.start_server(server_name)
+                
                 
                 if success:
-                    self._write_to_log(Panel(f"✅ MCP服务器 {server_name} 启动成功", border_style="green"))
+                    self._write_to_log(Panel(f"✅ 已发送启动 '{escape(server_name)}' 的请求。请关注状态变化。", border_style="green"))
                 else:
-                    self._write_to_log(Panel(f"❌ MCP服务器 {server_name} 启动失败", border_style="red"))
+                    self._write_to_log(Panel(f"❌ 发送启动 '{escape(server_name)}' 的请求失败。", border_style="red"))
             except Exception as e:
-                self._write_to_log(Panel(f"❌ 启动失败: {str(e)}", border_style="red"))
+                self._write_to_log(Panel(f"❌ 启动命令执行出错: {str(e)}", border_style="red"))
         
-        import asyncio
-        asyncio.create_task(start_server())
+        start_server_sync()
 
     def _handle_mcp_stop(self, server_name: str):
         """停止MCP服务器"""
@@ -445,20 +446,20 @@ class DDBAgentApp(App):
             self._write_to_log(Panel("[red]MCP服务器管理器未初始化[/red]", border_style="red"))
             return
         
-        async def stop_server():
+        def stop_server_sync():
             try:
-                self._write_to_log(Panel(f"正在停止MCP服务器: {server_name}...", border_style="yellow"))
-                success = await self.mcp_server_manager.stop_server(server_name)
+                self._write_to_log(Panel(f"正在停止MCP服务器: {escape(server_name)}...", border_style="yellow"))
+                success = self.mcp_server_manager.stop_server(server_name)
                 
                 if success:
-                    self._write_to_log(Panel(f"✅ MCP服务器 {server_name} 停止成功", border_style="green"))
+                     self._write_to_log(Panel(f"✅ 已发送停止 '{escape(server_name)}' 的请求。", border_style="green"))
                 else:
-                    self._write_to_log(Panel(f"❌ MCP服务器 {server_name} 停止失败", border_style="red"))
+                    self._write_to_log(Panel(f"❌ 发送停止 '{escape(server_name)}' 的请求失败。", border_style="red"))
             except Exception as e:
-                self._write_to_log(Panel(f"❌ 停止失败: {str(e)}", border_style="red"))
+                self._write_to_log(Panel(f"❌ 停止命令执行出错: {str(e)}", border_style="red"))
         
-        import asyncio
-        asyncio.create_task(stop_server())
+
+        stop_server_sync()
 
     def _handle_mcp_tools(self):
         """列出所有可用的MCP工具"""
@@ -494,20 +495,24 @@ class DDBAgentApp(App):
             self._write_to_log(Panel("[red]MCP市场管理器未初始化[/red]", border_style="red"))
             return
         
-        async def install_server():
-            try:
-                self._write_to_log(Panel(f"正在安装MCP服务器: {server_name}...", border_style="yellow"))
-                success = await self.mcp_market_manager.install_server(server_name)
-                
-                if success:
-                    self._write_to_log(Panel(f"✅ MCP服务器 {server_name} 安装成功", border_style="green"))
-                else:
-                    self._write_to_log(Panel(f"❌ MCP服务器 {server_name} 安装失败", border_style="red"))
-            except Exception as e:
-                self._write_to_log(Panel(f"❌ 安装失败: {str(e)}", border_style="red"))
-        
-        import asyncio
-        asyncio.create_task(install_server())
+        def install_server_sync():
+            async def do_install():
+                try:
+                    self._write_to_log(Panel(f"正在安装MCP服务器: {escape(server_name)}...", border_style="yellow"))
+                    success = await self.mcp_market_manager.install_server(server_name)
+                    
+                    if success:
+                        self._write_to_log(Panel(f"✅ MCP服务器 {escape(server_name)} 安装成功", border_style="green"))
+                    else:
+                        self._write_to_log(Panel(f"❌ MCP服务器 {escape(server_name)} 安装失败", border_style="red"))
+                except Exception as e:
+                    self._write_to_log(Panel(f"❌ 安装失败: {str(e)}", border_style="red"))
+
+            # 在同步函数中运行异步代码
+            import asyncio
+            asyncio.run(do_install())
+            
+        install_server_sync()
 
     def _handle_chat_task(self, user_input: str):
         """
@@ -760,7 +765,7 @@ class DDBAgentApp(App):
         reasoning_content = ""
         full_response = ""
         try:
-            response_generator = self.agent.run_coding_task_with_planner(task_description)
+            response_generator = self.agent.run_coding_task(task_description)
             from rich.console import Group
             for update in response_generator:
                 # --- A. 处理任务状态更新 (BaseTaskStatus) ---
@@ -1124,8 +1129,6 @@ if __name__ == "__main__":
 
         mcp_market_manager = MCPMarketManager()
         mcp_server_manager = MCPServerManager(mcp_market_manager)
-
-        mcp_server_manager.bootstrap_builtin_servers()
         
         ddb_agent = DDBAgent(
             project_path=project_path,

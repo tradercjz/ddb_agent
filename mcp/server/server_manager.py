@@ -64,6 +64,16 @@ class MCPServerManager:
         logger.info("Shutting down MCPServerManager and all running servers...")
         self._async_manager.stop()
         logger.info("MCPServerManager shut down successfully.")
+
+
+    def get_server_pid(self, server_name: str) -> Optional[int]:
+        """
+        同步获取正在运行的服务器的进程 ID (PID)。
+        如果服务器未运行，则返回 None。
+        """
+        if not self.is_server_running(server_name):
+            return None
+        return self._async_manager.get_server_pid(server_name)
     
     def start_server(self, server_name: str, config: Optional[Union[Dict[str, Any], List[str], str]] = None) -> bool:
         """同步启动MCP服务器。"""

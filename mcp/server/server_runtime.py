@@ -37,7 +37,7 @@ class MCPServerRuntime:
         self._tools: List[MCPTool] = []
         self._resources: List[MCPResource] = []
         self._initialized = False
-    
+ 
     async def start(self) -> bool:
         """启动MCP服务器"""
         try:
@@ -53,13 +53,22 @@ class MCPServerRuntime:
                 logger.error(f"Failed to build run command for {self.instance.info.name}")
                 return False
             
+            # 将实例中定义的环境变量覆盖/添加到 env 字典中
+            env = os.environ.copy() 
+            if self.instance.environment_variables:
+                logger.info(f"Applying custom environment variables for {self.instance.info.name}")
+                env.update(self.instance.environment_variables)
+
+            self.instance.environment_variables = env
+
             # 启动进程
             self.process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                cwd=self.instance.install_path
+                cwd=self.instance.install_path,
+                env=env
             )
             
             self.stdin_writer = self.process.stdin
@@ -111,14 +120,18 @@ class MCPServerRuntime:
             return None
     
     async def _initialize_connection(self) -> bool:
-        """初始化MCP连接"""
+        """
+        初始化MCP连接。这个方法现在是完全自包含的，并在完成后设置事件。
+        """
         try:
-            # 发送初始化请求
+            # 等待一小段时间，确保子进程的 stdout/stdin 已经准备好
+            await asyncio.sleep(0.5)
+
             init_request = {
                 "jsonrpc": "2.0",
                 "id": self._get_next_request_id(),
                 "method": "initialize",
-                "params": {
+                 "params": {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {
                         "tools": {},
@@ -131,21 +144,23 @@ class MCPServerRuntime:
                 }
             }
             
+            logger.info(f"[{self.instance.info.name}] Sending 'initialize' request...")
             response = await self._send_request(init_request)
+            
             if not response or "error" in response:
                 logger.error(f"Failed to initialize MCP connection: {response}")
                 return False
             
-            # 获取服务器能力
             await self._discover_capabilities()
             
             self._initialized = True
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to initialize MCP connection: {e}")
             return False
-    
+
+
     async def _discover_capabilities(self):
         """发现服务器能力"""
         try:
@@ -153,7 +168,8 @@ class MCPServerRuntime:
             tools_request = {
                 "jsonrpc": "2.0",
                 "id": self._get_next_request_id(),
-                "method": "tools/list"
+                "method": "tools/list",
+                "params": {}
             }
             
             tools_response = await self._send_request(tools_request)
@@ -394,8 +410,13 @@ class MCPServerRuntime:
             logger.error(f"Failed to get resource {uri}: {e}")
             return None
     
-    def get_tools(self) -> List[MCPTool]:
+    async def get_tools(self) -> List[MCPTool]:
         """获取可用工具列表"""
+
+        # 这里去处理，有可能是启动过程中没有拿到tools（这个可能是底层BUG，暂时不去研究了）
+        # 我们在这里重新去获取
+        if self._tools is None or len(self._tools) == 0:
+            await self._discover_capabilities()
         return self._tools.copy()
     
     def get_resources(self) -> List[MCPResource]:

@@ -58,6 +58,10 @@ class MCPServerInstance(BaseModel):
         default=None, 
         description="服务器配置，可以是键值对字典或命令行参数列表"
     )
+    environment_variables: Dict[str, str] = Field(
+        default_factory=dict,
+        description="为该服务器实例设置的特定环境变量"
+    )
     process_id: Optional[int] = None
     port: Optional[int] = None
     last_error: Optional[str] = None

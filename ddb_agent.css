@@ -108,3 +108,96 @@ Panel.error {
     transition: text-opacity 0.5s;
 }
 
+
+/* --- MCP Env Editor Styles (修正版) --- */
+MCPEnvEditorScreen {
+    /* 给整个模态屏幕一个半透明的背景，突出模态效果 */
+    background: $primary 25%;
+    align: center middle;
+}
+
+#env-editor-container {
+    width: 80%;
+    height: 80%;
+    max-width: 100;
+    max-height: 30;
+    border: thick $primary;
+    background: $surface; /* 明确指定一个与主题匹配的背景色 */
+    color: $text; /* 关键：为容器内的所有文字指定一个默认颜色 */
+    padding: 1;
+}
+
+#env-editor-title {
+    width: 100%;
+    text-align: center;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+.env-row {
+    width: 100%;
+    height: auto;
+    align: center middle;
+    margin-bottom: 1;
+}
+
+/* --- 针对 Input Widget 的关键修正 --- */
+#env-editor-container Input {
+    background: $primary-darken-2; /* 给输入框一个明确的背景色 */
+    color: $text; /* 明确指定输入框内的文字颜色 */
+    border: solid $primary-lighten-1;
+}
+
+/* 当输入框获得焦点时，高亮显示 */
+#env-editor-container Input:focus {
+    border: heavy $accent;
+}
+
+/* --- 占位符文字颜色 --- */
+#env-editor-container Input.-placeholder {
+    color: $text-muted; /* 为占位符使用一个更柔和的颜色 */
+}
+/* --- 结束关键修正 --- */
+
+
+.env-key-input {
+    width: 30%;
+}
+
+.env-separator {
+    width: 5%;
+    text-align: center;
+}
+
+.env-value-input {
+    width: 55%;
+}
+
+.delete-env-btn {
+    width: 5%;
+    min-width: 0;
+    height: 1;
+    border: none;
+    background: transparent;
+    color: $error;
+}
+
+.delete-env-btn:hover {
+    background: $error-darken-1;
+    color: white;
+}
+
+#env-editor-buttons {
+    margin-top: 1;
+    align: right middle;
+    height: auto;
+    
+    & Button {
+        margin-left: 1;
+    }
+}
+
+.centered-row {
+    align: center middle;
+    height: auto;
+}
