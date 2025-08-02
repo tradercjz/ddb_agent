@@ -12,7 +12,7 @@ from rich.markup import escape
 from rich.pretty import pprint
 
 from textual.app import App, ComposeResult
-from textual.widgets import Header, Footer, Input, RichLog, Static
+from textual.widgets import Header, Footer, Input, RichLog, Static, Label
 from textual.containers import VerticalScroll, Container, VerticalGroup
 from textual.binding import Binding
 from rich.spinner import Spinner
@@ -73,7 +73,10 @@ class DDBAgentApp(App):
 
     def compose(self) -> ComposeResult:
         """创建应用的UI布局"""
+        yield Label("", id="session-label") 
         yield Header(name="DDB-Coding-Agent")
+        #with Container(id="header-bar"): # New container for session label
+        #    yield Label("", id="session-label")
         with VerticalScroll(id="output-container"):
             yield RichLog(id="output-log", wrap=False, highlight=True, markup=True)
         yield Input(placeholder="Type your query, /command, or press Ctrl+N for a new session...", id="input-box")
@@ -91,14 +94,23 @@ class DDBAgentApp(App):
         """应用加载完成时调用，用于初始化"""
         log = self.query_one("#output-log", RichLog)
         welcome_panel = Panel(
-            "[bold green]Welcome to the DDB-Coding-Agent![/bold green]\nType `/help` for commands.",
-            title="[bold magenta]DDB Agent[/bold magenta]",
+            """[bold gold1]
+ _______    ______   __        _______   __    __  ______  __    __  _______          ______    ______   ________  __    __  ________ 
+/       \  /      \ /  |      /       \ /  |  /  |/      |/  \  /  |/       \        /      \  /      \ /        |/  \  /  |/        |
+$$$$$$$  |/$$$$$$  |$$ |      $$$$$$$  |$$ |  $$ |$$$$$$/ $$  \ $$ |$$$$$$$  |      /$$$$$$  |/$$$$$$  |$$$$$$$$/ $$  \ $$ |$$$$$$$$/ 
+$$ |  $$ |$$ |  $$ |$$ |      $$ |__$$ |$$ |__$$ |  $$ |  $$$  \$$ |$$ |__$$ |      $$ |__$$ |$$ | _$$/ $$ |__    $$$  \$$ |   $$ |   
+$$ |  $$ |$$ |  $$ |$$ |      $$    $$/ $$    $$ |  $$ |  $$$$  $$ |$$    $$<       $$    $$ |$$ |/    |$$    |   $$$$  $$ |   $$ |   
+$$ |  $$ |$$ |  $$ |$$ |      $$$$$$$/  $$$$$$$$ |  $$ |  $$ $$ $$ |$$$$$$$  |      $$$$$$$$ |$$ |$$$$ |$$$$$/    $$ $$ $$ |   $$ |   
+$$ |__$$ |$$ \__$$ |$$ |_____ $$ |      $$ |  $$ | _$$ |_ $$ |$$$$ |$$ |__$$ |      $$ |  $$ |$$ \__$$ |$$ |_____ $$ |$$$$ |   $$ |   
+$$    $$/ $$    $$/ $$       |$$ |      $$ |  $$ |/ $$   |$$ | $$$ |$$    $$/       $$ |  $$ |$$    $$/ $$       |$$ | $$$ |   $$ |   
+$$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/        $$/   $$/  $$$$$$/  $$$$$$$$/ $$/   $$/    $$/    
+[/bold gold1]\nType `/help` for commands.""",
             border_style="magenta"
         )
         log.write(welcome_panel)
         self.query_one(Input).focus()
 
-        self.run_worker(self._bootstrap_mcp, exclusive=True, group="mcp_bootstrap", thread=True)
+        #self.run_worker(self._bootstrap_mcp, exclusive=True, group="mcp_bootstrap", thread=True)
     
     def on_start_spinner(self, message: StartSpinner) -> None:
         """在主线程中处理 StartSpinner 消息。"""
@@ -123,12 +135,18 @@ class DDBAgentApp(App):
             self._spinner_timer = None
 
     # --- Action Handlers (for BINDINGS) ---
+    def update_session_label(self):
+        """Updates the session label in the TUI."""
+        session_name = self.agent.session_manager.get_active_session_name()
+        self.query_one("#session-label", Label).update(f"Session: [bold yellow]{escape(session_name)}[/bold yellow]")
+   
     def action_new_session(self) -> None:
         """处理快捷键 ctrl+n，开始一个新会话"""
-        self.agent.start_new_session()
+        self.agent.session_manager.new_session()
         log = self.query_one("#output-log", RichLog)
         log.clear()
         log.write(Panel("[bold green]New session started.[/bold green]", border_style="green"))
+        self.update_session_label()
 
     def action_clear_log(self) -> None:
         """清空屏幕"""
@@ -171,14 +189,12 @@ class DDBAgentApp(App):
 - `/code <your task>`: Ask the agent to write and execute DolphinDB code (basic mode).
 - `/enhanced <your task>`: Use enhanced plan-and-execute mode for complex tasks.
 - `/spec <your task>`: Enter structured spec development mode (EARS methodology).
-
 ---
-**Snippet Management**
-- `/snippet new`: Open an editor to create a new snippet.
-- `/snippet list`: Show all your saved snippets.
-- `/snippet edit <name>`: Open an editor to modify an existing snippet.
-- `/snippet delete <name>`: Remove a snippet.
-- `/snippet search <query>`: Search snippets by name, description, or tags.
+**Session Management**
+- `/session new [name]`: Create and switch to a new session. If name is omitted, a default name is used.
+- `/session switch <name>`: Switch to an existing session.
+- `/session list`: List all available sessions.
+- `/session current`: Show the current active session.
 ---
 **MCP (Model Context Protocol) Commands**
 - `/mcp market`: Open MCP market to browse and install MCP servers.
@@ -189,6 +205,13 @@ class DDBAgentApp(App):
 - `/mcp tools`: List all available MCP tools.
 - `/mcp install <server_name>`: Install an MCP server from the market.
 ---
+**Snippet Management**
+- `/snippet new`: Open an editor to create a new snippet.
+- `/snippet list`: Show all your saved snippets.
+- `/snippet edit <name>`: Open an editor to modify an existing snippet.
+- `/snippet delete <name>`: Remove a snippet.
+- `/snippet search <query>`: Search snippets by name, description, or tags.
+---
 **Utility Commands**
 - `/save <file_path>`: Save the last successful script from an enhanced task to a file.
 - `/stats`: Show execution statistics for the enhanced mode.
@@ -198,8 +221,8 @@ class DDBAgentApp(App):
                 """
                 self._write_to_log(Panel(Markdown(help_text), title="[bold cyan]Help[/bold cyan]", border_style="blue"))
             
-            elif cmd in ['/new', '/reset']:
-                self.action_new_session()
+            elif cmd == '/session':
+                self._handle_session_command(parts)
 
             elif cmd in ['/exit', '/quit']:
                 self.exit()
@@ -272,6 +295,53 @@ class DDBAgentApp(App):
         finally:
             self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
             self.call_from_thread(self.query_one(Input).focus)
+
+    def _handle_session_command(self, parts: list[str]):
+        """Handles all /session subcommands."""
+        if len(parts) < 2:
+            self._write_to_log(Panel("Usage: /session <new|switch|list|current>", title="Session Help"))
+            return
+
+        sub_cmd = parts[1].lower()
+        manager = self.agent.session_manager
+
+        if sub_cmd == 'new':
+            session_name = " ".join(parts[2:]) if len(parts) > 2 else None
+            manager.new_session(session_name)
+            self.query_one("#output-log").clear()
+            self._write_to_log(Panel(f"Switched to new session: '{manager.get_active_session_name()}'", border_style="green"))
+            self.call_from_thread(self.update_session_label)
+        
+        elif sub_cmd == 'switch':
+            if len(parts) < 3:
+                self._write_to_log(Panel("[yellow]Usage: /session switch <session_name>[/yellow]"))
+                return
+            session_name = " ".join(parts[2:])
+            if session_name in manager.list_sessions():
+                manager.switch_session(session_name)
+                self.query_one("#output-log").clear()
+                self._write_to_log(Panel(f"Switched to session: '{session_name}'", border_style="green"))
+                self.call_from_thread(self.update_session_label)
+            else:
+                self._write_to_log(Panel(f"[red]Session '{escape(session_name)}' not found.[/red]"))
+
+        elif sub_cmd == 'list':
+            sessions = manager.list_sessions()
+            active_session = manager.get_active_session_name()
+            if not sessions:
+                self._write_to_log(Panel("No sessions found.", title="Sessions"))
+                return
+            
+            list_text = ""
+            for s in sorted(sessions):
+                if s == active_session:
+                    list_text += f"- [bold yellow]{s} (active)[/bold yellow]\n"
+                else:
+                    list_text += f"- {s}\n"
+            self._write_to_log(Panel(Markdown(list_text), title="Available Sessions"))
+        
+        elif sub_cmd == 'current':
+            self._write_to_log(Panel(f"The current active session is: [bold yellow]{manager.get_active_session_name()}[/bold yellow]"))
 
     def _handle_snippet_command(self, parts: list[str]):
         """Handles all /snippet subcommands."""
@@ -1129,6 +1199,8 @@ if __name__ == "__main__":
 
         mcp_market_manager = MCPMarketManager()
         mcp_server_manager = MCPServerManager(mcp_market_manager)
+
+        #mcp_server_manager.bootstrap_builtin_servers()
         
         ddb_agent = DDBAgent(
             project_path=project_path,
