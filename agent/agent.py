@@ -8,7 +8,7 @@ from agent.code_executor import CodeExecutor
 from agent.coding_task_state import CodingTaskState
 from agent.execution_result import ExecutionResult
 from agent.prompts import debugging_planner, fix_script_from_error, generate_initial_script
-from agent.task_status import AnyTaskStatus, PlanGenerationEnd, PlanGenerationStart, StepExecutionEnd, StepExecutionStart, TaskEnd, TaskError, TaskStart
+from agent.task_status import AnyTaskStatus, PlanGenerationEnd, PlanGenerationStart, StepExecutionEnd, StepExecutionStart, TaskEnd, TaskError, TaskStart, ReactThought, ReactAction, ReactObservation
 from llm.llm_client import LLMResponse, StreamChunk
 from mcp.market.market_manager import MCPMarketManager
 from mcp.server.server_manager import MCPServerManager
@@ -34,6 +34,9 @@ from agent.enhanced_executor_status import AnyExecutorStatus, TaskExecutionEnd, 
 from agent.enhanced_planner import EnhancedPlanner
 from agent.enhanced_executor import EnhancedExecutor
 from agent.tool_manager_enhanced import EnhancedToolManager
+
+from agent.react_executor import ReActExecutor
+
 
 class DDBAgent:
     """
@@ -67,6 +70,7 @@ class DDBAgent:
         self.enhanced_planner = EnhancedPlanner(self.tool_manager, self.rag)
         self.enhanced_executor = EnhancedExecutor(self.tool_manager, self.enhanced_planner)
         self.last_successful_script: str | None = None 
+        self.react_executor = ReActExecutor(self.tool_manager, self.rag)
 
         # 定义一个通用的聊天Prompt
         @llm.prompt()
@@ -89,6 +93,70 @@ class DDBAgent:
     def start_new_session(self):
         """Starts a new chat session."""
         self.session_manager.new_session()
+
+    def run_react_task(self, user_input: str) -> Generator[Dict[str, Any], None, None]:
+        """
+        Orchestrates the ReAct loop, feeding it the session history
+        and saving the final result back to the session.
+        """
+        # 1. Add user message to session
+        self.session_manager.add_message('user', user_input)
+        
+        # 2. Get the full, summarized history for the ReAct loop
+        # This history now contains the long-term summary from the SessionManager
+        global_contextual_history = self.session_manager.get_history()
+
+         # 3. Create a rich, contextual task description for the ReAct loop.
+        # This synthesizes the user's immediate request with the long-term memory.
+        # We format it nicely for the LLM to understand.
+        history_str_for_prompt = "\n".join([
+            f"- {msg['role'].capitalize()}: {msg.get('content', '')}" 
+            for msg in global_contextual_history
+        ])
+        
+        # This rich description becomes the "Primary Goal" for the ReActExecutor.
+        contextual_task_description = f"""
+        **User's Current Request:**
+        {user_input}
+
+        **Relevant Previous Conversation for Context:**
+        ---
+        {history_str_for_prompt}
+        ---
+        Based on the full conversation context, address the user's current request.
+        """
+
+        # 4. Run the executor. It will manage its own clean, local ReAct history.
+        task_generator = self.react_executor.execute_task(
+            task_description=contextual_task_description
+        )
+        
+        final_answer = None
+        task_summary = None
+        try:
+            while True:
+                update = next(task_generator)
+                yield update
+        except StopIteration as e:
+            final_answer, task_summary = e.value
+
+        # 5. Save a structured summary of the task to the session.
+        if final_answer and task_summary:
+            assistant_response_content = {
+                "final_answer": final_answer,
+                "execution_trace": task_summary
+            }
+            self.session_manager.add_message(
+                role="assistant",
+                content=json.dumps(assistant_response_content, indent=2, ensure_ascii=False)
+            )
+        else:
+            self.session_manager.add_message(
+                role="assistant",
+                content="The task ended unexpectedly without a final response."
+            )
+            
+        self.session_manager.save_session()
 
 
     def run_task(self, user_input: str, task_type: str = 'chat') -> Generator[Union[AnyRagStatus, StreamChunk], None, LLMResponse]:

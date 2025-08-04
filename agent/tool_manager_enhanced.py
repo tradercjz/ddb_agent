@@ -127,6 +127,7 @@ class EnhancedToolManager:
             # 转换为ExecutionResult格式
             return ExecutionResult(
                 success=result.success,
+                data=result.result,
                 output=str(result.result) if result.result is not None else "",
                 error=result.error
             )

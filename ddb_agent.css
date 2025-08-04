@@ -201,3 +201,22 @@ MCPEnvEditorScreen {
     align: center middle;
     height: auto;
 }
+
+/* ddb_agent.css */
+
+/* You can remove the old #header-bar rule if it exists */
+
+#session-label {
+    /* --- Layering and Positioning --- */
+    layer: top; /* Place this widget on a layer above the default layer */
+    offset: 1 1; /* Position it 1 column from the left, 1 row from the top */
+    width: auto; /* Let the width be determined by its content */
+    height: 1;   /* It only needs one line of height */
+
+    /* --- Styling --- */
+    background: $primary-lighten-2 20%; /* Semi-transparent background */
+    color: $text 80%; /* Slightly dimmed text color */
+    padding: 0 1; /* Horizontal padding, no vertical padding */
+    border: round $primary-lighten-3; /* Subtle rounded border */
+    text-style: dim; /* Make the text slightly dimmer */
+}

@@ -75,7 +75,25 @@ class StepExecutionEnd(BaseTaskStatus):
     is_success: bool
     script: Optional[str] = Field(default=None, description="如果步骤执行生成了脚本，则包含该脚本。")
 
-# --- 更新联合类型 ---
+class ReactThought(BaseTaskStatus):
+    """Represents the agent's thought process for a step."""
+    subtype: Literal["react_thought"] = "react_thought"
+    thought: str
+
+class ReactAction(BaseTaskStatus):
+    """Represents the agent's chosen action (tool call)."""
+    subtype: Literal["react_action"] = "react_action"
+    tool_name: str
+    tool_args: Dict[str, Any]
+
+class ReactObservation(BaseTaskStatus):
+    """Represents the result of an action (observation)."""
+    subtype: Literal["react_observation"] = "react_observation"
+    observation: str
+    is_error: bool
+
+
+
 AnyTaskStatus = Annotated[
     Union[
         TaskStart,
@@ -89,6 +107,9 @@ AnyTaskStatus = Annotated[
         PlanGenerationEnd,
         StepExecutionStart,
         StepExecutionEnd,
+        ReactThought,
+        ReactAction,
+        ReactObservation,
     ],
     Field(discriminator="subtype"),
 ]

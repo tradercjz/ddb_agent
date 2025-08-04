@@ -17,7 +17,7 @@ from textual.containers import VerticalScroll, Container, VerticalGroup
 from textual.binding import Binding
 from rich.spinner import Spinner
 
-from agent.task_status import BaseTaskStatus, PlanGenerationEnd, StepExecutionEnd, StepExecutionStart, TaskEnd
+from agent.task_status import BaseTaskStatus, PlanGenerationEnd, StepExecutionEnd, StepExecutionStart, TaskEnd, ReactAction, ReactThought, ReactObservation, TaskError
 from rag.rag_status import AnyRagStatus, BaseRagStatus, RagError, RagSelectionProgress
 from snippets.tui_components import SnippetEditorScreen
 from utils.logger import setup_llm_logger
@@ -189,6 +189,7 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
 - `/code <your task>`: Ask the agent to write and execute DolphinDB code (basic mode).
 - `/enhanced <your task>`: Use enhanced plan-and-execute mode for complex tasks.
 - `/spec <your task>`: Enter structured spec development mode (EARS methodology).
+- `/react <your task>`: Use the new, dynamic Reason-Act mode for complex tasks.
 ---
 **Session Management**
 - `/session new [name]`: Create and switch to a new session. If name is omitted, a default name is used.
@@ -223,6 +224,17 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
             
             elif cmd == '/session':
                 self._handle_session_command(parts)
+
+            elif cmd == '/react':
+                if len(parts) > 1:
+                    task_description = " ".join(parts[1:])
+                    # This worker will now call the new react task handler
+                    worker = partial(self._handle_react_task, task_description)
+                    self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
+                else:
+                    self._write_to_log(Panel("[yellow]Please provide a task description for /react.[/yellow]"))
+                    self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
+                    self.call_from_thread(self.query_one(Input).focus)
 
             elif cmd in ['/exit', '/quit']:
                 self.exit()
@@ -293,6 +305,72 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
                 self._write_to_log(Panel(f"[red]Unknown command: {cmd}[/red]", border_style="red"))
         
         finally:
+            self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
+            self.call_from_thread(self.query_one(Input).focus)
+
+    def _handle_react_task(self, task_description: str):
+        """Handles the UI for the new ReAct task execution."""
+        self._write_to_log(Panel(
+            f"[bold blue]🚀 ReAct Task:[/bold blue] {escape(task_description)}", 
+            title="[bold magenta]Dynamic Reason-Act Cycle[/bold magenta]",
+            border_style="magenta"
+        ))
+
+        try:
+            response_generator = self.agent.run_react_task(task_description)
+            
+            for update in response_generator:
+                if isinstance(update, ReactThought):
+                    thought_panel = Panel(
+                        Markdown(update.thought, code_theme="monokai"),
+                        title="[cyan]🤔 Thought[/cyan]",
+                        border_style="cyan",
+                        padding=(1, 2)
+                    )
+                    self._write_to_log(thought_panel)
+                
+                elif isinstance(update, ReactAction):
+                    action_text = f"[bold]{update.tool_name}[/bold]\n"
+                    action_text += f"Args: [code]{escape(str(update.tool_args))}[/code]"
+                    self._write_to_log(Panel(
+                        Text.from_markup(action_text),
+                        title="[yellow]🎬 Action[/yellow]",
+                        border_style="yellow"
+                    ))
+                
+                elif isinstance(update, ReactObservation):
+                    color = "red" if update.is_error else "green"
+                    title = f"[{color}]🔍 Observation[/{color}]"
+                    obs_panel = Panel(
+                        escape(update.observation),
+                        title=title,
+                        border_style=color
+                    )
+                    self._write_to_log(obs_panel)
+                
+                elif isinstance(update, TaskEnd):
+                    color = "green" if update.success else "red"
+                    icon = "✅" if update.success else "❌"
+                    final_panel = Panel(
+                        Markdown(update.final_message, code_theme="monokai"),
+                        title=f"[{color}]{icon} Task Finished[/{color}]",
+                        border_style=color
+                    )
+                    self._write_to_log(final_panel)
+
+                elif isinstance(update, TaskError):
+                    self._write_to_log(Panel(
+                        f"[bold]Error:[/bold] {escape(update.message)}\n[dim]{escape(update.error_details)}[/dim]",
+                        title="[red]💥 Critical Error[/red]",
+                        border_style="red"
+                    ))
+
+        except Exception as e:
+            import traceback
+            tb_str = traceback.format_exc()
+            self._write_to_log(Panel(f"[bold red]An unexpected error occurred during the ReAct task:[/bold red]\n{tb_str}", border_style="red"))
+        finally:
+            # Re-enable input after the task is done
             self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
             self.call_from_thread(self.query_one(Input).focus)
 

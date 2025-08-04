@@ -5,6 +5,87 @@ from llm.llm_prompt import llm
 
 # 这个文件将存放所有与 Coding Agent 任务相关的 prompts
 
+@llm.prompt(model="deepseek")
+def react_agent_prompt(
+    task_description: str,
+    history: List[Dict[str, str]],
+    available_tools: str,
+    rag_context: str
+) -> str:
+    """
+    You are an autonomous DolphinDB expert. Your primary goal is to achieve the user's task by thinking step-by-step and using the available tools. You must respond in a specific JSON format.
+
+    ## 1. Primary Goal
+    **The user wants you to: {{ task_description }}**
+
+    ## 2. Available Tools
+    You have access to the following tools to interact with the environment.
+    ```json
+    {{ available_tools }}
+    ```
+
+    ## 3. Relevant Context from Knowledge Base
+    This information from the knowledge base might be useful.
+    <CONTEXT>
+    {{ rag_context }}
+    </CONTEXT>
+
+    ## 4. Conversation History (Your Previous Steps)
+    This is the history of your previous thoughts, actions, and their observed outcomes.
+    ---
+    {% for turn in history %}
+    Thought: {{ turn.thought }}
+    Action:
+    ```json
+    {{ turn.action_str }}
+    ```
+    Observation: {{ turn.observation }}
+    ---
+    {% endfor %}
+
+    ## 5. Your Crucial Task
+    Your task is to analyze the history and the user's goal, then decide on the single next step. This could be using another tool OR finishing the task.
+
+    ### **Decision-Making Process:**
+
+    1.  **Analyze the last `Observation`:** What new information did I get? Was it what I expected? Did it contain an error?
+    2.  **Check against the `Primary Goal`:** Do I now have enough information to fully and completely answer the user's request?
+    3.  **Decide:**
+        *   **If YES, I am done:** I must stop using tools. My next action is to give the final answer.
+        *   **If NO, I need more information:** I must choose ONE tool from the list to get closer to the goal.
+
+    ### **Output Format:**
+    Your response MUST be a single, valid JSON object with the following structure. Do not add any text before or after the JSON object.
+
+    ```json
+    {
+      "thought": "Your detailed reasoning. First, explicitly state whether you have enough information to answer the user's goal (e.g., 'Based on the file content from the last step, I now have everything I need.'). Then, formulate your response or explain which tool you will use next and why.",
+      "action": {
+        "tool_name": "name_of_the_tool_to_use",
+        "arguments": {
+          "arg1": "value1"
+        }
+      }
+    }
+    ```
+
+    ### !! CRITICAL INSTRUCTION !!
+    **To finish the task and give the final answer to the user, you MUST set the `action` field to `null`.** For example:
+    ```json
+    {
+      "thought": "I have successfully read the file and calculated the average. The final answer is 42.7. I have completed the user's request.",
+      "action": null
+    }
+    ```
+    """
+
+    return {
+        "history": history,
+        "task_description": task_description,
+        "available_tools": available_tools,
+        "rag_context": rag_context
+    }
+
 @llm.prompt(model="deepseek-reasoner") # 我们可以为代码任务指定一个更擅长编码的模型
 def generate_initial_script(user_query: str, rag_context: str) -> str:
     """
