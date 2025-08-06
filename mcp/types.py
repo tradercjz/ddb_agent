@@ -103,3 +103,14 @@ class MCPExecutionResult(BaseModel):
     execution_time: float = Field(..., description="执行时间（秒）")
     server_name: str = Field(..., description="执行的服务器名称")
     tool_name: str = Field(..., description="执行的工具名称")
+
+
+class ProcessedToolResult(BaseModel):
+    """
+    一个标准化的、净化后的工具执行结果容器。
+    这是在 MCPServerRuntime 内部处理后的结果，供系统上层使用。
+    """
+    success: bool = Field(description="直接反映了工具执行是否成功。")
+    data: Any = Field(description="净化和反序列化后的干净Python数据。")
+    error_message: Optional[str] = Field(None, description="如果失败，存放错误信息。")
+    raw_content_list: Optional[List[Dict[str, Any]]] = Field(None, description="来自服务器原始ToolResult的content列表，用于调试。")

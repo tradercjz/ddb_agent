@@ -13,6 +13,8 @@ import time
 import shlex
 import psutil
 
+from mcp.protocol_processor import process_mcp_tool_result
+
 from ..types import MCPServerInstance, MCPServerStatus, MCPTool, MCPResource, MCPExecutionResult
 
 # 尝试导入logger，如果失败则使用标准logging
@@ -396,9 +398,12 @@ class MCPServerRuntime:
             response = await self._send_request(request)
             
             if response and "result" in response:
+                processed_result = process_mcp_tool_result(response["result"])
+              
                 return MCPExecutionResult(
-                    success=True,
-                    result=response["result"],
+                    success=processed_result.success,
+                    result=processed_result.data, # 这里现在是净化后的数据！
+                    error=processed_result.error_message,
                     execution_time=time.time() - start_time,
                     server_name=self.instance.info.name,
                     tool_name=tool_name
