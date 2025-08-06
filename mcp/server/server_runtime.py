@@ -11,6 +11,7 @@ from typing import Optional, Dict, Any, List
 from pathlib import Path
 import time
 import shlex
+import psutil
 
 from ..types import MCPServerInstance, MCPServerStatus, MCPTool, MCPResource, MCPExecutionResult
 
@@ -54,12 +55,13 @@ class MCPServerRuntime:
                 return False
             
             # 将实例中定义的环境变量覆盖/添加到 env 字典中
-            env = os.environ.copy() 
+            env = os.environ.copy()
+            env["UV_DEFAULT_INDEX"] = "https://pypi.tuna.tsinghua.edu.cn/simple"
             if self.instance.environment_variables:
                 logger.info(f"Applying custom environment variables for {self.instance.info.name}")
                 env.update(self.instance.environment_variables)
 
-            self.instance.environment_variables = env
+            #self.instance.environment_variables = env
 
             # 启动进程
             self.process = await asyncio.create_subprocess_exec(
@@ -468,47 +470,78 @@ class MCPServerRuntime:
     
     async def stop(self):
         """停止MCP服务器"""
+        if not self.process or self.process.returncode is not None:
+            logger.info(f"Server {self.instance.info.name} is already stopped.")
+            return
+
+        logger.info(f"Attempting to stop process tree for PID: {self.process.pid}...")
+        
         try:
-            if self.process:
-                # 发送终止信号
-                if self.process.returncode is None:
-                    self.process.terminate()
-                    
-                    # 等待进程结束
+            # 使用psutil获取父进程和所有子进程
+            parent = psutil.Process(self.process.pid)
+            children = parent.children(recursive=True)
+            
+            # 首先礼貌地终止所有子进程
+            for child in children:
+                try:
+                    child.terminate()
+                except psutil.NoSuchProcess:
+                    pass
+            
+            # 然后终止父进程
+            try:
+                parent.terminate()
+            except psutil.NoSuchProcess:
+                pass
+
+            # 等待它们结束，带超时
+            _, alive = psutil.wait_procs(children + [parent], timeout=3)
+
+            # 如果还有存活的，强制杀死
+            if alive:
+                logger.warning(f"Processes {alive} did not terminate gracefully. Forcing kill.")
+                for p in alive:
                     try:
-                        await asyncio.wait_for(self.process.wait(), timeout=5.0)
-                    except asyncio.TimeoutError:
-                        # 强制杀死进程
-                        self.process.kill()
-                        await self.process.wait()
-                
-                self.process = None
-            
-            # 清理资源
-            if self.stdin_writer:
-                self.stdin_writer.close()
-                await self.stdin_writer.wait_closed()
-                self.stdin_writer = None
-            
-            self.stdout_reader = None
-            self.stderr_reader = None
-            self._initialized = False
-            self._tools.clear()
-            self._resources.clear()
-            
-            # 取消所有待处理的请求
-            for future in self._pending_requests.values():
-                if not future.done():
-                    future.cancel()
-            self._pending_requests.clear()
-            
-            self.instance.status = MCPServerStatus.STOPPED
-            self.instance.process_id = None
-            
-            logger.info(f"MCP server {self.instance.info.name} stopped")
-            
+                        p.kill()
+                    except psutil.NoSuchProcess:
+                        pass
+                psutil.wait_procs(alive, timeout=3)
+
+        except psutil.NoSuchProcess:
+            logger.warning(f"Process with PID {self.process.pid} already gone.")
         except Exception as e:
-            logger.error(f"Error stopping MCP server: {e}")
+            logger.error(f"Error stopping process tree for PID {self.process.pid}: {e}", exc_info=True)
+            # 最后的保障：直接调用原始的 kill
+            try:
+                self.process.kill()
+            except ProcessLookupError:
+                pass
+
+        # --- 原有的清理逻辑保持不变 ---
+        self.process = None
+        if self.stdin_writer:
+            self.stdin_writer.close()
+            try:
+                await self.stdin_writer.wait_closed()
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            self.stdin_writer = None
+        
+        self.stdout_reader = None
+        self.stderr_reader = None
+        self._initialized = False
+        self._tools.clear()
+        self._resources.clear()
+        
+        for future in self._pending_requests.values():
+            if not future.done():
+                future.cancel()
+        self._pending_requests.clear()
+        
+        self.instance.status = MCPServerStatus.STOPPED
+        self.instance.process_id = None
+        
+        logger.info(f"MCP server {self.instance.info.name} runtime stopped.")
     
     def is_running(self) -> bool:
         """检查服务器是否正在运行"""

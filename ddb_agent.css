@@ -220,3 +220,21 @@ MCPEnvEditorScreen {
     border: round $primary-lighten-3; /* Subtle rounded border */
     text-style: dim; /* Make the text slightly dimmer */
 }
+
+#top-bar {
+    height: auto;
+    margin-bottom: 1; /* (可选) 在顶部栏和内容区之间增加一点间隙 */
+}
+
+/*
+  Target the main content area.
+  'height: 1fr;' tells the layout engine that this container should take up
+  1 "fraction" of the remaining free space. Since it's the only element
+  with a fractional height, it will expand to fill all the space left
+  by the now-compact #top-bar.
+*/
+#content-area {
+    height: 1fr;
+}
+
+

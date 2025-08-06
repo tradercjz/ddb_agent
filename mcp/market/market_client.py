@@ -68,7 +68,7 @@ class MCPMarketClient:
         if not self._session:
             self._session = aiohttp.ClientSession()
         
-        return []
+        return self._get_builtin_servers()
         async with self._session.get(f"{self.config.market_url}/api/servers") as response:
             if response.status == 200:
                 data = await response.json()
@@ -106,61 +106,42 @@ class MCPMarketClient:
     def _get_builtin_servers(self) -> List[MCPServerInfo]:
         """获取内置的默认服务器列表"""
         return [
-            # MCPServerInfo(
-            #     name="filesystem",
-            #     display_name="文件系统工具",
-            #     description="提供文件系统操作功能，包括读取、写入、搜索文件等",
-            #     version="1.0.0",
-            #     author="MCP Community",
-            #     homepage="https://github.com/modelcontextprotocol/servers",
-            #     repository="https://github.com/modelcontextprotocol/servers",
-            #     license="MIT",
-            #     tags=["filesystem", "files", "utility"],
-            #     category="utility",
-            #     install_type="npm",
-            #     install_command="npm install -g @modelcontextprotocol/server-filesystem",
-            #     run_command="mcp-server-filesystem ./",
-            #     tools=[],
-            #     downloads=1000,
-            #     rating=4.5
-            # ),
-            # MCPServerInfo(
-            #     name="mcp-atlassian",
-            #     display_name="mcp-atlassian",
-            #     description="提供搜索jira/confluence等Atlassian产品的功能",
-            #     version="1.1.0",
-            #     author="MCP Community",
-            #     homepage="https://github.com/modelcontextprotocol/servers",
-            #     repository="https://github.com/modelcontextprotocol/servers",
-            #     license="MIT",
-            #     tags=["jira", "confluence", "development"],
-            #     category="development",
-            #     install_type="pip",
-            #     install_command="",
-            #     run_command="uvx mcp-atlassian",
-            #     tools=[],
-            #     downloads=450,
-            #     rating=4.3
-            # ),
-            MCPServerInfo(
-                name="dolphindb-mcp-server",
-                display_name="dolphindb-mcp-server",
-                description="dolphindb的MCP服务器，提供数据查询和分析功能",
-                version="1.1.0",
-                author="MCP Community",
-                homepage="https://github.com/tradercjz/dolphindb-mcp-server",
-                repository="https://github.com/tradercjz/dolphindb-mcp-server",
-                license="MIT",
-                tags=["dolphindb",  "development"],
-                category="development",
-                install_type="pip",
-                install_command="",
-                run_command="uvx dolphindb-mcp-server",
-                tools=[],
-                downloads=450,
-                rating=4.3
-            )
-        ]
+        MCPServerInfo(
+            name="filesystem",
+            version="1.0.0",
+            install_type="npm",
+            install_command="npm install -g @modelcontextprotocol/server-filesystem",
+            run_command="mcp-server-filesystem ./",
+            display_name="文件系统工具",
+            description="提供文件系统操作功能，包括读取、写入、搜索文件等。",
+            category="utility",
+            tags=["filesystem", "files", "utility"]
+        ),
+        MCPServerInfo(
+            name="mcp-atlassian",
+            version="1.1.0",
+            install_type="pip",
+            install_command="", 
+            run_command="uvx mcp-atlassian",
+            display_name="Atlassian 工具集",
+            environment_variables_desc={
+            },
+            description="提供搜索 Jira/Confluence 等 Atlassian 产品的功能。",
+            category="development",
+            tags=["jira", "confluence", "development"]
+        ),
+        MCPServerInfo(
+            name="dolphindb-mcp-server",
+            version="1.1.0",
+            install_type="pip",
+            install_command="", 
+            run_command="uvx dolphindb-mcp-server",
+            display_name="DolphinDB MCP 服务器",
+            description="提供对 DolphinDB 数据库进行查询和分析的功能。",
+            category="database",
+            tags=["dolphindb", "development", "database", "analytics"]
+        )
+    ]
     
     async def search_servers(self, query: str, category: Optional[str] = None, tags: Optional[List[str]] = None) -> List[MCPServerInfo]:
         """搜索MCP服务器"""

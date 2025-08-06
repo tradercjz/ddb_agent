@@ -20,33 +20,32 @@ class MCPServerStatus(str, Enum):
 
 
 class MCPServerInfo(BaseModel):
-    """MCP服务器信息"""
-    name: str = Field(..., description="服务器名称")
-    display_name: str = Field(..., description="显示名称")
-    description: str = Field(..., description="服务器描述")
-    version: str = Field(..., description="版本号")
-    author: str = Field(..., description="作者")
-    homepage: Optional[str] = Field(None, description="主页URL")
-    repository: Optional[str] = Field(None, description="代码仓库URL")
-    license: Optional[str] = Field(None, description="许可证")
-    tags: List[str] = Field(default_factory=list, description="标签")
-    category: str = Field(..., description="分类")
+    """
+    一个 MCP 服务器的核心操作信息。
+    这是 Agent 从市场获取并用于实际安装和运行服务器的精简数据结构。
+    """
+    # --- 核心操作字段 ---
+    name: str = Field(..., description="服务器的唯一标识符，例如 'filesystem'。")
+    install_type: str = Field(..., description="安装类型，如 'npm', 'pip', 'git'。Agent 根据此字段决定安装策略。")
+    install_command: str = Field(..., description="完整的安装命令，例如 'npm install -g @mcp/server-filesystem'。")
+    run_command: str = Field(..., description="启动服务器的命令，例如 'mcp-server-filesystem ./'。")
+    version: str = Field(..., description="服务器的版本号，用于检查更新和依赖管理。")
+    environment_variables_desc: Dict[str, str] = Field(
+        default_factory=dict,
+        description="需要设置的环境变量参考和描述"
+    )
+
+    # --- 用于市场发现与UI展示的字段 (Agent 本身不直接使用，但从市场 API 一并获取) ---
+    display_name: str = Field(..., description="用于在UI中展示的、更友好的名称。")
+    description: str = Field(..., description="服务器功能的简短描述，帮助用户理解其用途。")
+    category: Optional[str] = Field("other", description="服务器的分类，如 'utility', 'database', 'ai'。")
+    tags: Optional[List[str]] = Field(default_factory=list, description="用于搜索和筛选的标签列表。")
     
-    # 安装相关
-    install_type: str = Field(..., description="安装类型: npm, pip, binary, git")
-    install_command: str = Field(..., description="安装命令")
-    run_command: str = Field(..., description="运行命令")
-    config_schema: Optional[Dict[str, Any]] = Field(None, description="配置模式")
-    
-    # 工具信息
-    tools: List[Dict[str, Any]] = Field(default_factory=list, description="提供的工具列表")
-    resources: List[Dict[str, Any]] = Field(default_factory=list, description="提供的资源列表")
-    
-    # 元数据
-    downloads: int = Field(default=0, description="下载次数")
-    rating: float = Field(default=0.0, description="评分")
-    created_at: datetime.datetime = Field(default_factory=datetime.datetime.now)
-    updated_at: datetime.datetime = Field(default_factory=datetime.datetime.now)
+    # --- (可选) 丰富元数据，用于市场UI ---
+    # 这些字段可以由市场 API 提供，但 Agent 的核心逻辑不依赖它们。
+    author: Optional[str] = Field(None, description="作者或组织。")
+    repository: Optional[str] = Field(None, description="代码仓库 URL。")
+    license: Optional[str] = Field(None, description="软件许可证。")
 
 
 class MCPServerInstance(BaseModel):

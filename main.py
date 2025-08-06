@@ -490,7 +490,7 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
 
         if sub_cmd == 'market':
             if self.mcp_market_manager:
-                self.call_from_thread(self.push_screen, MCPMarketScreen(self.mcp_market_manager))
+                self.call_from_thread(self.push_screen, MCPMarketScreen(self.mcp_market_manager, self.mcp_server_manager))
             else:
                 self._write_to_log(Panel("[red]MCP市场管理器未初始化[/red]", border_style="red"))
         

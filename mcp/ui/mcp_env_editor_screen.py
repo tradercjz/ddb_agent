@@ -36,7 +36,7 @@ class MCPEnvEditorScreen(ModalScreen[Dict[str, str]]):
         return Horizontal(
             Input(value=key, placeholder="变量名", classes="env-key-input"),
             Static("=", classes="env-separator"),
-            Input(value=value, placeholder="变量值", password=True, classes="env-value-input"),
+            Input(value=value, placeholder="变量值",  classes="env-value-input"),
             Button("❌", classes="delete-env-btn"),
             classes="env-row"
         )

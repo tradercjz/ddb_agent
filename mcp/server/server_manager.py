@@ -75,25 +75,23 @@ class MCPServerManager:
             return None
         return self._async_manager.get_server_pid(server_name)
     
-    def start_server(self, server_name: str, config: Optional[Union[Dict[str, Any], List[str], str]] = None) -> bool:
-        """同步启动MCP服务器。"""
+    def start_server(self, server_name: str, config: Optional[Union[Dict[str, Any], List[str], str]] = None) -> None:
+        # 返回值改为 None
         logger.info(f"Requesting to start server: {server_name}")
         try:
-            return self._async_manager.start_server(server_name, config=config)
+            self._async_manager.start_server(server_name, config=config)
         except Exception as e:
-            logger.error(f"Failed to start server {server_name}: {e}", exc_info=True)
-            self._notify_status_change(server_name, MCPServerStatus.ERROR, f"启动失败: {str(e)}")
-            return False
-    
-    def stop_server(self, server_name: str) -> bool:
-        """同步停止MCP服务器。"""
+            logger.error(f"Failed to post start command for server {server_name}: {e}", exc_info=True)
+            self._notify_status_change(server_name, MCPServerStatus.ERROR, f"发送启动命令失败: {str(e)}")
+
+    def stop_server(self, server_name: str) -> None:
+        # 返回值改为 None
         logger.info(f"Requesting to stop server: {server_name}")
         try:
-            return self._async_manager.stop_server(server_name)
+            self._async_manager.stop_server(server_name)
         except Exception as e:
-            logger.error(f"Failed to stop server {server_name}: {e}", exc_info=True)
-            self._notify_status_change(server_name, MCPServerStatus.ERROR, f"停止失败: {str(e)}")
-            return False
+            logger.error(f"Failed to post stop command for server {server_name}: {e}", exc_info=True)
+            self._notify_status_change(server_name, MCPServerStatus.ERROR, f"发送停止命令失败: {str(e)}")
 
     def bootstrap_builtin_servers(self, auto_start: bool = True):
         """同步引导内置的MCP服务器。"""

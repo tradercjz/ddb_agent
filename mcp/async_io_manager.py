@@ -71,6 +71,18 @@ class MCPAsyncIOManager:
             self._loop.close()
             logger.info("AsyncIOManager thread finished.")
 
+    def _post_command(self, command: str, *args, **kwargs):
+        """
+        从主线程发送一个命令到后台线程，但不等待其完成。
+        适用于启动、停止等长时间操作。
+        """
+        if not self._thread or not self._thread.is_alive():
+            raise RuntimeError("MCPAsyncIOManager is not running. Call start() first.")
+        
+        # 使用一个特殊的 request_id 来表示我们不关心返回值
+        request_id = f"fire-and-forget-{uuid.uuid4()}"
+        self.request_queue.put((request_id, command, args, kwargs))
+        
     async def _request_processor_task(self):
         """
         在事件循环中运行的后台任务，负责处理请求队列。
