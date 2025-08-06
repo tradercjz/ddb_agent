@@ -121,8 +121,8 @@ class ReActExecutor:
                     observation = f"Tool '{tool_name}' failed with an error: {exec_result.error_message}"
                     is_error = True
 
-            if len(observation) > 2500:
-                observation = observation[:2500] + "\n\n... (Observation was truncated)"
+            #if len(observation) > 2500:
+            #    observation = observation[:2500] + "\n\n... (Observation was truncated)"
             
             yield ReactObservation(observation=observation, is_error=is_error, message="🔍 Observing result...")
             task_execution_summary.append({"observation": observation})

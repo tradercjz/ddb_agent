@@ -4,22 +4,20 @@ from typing import List, Dict
 from llm.llm_prompt import llm
 
 
-@llm.prompt() # 可以选用一个擅长总结的模型
+@llm.prompt(model="gpt-oss-120b") # 可以选用一个擅长总结的模型
 def generate_final_user_answer(
     task_description: str,
     execution_history: List[Dict[str, str]],
     final_thought: str
 ) -> str:
     """
-    You are an expert AI assistant tasked with summarizing the results of a complex, multi-step task for the user.
-    Another AI agent has just completed a series of actions (the execution history) to address the user's request.
-    Your job is to synthesize this entire process into a single, clean, user-friendly final answer.
+    You are a meticulous and factual report generator. Your sole purpose is to transform a raw execution log into a clear, structured, and user-friendly final report. You MUST NOT invent information or summarize creatively. Your report must be based exclusively on the successful `Observation` data provided.
 
     ## 1. User's Original Request
     {{ task_description }}
 
-    ## 2. Step-by-Step Execution History
-    Here is the sequence of thoughts, actions, and observations the agent performed:
+    ## 2. Raw Execution Log
+    This is the sequence of thoughts, actions, and observations performed by an agent. The `Observation` sections contain the factual results of each action.
     ---
     {% for turn in execution_history %}
     Thought: {{ turn.thought }}
@@ -28,32 +26,52 @@ def generate_final_user_answer(
     ---
     {% endfor %}
 
-    ## 3. Agent's Final Reasoning for Finishing
+    ## 3. Agent's Final Thought (For Context Only)
     {{ final_thought }}
 
-    ## Your Crucial Task
-    Based on all the information above, create a final, comprehensive answer for the user.
+    ## YOUR CRUCIAL TASK: Generate the Final Report
 
-    ### Instructions:
-    - **Directly address the user's original request.**
-    - **Synthesize and present the key findings from the 'Observation' steps.** Do not just state that information was found; present the information itself (e.g., list the file names, summarize the content, show the final calculation).
-    - **Omit failed steps or irrelevant details** unless they are critical to understanding the final result.
-    - **Your tone should be helpful, direct, and clear.** Do not speak in the first person as the agent who performed the work (e.g., avoid saying "I thought...", "I then executed...").
-    - **Use Markdown** for clear formatting (e.g., bullet points, code blocks).
+    ### Core Objective:
+    Extract all successful, tangible results from the `Observation` sections of the log and present them clearly to the user.
 
-    ### Example Output:
-    Based on your request, I have searched the Confluence pages for content related to 'xxxx'. Here are the relevant documents I found:
+    ### Strict Rules:
+    1.  **Fact-Based Reporting**: Your answer MUST be built directly from the content within the `Observation` blocks. If an observation contains a list of files, you must list those files. If it contains data, you must present that data.
+    2.  **Ignore Failures**: Do NOT mention failed steps or errors in the final report. Only report on successful outcomes.
+    3.  **No New Actions**: Do not suggest new steps or actions. The task is complete. Your only job is to report the results.
+    4.  **Handle No Results**: If the execution log contains no successful observations with concrete data, you MUST state that clearly. For example: "The process completed, but no specific data or files were found that match your request."
 
-    *   **Speech Draft for xxxx (2024)**: Contains a draft of a speech.
-    *   **Toast Script - xxxx & Team**: Includes scripts for a team event.
-    *   **Community Operations - xxxx Plan**: Outlines a plan for community activities.
+    ### Mandatory Output Structure:
+    You MUST follow this Markdown structure precisely.
 
-    A search for a Jira user named 'davis' did not yield any results.
+    **Summary:**
+    [A brief, one-sentence summary of the final outcome based on the results.]
+
+    **Detailed Results:**
+    [Use bullet points (`*`) to list each key finding. Each bullet point MUST correspond to a piece of data from a successful `Observation`.]
+
+    **Final Output (if applicable):**
+    [If a final script, file content, or structured data block was produced in the last successful step, present it here in a proper Markdown code block.]
+
+    ---
+    ### Example of correct behavior:
+    **If an `Observation` is:**
+    ```json
+    [
+      {"name": "davis_speech_draft.md", "path": "/docs/davis_speech_draft.md"},
+      {"name": "davis_community_plan.docx", "path": "/docs/davis_community_plan.docx"}
+    ]
+    ```
+    **Your report's "Detailed Results" section MUST contain:**
+    *   Found file: `davis_speech_draft.md`
+    *   Found file: `davis_community_plan.docx`
+    ---
+
+    Now, based on the provided log, generate the final report for the user.
     """
     pass
 
 
-@llm.prompt(model="deepseek-reasoner")
+@llm.prompt(model="gpt-oss-120b")
 def react_agent_prompt(
     task_description: str,
     history: List[Dict[str, str]],
