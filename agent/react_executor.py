@@ -2,7 +2,7 @@
 
 import json
 from typing import Generator, Dict, Any, List
-from agent.prompts import react_agent_prompt
+from agent.prompts import generate_final_user_answer, react_agent_prompt
 from agent.tool_manager_enhanced import EnhancedToolManager
 from rag.rag_entry import DDBRAG
 from agent.task_status import ReactThought, ReactAction, ReactObservation, TaskStart, TaskEnd, TaskError
@@ -71,9 +71,31 @@ class ReActExecutor:
             
             # 2. Check for Termination: If action is null, the task is done.
             if action is None:
-                final_answer = thought
+                # Agent 认为它完成了，现在我们接管并生成最终的总结
+                yield ReactThought(thought=thought, message="🤔 Agent finished thinking. Synthesizing final answer...")
+                
+                # 调用新的总结 prompt
+                summary_generator = generate_final_user_answer(
+                    task_description=task_description,
+                    execution_history=local_react_loop_history,
+                    final_thought=thought
+                )
+                
+                # 从生成器中获取最终的、润色过的答案
+                final_answer = ""
+                try:
+                    while True:
+                        next(summary_generator)
+                except StopIteration as e:
+                    final_answer = e.value.content
+
+                if not final_answer:
+                    # 如果总结失败，则退回到使用原始的 thought
+                    final_answer = thought
+
                 yield TaskEnd(success=True, final_message=final_answer, final_script=None, message="✅ Task completed successfully.", )
-                return {"role": "assistant", "content": final_answer}
+                
+                return final_answer, task_execution_summary
             
             # 3. Act: Execute the tool call
             tool_name = action.get("tool_name")

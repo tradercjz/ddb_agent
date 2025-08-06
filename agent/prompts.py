@@ -3,9 +3,57 @@
 from typing import List, Dict
 from llm.llm_prompt import llm
 
-# 这个文件将存放所有与 Coding Agent 任务相关的 prompts
 
-@llm.prompt(model="deepseek")
+@llm.prompt() # 可以选用一个擅长总结的模型
+def generate_final_user_answer(
+    task_description: str,
+    execution_history: List[Dict[str, str]],
+    final_thought: str
+) -> str:
+    """
+    You are an expert AI assistant tasked with summarizing the results of a complex, multi-step task for the user.
+    Another AI agent has just completed a series of actions (the execution history) to address the user's request.
+    Your job is to synthesize this entire process into a single, clean, user-friendly final answer.
+
+    ## 1. User's Original Request
+    {{ task_description }}
+
+    ## 2. Step-by-Step Execution History
+    Here is the sequence of thoughts, actions, and observations the agent performed:
+    ---
+    {% for turn in execution_history %}
+    Thought: {{ turn.thought }}
+    Action: {{ turn.action_str }}
+    Observation: {{ turn.observation }}
+    ---
+    {% endfor %}
+
+    ## 3. Agent's Final Reasoning for Finishing
+    {{ final_thought }}
+
+    ## Your Crucial Task
+    Based on all the information above, create a final, comprehensive answer for the user.
+
+    ### Instructions:
+    - **Directly address the user's original request.**
+    - **Synthesize and present the key findings from the 'Observation' steps.** Do not just state that information was found; present the information itself (e.g., list the file names, summarize the content, show the final calculation).
+    - **Omit failed steps or irrelevant details** unless they are critical to understanding the final result.
+    - **Your tone should be helpful, direct, and clear.** Do not speak in the first person as the agent who performed the work (e.g., avoid saying "I thought...", "I then executed...").
+    - **Use Markdown** for clear formatting (e.g., bullet points, code blocks).
+
+    ### Example Output:
+    Based on your request, I have searched the Confluence pages for content related to 'xxxx'. Here are the relevant documents I found:
+
+    *   **Speech Draft for xxxx (2024)**: Contains a draft of a speech.
+    *   **Toast Script - xxxx & Team**: Includes scripts for a team event.
+    *   **Community Operations - xxxx Plan**: Outlines a plan for community activities.
+
+    A search for a Jira user named 'davis' did not yield any results.
+    """
+    pass
+
+
+@llm.prompt(model="deepseek-reasoner")
 def react_agent_prompt(
     task_description: str,
     history: List[Dict[str, str]],
