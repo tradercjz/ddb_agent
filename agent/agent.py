@@ -73,11 +73,12 @@ class DDBAgent:
         self.react_executor = ReActExecutor(self.tool_manager, self.rag)
 
         # 定义一个通用的聊天Prompt
-        @llm.prompt()
+        @llm.prompt("sonnet4")
         def _default_chat_prompt(conversation_history: List[Dict[str, str]]):
-            """
+            """"
             You are a helpful DolphinDB assistant. Continue the conversation naturally.
             The user's latest message is the last one in the history.
+            请严格按照相关资料来回答用户问题，如果没有搜到相关资料，请回答我不清楚,千万不要臆造"
             """
         
         self.chat_prompt_func = _default_chat_prompt

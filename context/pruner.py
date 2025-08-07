@@ -229,12 +229,19 @@ class ExtractPruner(BasePruner):
         Returns a new Document object with pruned content, or the original if it fails.
         """
         print(f"  - Starting snippet extraction for: {file_source.file_path}")
-        try:
+        try: 
         
-            response_str = self._extract_content_prompt(
+            response_generator = self._extract_content_prompt(
                 conversations=conversations,
                 full_content=file_source.source_code
             )
+
+            response_str = None
+            try:
+                while True:
+                    next(response_generator)
+            except StopIteration as e:
+                response_str = e.value.content
 
             import re
             # 将所有非法反斜杠转义为合法形式，例如 \* -> \\*

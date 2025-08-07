@@ -81,7 +81,7 @@ class DDBRAG:
         """
         pass
 
-    @llm.prompt(model="deepseek-chat")
+    @llm.prompt()
     def _rerank_candidates_prompt(self, user_query: str, candidates_json: str) -> str:
         """
         You are an expert re-ranking system. Your task is to analyze a list of candidate documents

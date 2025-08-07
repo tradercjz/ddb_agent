@@ -1282,8 +1282,8 @@ if __name__ == "__main__":
         
         ddb_agent = DDBAgent(
             project_path=project_path,
-            model_name="deepseek-chat",
-            max_window_size=64000,
+            model_name="gpt-oss-120b",
+            max_window_size=128000,
             mcp_market_manager = mcp_market_manager,
             mcp_server_manager = mcp_server_manager
         )

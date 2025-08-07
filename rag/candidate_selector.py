@@ -76,14 +76,14 @@ class LLMCandidateSelector:
     Selects candidates by using an LLM to screen chunks of the index in parallel.
     """
     # 每个发给LLM的块，其token上限
-    MAX_TOKENS_PER_CHUNK = 16000 # 假设使用一个中等大小的窗口模型进行筛选
+    MAX_TOKENS_PER_CHUNK = 32000 # 假设使用一个大的窗口模型进行筛选
 
     def __init__(self, all_index_items: List[BaseIndexModel],  index_manager: BaseIndexManager):
         self.all_items = all_index_items
         self.index_manager = index_manager
 
     # 指定使用chat模型快一些
-    @llm.prompt(model="deepseek-chat")
+    @llm.prompt()
     def _select_from_chunk_prompt(self, user_query: str, index_chunk_json: str) -> str:
         """
         You are an expert retrieval assistant. Your task is to analyze a CHUNK of a project's index 
@@ -195,16 +195,18 @@ class LLMCandidateSelector:
                 for i, chunk in enumerate(index_chunks)
             }
             
+            total_count = len(index_chunks)
             for future in as_completed(future_to_chunk_index):
                 chunk_index = future_to_chunk_index[future]
                 try:
                     result = future.result()
+                    processed_chunks += 1
                     if result:
                         all_candidates.extend(result)
                         yield RagSelectionProgress(
-                            message=f"Phase 1: filter index  {processed_chunks}/{len(index_chunks)} chunks...",
+                            message=f"Phase 1: filter index  {processed_chunks}/{total_count} chunks...",
                             processed_count=processed_chunks,
-                            total_count=len(index_chunks),
+                            total_count=total_count,
                             found_count=len(result)
                         )
                 except Exception as exc:
