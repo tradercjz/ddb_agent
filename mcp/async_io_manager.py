@@ -9,13 +9,7 @@ from .server.server_runtime import MCPServerRuntime
 from .types import MCPServerStatus, MCPTool, MCPResource, MCPExecutionResult
 from .market.market_manager import MCPMarketManager
 
-# 日志配置
-try:
-    from utils.logger import setup_llm_logger
-    logger = setup_llm_logger(__name__)
-except ImportError:
-    import logging
-    logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 class MCPAsyncIOManager:

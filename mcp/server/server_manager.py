@@ -12,14 +12,7 @@ from mcp.async_io_manager import MCPAsyncIOManager
 from ..types import MCPServerInstance, MCPServerStatus, MCPTool, MCPResource, MCPExecutionResult
 from ..market.market_manager import MCPMarketManager
 
-# 日志记录器
-try:
-    from utils.logger import setup_llm_logger
-    logger = setup_llm_logger(__name__)
-except ImportError:
-    import logging
-    logger = logging.getLogger(__name__)
-
+from loguru import logger
 
 class MCPServerManager:
     """MCP服务器管理器 (同步门面)"""

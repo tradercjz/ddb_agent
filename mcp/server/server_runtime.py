@@ -17,14 +17,7 @@ from mcp.protocol_processor import process_mcp_tool_result
 
 from ..types import MCPServerInstance, MCPServerStatus, MCPTool, MCPResource, MCPExecutionResult
 
-# 尝试导入logger，如果失败则使用标准logging
-try:
-    from utils.logger import setup_llm_logger
-    logger = setup_llm_logger(__name__)
-except ImportError:
-    import logging
-    logger = logging.getLogger(__name__)
-
+from loguru import logger
 
 class MCPServerRuntime:
     """MCP服务器运行时"""
