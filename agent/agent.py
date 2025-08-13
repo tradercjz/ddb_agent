@@ -1,14 +1,13 @@
-# file: ddb_agent/agent.py (之前在main.py中虚构的，现在正式实现)
 
 import datetime
 import json
 import os
-from typing import Generator, List, Dict, Any, Optional, Tuple, Union
+from typing import Generator, List, Dict, Any, Literal, Optional, Tuple, Union
 from agent.code_executor import CodeExecutor
 from agent.coding_task_state import CodingTaskState
 from agent.execution_result import ExecutionResult
 from agent.prompts import debugging_planner, fix_script_from_error, generate_initial_script
-from agent.task_status import AnyTaskStatus, PlanGenerationEnd, PlanGenerationStart, StepExecutionEnd, StepExecutionStart, TaskEnd, TaskError, TaskStart, ReactThought, ReactAction, ReactObservation
+from agent.task_status import AnyTaskStatus, BaseTaskStatus, PlanGenerationEnd, PlanGenerationStart, StepExecutionEnd, StepExecutionStart, TaskEnd, TaskError, TaskStart, ReactThought, ReactAction, ReactObservation
 from llm.llm_client import LLMResponse, StreamChunk
 from mcp.market.market_manager import MCPMarketManager
 from mcp.server.server_manager import MCPServerManager
@@ -37,6 +36,9 @@ from agent.tool_manager_enhanced import EnhancedToolManager
 
 from agent.react_executor import ReActExecutor
 
+class FinalMessage(BaseTaskStatus):
+    subtype: Literal["final_message"] = "final_message"
+    message_object: Dict[str, Any]
 
 class DDBAgent:
     """
@@ -158,7 +160,63 @@ class DDBAgent:
             )
             
         self.session_manager.save_session()
+        
+    def run_chat_task(
+        self,
+        conversation_history: List[Dict[str, Any]],
+        task_type: str = 'chat'
+    ) -> Generator[Union[AnyRagStatus, StreamChunk, FinalMessage], None, None]:
+        """
+        (无状态改造) 核心的、无状态的聊天任务执行器。
+        接收完整的对话历史，yield 状态和数据流，最后 yield FinalMessage。
+        """
+        if not conversation_history:
+            return
 
+        current_user_input = conversation_history[-1].get('content', '')
+
+        # 1. RAG 检索 (yields AnyRagStatus)
+        relevant_files = yield from self.rag.retrieve(current_user_input, top_k=5)
+
+        # 2. 上下文构建
+        system_prompt = "You are a world-class DolphinDB expert. Answer the user's query based on the provided context. If file context is provided, prioritize it. Be concise, accurate, and provide code examples where appropriate."
+        
+        final_messages = self.context_builder.build(
+            system_prompt=system_prompt,
+            conversations=conversation_history,
+            file_sources=relevant_files,
+            task_type=task_type,
+            file_pruning_strategy='extract'
+        )
+
+        # 3. 调用 LLM 并流式传输结果 (yields StreamChunk)
+        assistant_response_gen = self.chat_prompt_func(
+            conversation_history=final_messages
+        )
+
+        final_llm_response = None
+        try:
+            while True:
+                chunk = next(assistant_response_gen)
+                yield chunk # 将 StreamChunk 直接冒泡给调用者
+        except StopIteration as e:
+            final_llm_response = e.value
+
+        # 4. 任务结束，yield 最终消息对象
+        if final_llm_response and final_llm_response.success:
+            final_message_obj = {
+                "role": "assistant",
+                "content": final_llm_response.content
+            }
+            yield FinalMessage(
+                message="Chat task finished, returning final message.",
+                message_object=final_message_obj
+            )
+        elif final_llm_response: # 如果失败
+             yield TaskError(
+                 message="LLM call failed.",
+                 error_details=final_llm_response.error_message
+             )
 
     def run_task(self, user_input: str, task_type: str = 'chat') -> Generator[Union[AnyRagStatus, StreamChunk], None, LLMResponse]:
         """

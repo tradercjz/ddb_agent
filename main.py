@@ -39,6 +39,8 @@ from mcp.ui.mcp_market_screen import MCPMarketScreen
 from mcp.ui.mcp_manager_screen import MCPManagerScreen
 from mcp.market.market_manager import MCPMarketManager
 from mcp.server.server_manager import MCPServerManager
+from agent.cli_handler import CLISessionHandler 
+
 MCP_AVAILABLE = True
 #except ImportError:
    # MCP_AVAILABLE = False
@@ -61,14 +63,14 @@ class DDBAgentApp(App):
         Binding("ctrl+l", "clear_log", "Clear Log", show=True),
     ]
 
-    def __init__(self, agent: DDBAgent):
+    def __init__(self, handler: CLISessionHandler):
         super().__init__()
-        self.agent = agent
+        self.handler = handler
         self._spinner_timer = None
         
         # 初始化MCP组件
-        self.mcp_market_manager = agent.get_mcp_market_manager()
-        self.mcp_server_manager = agent.get_mcp_server_manager()
+        #self.mcp_market_manager = agent.get_mcp_market_manager()
+        #self.mcp_server_manager = agent.get_mcp_server_manager()
         
 
     def compose(self) -> ComposeResult:
@@ -137,12 +139,12 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
     # --- Action Handlers (for BINDINGS) ---
     def update_session_label(self):
         """Updates the session label in the TUI."""
-        session_name = self.agent.session_manager.get_active_session_name()
+        session_name = self.handler.get_active_session_name()
         self.query_one("#session-label", Label).update(f"Session: [bold yellow]{escape(session_name)}[/bold yellow]")
    
     def action_new_session(self) -> None:
         """处理快捷键 ctrl+n，开始一个新会话"""
-        self.agent.session_manager.new_session()
+        self.handler.new_session()
         log = self.query_one("#output-log", RichLog)
         log.clear()
         log.write(Panel("[bold green]New session started.[/bold green]", border_style="green"))
@@ -242,7 +244,7 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
             elif cmd == '/save':
                 if len(parts) > 1:
                     file_path = parts[1]
-                    success, message = self.agent.save_last_script(file_path)
+                    success, message = self.handler.save_last_script(file_path)
                     style = "green" if success else "red"
                     self._write_to_log(Panel(f"{'✅' if success else '❌'} {message}", border_style=style))
                 else:
@@ -317,7 +319,7 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
         ))
 
         try:
-            response_generator = self.agent.run_react_task(task_description)
+            response_generator = self.handler.run_react_task(task_description)
             
             for update in response_generator:
                 if isinstance(update, ReactThought):
@@ -381,7 +383,7 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
             return
 
         sub_cmd = parts[1].lower()
-        manager = self.agent.session_manager
+        manager = self.handler.session_manager
 
         if sub_cmd == 'new':
             session_name = " ".join(parts[2:]) if len(parts) > 2 else None
@@ -704,7 +706,7 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
         in_content_phase = False
 
         try:
-            response_generator = self.agent.run_task(user_input)
+            response_generator = self.handler.run_chat_task(user_input)
 
             try:
                 while True:
@@ -1279,16 +1281,16 @@ if __name__ == "__main__":
         mcp_server_manager = MCPServerManager(mcp_market_manager)
 
         #mcp_server_manager.bootstrap_builtin_servers()
-        
-        ddb_agent = DDBAgent(
+
+        cli_handler = CLISessionHandler(
             project_path=project_path,
-            model_name="gpt-oss-120b",
-            max_window_size=128000,
+            model_name="deepseek-chat",
+            max_window_size=64000,
             mcp_market_manager = mcp_market_manager,
             mcp_server_manager = mcp_server_manager
         )
-
-        app = DDBAgentApp(agent=ddb_agent)
+        
+        app = DDBAgentApp(handler=cli_handler)
         app.run()
 
     except Exception as e:

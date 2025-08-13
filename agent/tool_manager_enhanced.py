@@ -27,7 +27,7 @@ class EnhancedToolManager:
     def __init__(self, tools: list[BaseTool], mcp_market_manager: Optional[MCPMarketManager] = None, mcp_server_manager: Optional[MCPServerManager] = None, enable_mcp: bool = False):
         self.tools = {tool.name: tool for tool in tools}
         self.enable_mcp = enable_mcp
-        self.mcp_market_manager = mcp_server_manager
+        self.mcp_market_manager = mcp_market_manager
         self.mcp_server_manager = mcp_server_manager
         self.mcp_tool_adapter = MCPToolAdapter(self.mcp_server_manager)
         self.mcp_tool_registry = MCPToolRegistry(self.mcp_server_manager)
