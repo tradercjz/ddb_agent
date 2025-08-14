@@ -2,7 +2,7 @@ import os
 import shlex
 import time
 from functools import partial
-from typing import Any, Dict, Generator, Tuple, Union
+from typing import Any, Dict, Generator, Optional, Tuple, Union
 import uuid
 from rich.panel import Panel
 from rich.markdown import Markdown
@@ -67,6 +67,7 @@ class DDBAgentApp(App):
         super().__init__()
         self.handler = handler
         self._spinner_timer = None
+        self.paused_interactive_task: Optional[Generator] = None
         
         # 初始化MCP组件
         #self.mcp_market_manager = agent.get_mcp_market_manager()
@@ -154,6 +155,28 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
         """清空屏幕"""
         self.query_one("#output-log").clear()
 
+    def _handle_mode_change_and_resume(self, command: str):
+        """
+        一个特殊的 worker 函数，用于按顺序执行两件事：
+        1. 调用 _handle_command 来切换模式。
+        2. 调用 _continue_interactive_task 来恢复暂停的任务。
+        这避免了竞态条件。
+        """
+        # 步骤 1: 处理命令以切换模式
+        # 注意：我们调用 _handle_command，它会处理模式切换并打印UI反馈
+        self._handle_command(command)
+        
+        # 步骤 2: 恢复任务
+        # 我们只在命令是 /mode ac 时才恢复任务
+        cmd_parts = shlex.split(command)
+        cmd = cmd_parts[0].lower()
+        
+        if cmd == '/mode':
+            # 确保任务仍然处于暂停状态
+            if self.paused_interactive_task:
+                resume_signal = f"User confirmed via {cmd_parts[1]} mode"
+                self._continue_interactive_task(resume_signal)
+
     # --- Event Handler ---
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         """当用户在输入框中按下Enter键时触发"""
@@ -166,10 +189,31 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
         self.query_one(Input).value = ""
         self.query_one(Input).disabled = True
 
-        if user_input.lower().startswith('/'):
+        is_command = user_input.lower().startswith('/')
+        is_task_paused = self.paused_interactive_task is not None
+
+        if is_task_paused and is_command:
+            # 场景1: 任务暂停时，输入了一个命令
+            # 我们处理命令，但任务保持暂停。
+            # _handle_command 执行后会 re-enable 输入框
+            worker = partial(self._handle_mode_change_and_resume, user_input)
+            self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
+
+        elif is_task_paused and not is_command:
+            # 场景2: 任务暂停时，输入了反馈
+            # 我们恢复任务。任务的后续流程将决定输入框的状态。
+            worker = partial(self._continue_interactive_task, user_choice=user_input)
+            self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
+        
+        elif not is_task_paused and is_command:
+            # 场景3: 正常状态下，输入了一个命令
+            # 我们处理命令。
             worker = partial(self._handle_command, user_input)
             self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
-        else:
+            
+        elif not is_task_paused and not is_command:
+            # 场景4: 正常状态下，输入了普通对话/任务
+            # 我们启动一个新任务。
             worker = partial(self._handle_chat_task, user_input)
             self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
 
@@ -259,6 +303,26 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
                     self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
                     self.call_from_thread(self.query_one(Input).focus)
 
+            elif cmd == '/sql':
+                if len(parts) > 1:
+                    task_description = " ".join(parts[1:])
+                    worker = partial(self._handle_interactive_sql_task, task_description)
+                    self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
+                else:
+                    self._write_to_log(Panel("[yellow]Please provide a task description for /sql.[/yellow]"))
+                    self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
+                return # Return early to avoid re-enabling input box
+
+            elif cmd == '/mode':
+                if len(parts) > 1:
+                    new_mode = parts[1].upper()
+                    if self.handler.agent_core.set_interactive_mode(new_mode):
+                        self._write_to_log(Panel(f"✅ 交互模式已切换到 [bold yellow]{new_mode}[/bold yellow]", border_style="green"))
+                    else:
+                        self._write_to_log(Panel(f"❌ 无效的模式: '{parts[1]}'. 可用模式: PLAN, ACT", border_style="red"))
+                else:
+                    current_mode = self.handler.agent_core.get_interactive_mode()
+                    self._write_to_log(Panel(f"当前交互模式为: [bold yellow]{current_mode}[/bold yellow]. 使用 `/mode <PLAN|ACT>` 进行切换。", border_style="cyan"))
 
             elif cmd == '/code':
                 if len(parts) > 1:
@@ -307,8 +371,96 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
                 self._write_to_log(Panel(f"[red]Unknown command: {cmd}[/red]", border_style="red"))
         
         finally:
+            # This finally block will only execute if the command doesn't pause the agent.
+            if not self.paused_interactive_task:
+                self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
+                self.call_from_thread(self.query_one(Input).focus)
+
+    def _continue_interactive_task(self, user_choice: str):
+        """Worker to CONTINUE a paused interactive task."""
+        try:
+            # --- THIS IS THE CORE FIX ---
+            # Step 1: Send the user's choice and get the very first update after resuming.
+            update = self.paused_interactive_task.send(user_choice)
+
+            # Step 2: Process that first update. Check if it requests another pause.
+            should_continue_loop = self._process_interactive_update(update)
+            
+            # Step 3: If we are not pausing again, iterate through the rest of the updates.
+            if should_continue_loop:
+                for subsequent_update in self.paused_interactive_task:
+                    if not self._process_interactive_update(subsequent_update):
+                        # The task paused again inside the loop, so we exit.
+                        return
+            # --- END OF CORE FIX ---
+        
+        except StopIteration:
+            self.paused_interactive_task = None
+            self._write_to_log(Panel("[dim]Interactive task concluded after user input.[/dim]", border_style="green"))
+        except Exception as e:
+            import traceback
+            tb_str = traceback.format_exc()
+            self._write_to_log(Panel(f"[bold red]An unexpected error occurred during task continuation:[/bold red]\n{tb_str}", border_style="red"))
+            self.paused_interactive_task = None
+        finally:
+            if not self.paused_interactive_task:
+                self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
+                self.call_from_thread(self.query_one(Input).focus)
+
+    # _process_interactive_update remains the same as it's already correct.
+    def _process_interactive_update(self, update: Optional[Dict[str, Any]]) -> bool:
+        """
+        Processes a single update from the generator. Returns False if paused.
+        Now handles potential None update.
+        """
+        # --- FAILSAFE: Handle NoneType gracefully ---
+        if update is None:
+            # This can happen if the generator exits right after a send() without yielding anything else.
+            # It's a valid, though rare, state. We just continue.
+            return True
+
+        if isinstance(update, dict) and update.get("type") == "USER_INTERACTION":
+            message = update.get("message", "")
+            options = update.get("options", [])
+            prompt_text = f"{message}\n\n"
+            if options: prompt_text += "Options:\n" + "\n".join(f"- {opt}" for opt in options)
+            self._write_to_log(Panel(Markdown(prompt_text), title="[yellow]❓ Awaiting Input[/yellow]", border_style="yellow"))
             self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
             self.call_from_thread(self.query_one(Input).focus)
+            return False # Signal to PAUSE
+
+        elif isinstance(update, ReactThought):
+            self._write_to_log(Panel(Markdown(update.thought), title="[cyan]🤔 Thought[/cyan]", border_style="cyan"))
+        elif isinstance(update, ReactAction):
+            self._write_to_log(Panel(f"[bold]{update.tool_name}[/bold]\nArgs: [code]{escape(str(update.tool_args))}[/code]", title="[yellow]🎬 Action[/yellow]", border_style="yellow"))
+        elif isinstance(update, ReactObservation):
+            color = "red" if update.is_error else "green"
+            self._write_to_log(Panel(escape(update.observation), title=f"[{color}]🔍 Observation[/{color}]", border_style=color))
+        elif isinstance(update, (TaskEnd, TaskError)):
+            self.paused_interactive_task = None
+            color = "green" if isinstance(update, TaskEnd) and update.success else "red"
+            title = f"[{color}]🏁 Task Finished[/{color}]" if isinstance(update, TaskEnd) else "[red]💥 Critical Error[/red]"
+            final_message = update.final_message if isinstance(update, TaskEnd) else update.message
+            self._write_to_log(Panel(Markdown(final_message), title=title, border_style=color))
+        
+        return True # Signal to CONTINUE
+
+    def _handle_interactive_sql_task(self, task_description: str):
+        """Worker to START a new interactive task."""
+        self._write_to_log(Panel(f"[bold blue]Interactive SQL Task:[/bold blue] {escape(task_description)}", title="[bold cyan]Interactive Analyst[/bold cyan]", border_style="cyan"))
+        
+        try:
+            self.paused_interactive_task = self.handler.agent_core.run_interactive_sql_task(task_description)
+            for update in self.paused_interactive_task:
+                if not self._process_interactive_update(update):
+                    return # Task paused, worker exits.
+        except Exception as e:
+            # ... (error handling) ...
+            self.paused_interactive_task = None
+        finally:
+            if not self.paused_interactive_task:
+                self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
+                self.call_from_thread(self.query_one(Input).focus)
 
     def _handle_react_task(self, task_description: str):
         """Handles the UI for the new ReAct task execution."""

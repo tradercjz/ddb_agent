@@ -7,6 +7,7 @@ from context.context_manager import ContextManager
 from llm.models import ModelManager
 from .llm_client import LLMClientManager, LLMResponse, StreamChunk
 from dotenv import load_dotenv
+import datetime
 
 
 load_dotenv()
@@ -41,6 +42,12 @@ class PromptDecorator:
         self.override_log_requests = log_requests
         self.kwargs = kwargs
         self.jinja_env = Environment(loader=BaseLoader())
+
+        def get_current_time():
+            return datetime.datetime.now().strftime("%-m/%-d/%Y, %-I:%M:%S %p (Asia/Shanghai, UTC+8:00)")
+
+        # 2. 将这个函数注册为 Jinja2 环境的全局变量
+        self.jinja_env.globals['now'] = get_current_time
         
     def __call__(self, func: Callable[..., Dict[str, Any]]) -> Callable:
         """
@@ -68,6 +75,9 @@ class PromptDecorator:
         
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
+            system_prompt_content = None
+            user_prompt_template_str = docstring
+            
             model_config = None
             if self.model_name_alias:
                 model_config = ModelManager.get_model_config(self.model_name_alias)
@@ -99,11 +109,18 @@ class PromptDecorator:
             
             # 4. 准备模板变量
             template_vars = {}
-            
+
+            if isinstance(func_result, tuple) and len(func_result) == 2:
+                system_prompt_content, user_prompt_context = func_result
+                if isinstance(user_prompt_context, dict):
+                    template_vars.update(user_prompt_context)
+                # The user prompt is now just the docstring, which will be the last user message
+                user_prompt_template_str = docstring
             # 如果函数返回字典，则使用其填充模板变量
-            if isinstance(func_result, dict):
+            elif isinstance(func_result, dict):
+                # Legacy behavior: no system prompt, docstring is the user prompt
                 template_vars.update(func_result)
-            
+
             # 检查是否还有未填充的模板变量
             missing_vars = [var for var in template_variables if var not in template_vars]
             
@@ -124,11 +141,16 @@ class PromptDecorator:
                 raise ValueError(f"无法填充模板变量: {', '.join(missing_vars)}")
             
             # 渲染模板
-            rendered_prompt = template.render(**template_vars)
+            rendered_user_prompt = template.render(**template_vars)
 
-            # 构建最终的LLM消息列表
-            # 将渲染后的prompt作为最后一轮的用户消息
-            llm_messages = conversation_history + [{"role": "user", "content": rendered_prompt}]
+            llm_messages = []
+            if system_prompt_content:
+                llm_messages.append({"role": "system", "content": system_prompt_content})
+            
+            llm_messages.extend(conversation_history)
+            
+            # The rendered template is now always the last user message
+            llm_messages.append({"role": "user", "content": rendered_user_prompt})
 
             context_manager = ContextManager(
                 model_name=final_model_name, 

@@ -33,7 +33,8 @@ from agent.enhanced_executor_status import AnyExecutorStatus, TaskExecutionEnd, 
 from agent.enhanced_planner import EnhancedPlanner
 from agent.enhanced_executor import EnhancedExecutor
 from agent.tool_manager_enhanced import EnhancedToolManager
-
+from agent.tools.interactive_tools import PlanModeResponseTool
+from agent.interactive_sql_executor import InteractiveSQLExecutor
 from agent.react_executor import ReActExecutor
 
 class FinalMessage(BaseTaskStatus):
@@ -65,7 +66,8 @@ class DDBAgent:
             DescribeTableTool(executor=self.code_executor),
             QueryDataTool(executor=self.code_executor),
             CreateSampleDataTool(executor=self.code_executor),
-            OptimizeQueryTool(executor=self.code_executor)
+            OptimizeQueryTool(executor=self.code_executor),
+            PlanModeResponseTool()
         ], mcp_market_manager=mcp_market_manager, mcp_server_manager=mcp_server_manager, enable_mcp= mcp_market_manager != None and mcp_server_manager != None)
         
         # 初始化增强规划器和执行器
@@ -73,9 +75,11 @@ class DDBAgent:
         self.enhanced_executor = EnhancedExecutor(self.tool_manager, self.enhanced_planner)
         self.last_successful_script: str | None = None 
         self.react_executor = ReActExecutor(self.tool_manager, self.rag)
+        self.interactive_sql_executor = InteractiveSQLExecutor(self.tool_manager, self.rag)
+        self.interactive_mode = "PLAN"
 
         # 定义一个通用的聊天Prompt
-        @llm.prompt("sonnet4")
+        @llm.prompt("gpt-oss-120b")
         def _default_chat_prompt(conversation_history: List[Dict[str, str]]):
             """"
             You are a helpful DolphinDB assistant. Continue the conversation naturally.
@@ -84,6 +88,27 @@ class DDBAgent:
             """
         
         self.chat_prompt_func = _default_chat_prompt
+
+    def set_interactive_mode(self, mode: str) -> bool:
+        """
+        设置交互式 SQL 模式。
+        返回 True 如果模式有效，否则返回 False。
+        """
+        if mode.upper() in ["PLAN", "ACT"]:
+            self.interactive_mode = mode.upper()
+            return True
+        return False
+    
+    def get_interactive_mode(self) -> str:
+        """获取当前的交互式 SQL 模式。"""
+        return self.interactive_mode
+    
+    def run_interactive_sql_task(self, user_input: str) -> Generator[Dict[str, Any], None, None]:
+        """
+        Orchestrates the new interactive analysis task with PLAN and ACT modes.
+        """
+        # This method simply delegates the execution to our new executor.
+        yield from self.interactive_sql_executor.execute_task(user_input, self)
 
     def get_mcp_market_manager(self) -> Optional[MCPMarketManager]:
         """Returns the MCP market manager if available."""

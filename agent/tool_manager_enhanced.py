@@ -3,7 +3,8 @@
 from typing import Optional, Dict, Any, List
 import asyncio
 from agent.execution_result import ExecutionResult
-from agent.tools.tool_interface import BaseTool, PresentPlanTool
+from agent.tools.tool_interface import BaseTool
+from agent.tools.interactive_tools import PlanModeResponseTool
 
 # MCP相关导入
 try:
@@ -50,10 +51,9 @@ class EnhancedToolManager:
     def get_tool_definitions(self, mode: str = "ACT") -> list[dict]:
         """
         根据模式返回不同的工具定义列表。
-        PLAN 模式下，只暴露 'present_plan_and_ask_for_approval'。
+        PLAN 模式下，只暴露 'plan_mode_response'。
         """
         all_tools = list(self.tools.values())
-        all_tools.append(PresentPlanTool())
 
         # 获取MCP工具定义
         mcp_tools = []
@@ -72,12 +72,11 @@ class EnhancedToolManager:
             except Exception as e:
                 print(f"Warning: Failed to get MCP tools: {e}")
 
-        if mode == 'PLAN':
-            # 在PLAN模式下，只允许AI使用这一个"沟通"工具
-            return [tool.get_definition() for tool in all_tools if tool.name == 'present_plan_and_ask_for_approval']
+        if mode == 'PLAN': 
+            return [tool.get_definition() for tool in all_tools ]
         else: # ACT mode
             # 在ACT模式下，暴露所有实际操作的工具，包括MCP工具
-            base_tools = [tool.get_definition() for tool in all_tools if tool.name != 'present_plan_and_ask_for_approval']
+            base_tools = [tool.get_definition() for tool in all_tools if tool.name != 'plan_mode_response']
             return base_tools + mcp_tools
 
     def call_tool(self, tool_name: str, args: dict) -> ExecutionResult:
