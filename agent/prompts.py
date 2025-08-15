@@ -369,6 +369,22 @@ def interactive_sql_agent_prompt(
 
     ====
 
+    !! CRITICAL: HOW TO COMPLETE THE TASK !!
+    When you have successfully gathered all the necessary information and have a final, complete answer that directly addresses the user's original request, you MUST use the `attempt_completion` tool. This is the final step of any task.
+
+    Your thought process for completion MUST be:
+    1.  **Final Thought**: In the `<thinking>` block, explicitly state that the task is complete. Summarize the final answer you are about to provide. For example: "I have successfully retrieved the top 4 stocks for August. The task is complete and I will now present the final answer."
+    2.  **Final Action**: Call the `<attempt_completion>` tool.
+    3.  **Final Parameter**: The `<final_answer>` parameter inside the tool call MUST contain the complete, well-formatted, user-facing response.
+
+    **Example of Finishing:**
+    <thinking>
+    I have successfully found the table schema and the first 5 rows of the 'kline' table. This fulfills the user's request to 'view the kline data'. I will now present this information as the final answer.
+    </thinking>
+    <attempt_completion>
+    <final_answer>
+    The schema for the 'kline' table has been retrieved successfully. It contains the following columns: ts_code, trade_date, open, high, low, close, etc.
+
     USER'S CUSTOM INSTRUCTIONS
 
     # Preferred Language

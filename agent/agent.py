@@ -8,6 +8,7 @@ from agent.coding_task_state import CodingTaskState
 from agent.execution_result import ExecutionResult
 from agent.prompts import debugging_planner, fix_script_from_error, generate_initial_script
 from agent.task_status import AnyTaskStatus, BaseTaskStatus, PlanGenerationEnd, PlanGenerationStart, StepExecutionEnd, StepExecutionStart, TaskEnd, TaskError, TaskStart, ReactThought, ReactAction, ReactObservation
+from agent.tools.completion_tool import AttemptCompletionTool
 from llm.llm_client import LLMResponse, StreamChunk
 from mcp.market.market_manager import MCPMarketManager
 from mcp.server.server_manager import MCPServerManager
@@ -68,7 +69,8 @@ class DDBAgent:
             CreateSampleDataTool(executor=self.code_executor),
             OptimizeQueryTool(executor=self.code_executor),
             PlanModeResponseTool(),
-            AskForHumanFeedbackTool()
+            AskForHumanFeedbackTool(),
+            AttemptCompletionTool()
         ], mcp_market_manager=mcp_market_manager, mcp_server_manager=mcp_server_manager, enable_mcp= mcp_market_manager != None and mcp_server_manager != None)
         
         # 初始化增强规划器和执行器

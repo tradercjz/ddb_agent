@@ -222,6 +222,12 @@ class InteractiveSQLExecutor:
                         history.append({"role": "user", "content": user_feedback})
                     else:
                         observation_content = f"The previous action failed. Error: {error_message}\n\nTask was resumed without specific user feedback."
+                elif isinstance(exec_result.data, dict) and exec_result.data.get("_is_completion_signal"):
+                    consecutive_errors = 0
+                    final_payload = exec_result.data
+                    yield ReactObservation(observation="Task completion signaled.", is_error=False, message="🔍 Observing result...")
+                    yield TaskEnd(success=True, final_message=final_payload['result'], message="✅ Task completed successfully.")
+                    return # GRACEFULLY EXIT THE LOOP
                 elif isinstance(exec_result.data, dict) and exec_result.data.get("_is_interactive_request"):
                     consecutive_errors = 0
                     interaction_data = exec_result.data
