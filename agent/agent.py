@@ -33,7 +33,7 @@ from agent.enhanced_executor_status import AnyExecutorStatus, TaskExecutionEnd, 
 from agent.enhanced_planner import EnhancedPlanner
 from agent.enhanced_executor import EnhancedExecutor
 from agent.tool_manager_enhanced import EnhancedToolManager
-from agent.tools.interactive_tools import PlanModeResponseTool
+from agent.tools.interactive_tools import AskForHumanFeedbackTool, PlanModeResponseTool
 from agent.interactive_sql_executor import InteractiveSQLExecutor
 from agent.react_executor import ReActExecutor
 
@@ -67,7 +67,8 @@ class DDBAgent:
             QueryDataTool(executor=self.code_executor),
             CreateSampleDataTool(executor=self.code_executor),
             OptimizeQueryTool(executor=self.code_executor),
-            PlanModeResponseTool()
+            PlanModeResponseTool(),
+            AskForHumanFeedbackTool()
         ], mcp_market_manager=mcp_market_manager, mcp_server_manager=mcp_server_manager, enable_mcp= mcp_market_manager != None and mcp_server_manager != None)
         
         # 初始化增强规划器和执行器

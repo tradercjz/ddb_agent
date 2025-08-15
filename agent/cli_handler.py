@@ -9,6 +9,7 @@ from mcp.server.server_manager import MCPServerManager
 from session.session_manager import SessionManager
 from agent.task_status import AnyTaskStatus
 from rag.rag_status import AnyRagStatus
+from datetime import datetime
 
 class CLISessionHandler:
     """
@@ -49,7 +50,8 @@ class CLISessionHandler:
             session_id = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         self.active_session_id = session_id
         self._save_active_session_id()
-
+        self.session_manager.save_session_data(self.session_manager._create_new_session_data(session_id))
+        
     def switch_session(self, session_id: str):
         self.active_session_id = session_id
         self._save_active_session_id()

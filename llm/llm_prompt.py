@@ -16,6 +16,37 @@ T = TypeVar('T')
 
 CONVERSATION_HISTORY_PARAM = "conversation_history"
 
+def normalize_history_for_llm(history: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+        """
+        Normalizes a conversation history by converting any multi-part 'content' lists
+        into a single string. This makes the history safe for caching, hashing, and
+        passing to LLM APIs that expect simple string content.
+
+        Args:
+            history: The conversation history, which may contain complex content.
+
+        Returns:
+            A new history list where all 'content' fields are guaranteed to be strings.
+        """
+        normalized = []
+        for msg in history:
+            content = msg.get("content")
+            if isinstance(content, list):
+                # This is our new multi-part format. Flatten it.
+                # We join the 'text' fields of all parts.
+                string_content = "\n".join(
+                    part.get("text", "") for part in content if isinstance(part, dict)
+                )
+                normalized.append({"role": msg["role"], "content": string_content})
+            elif content is not None:
+                # It's already a string or something else convertible to string.
+                normalized.append({"role": msg["role"], "content": str(content)})
+            else:
+                # Handle cases where content might be null (e.g., tool calls in some APIs)
+                normalized.append({"role": msg["role"], "content": ""})
+                
+        return normalized
+
 class PromptDecorator:
     """
     一个类似于 @llm.prompt() 的装饰器，用于管理LLM提示模板

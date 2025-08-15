@@ -422,9 +422,15 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
         if isinstance(update, dict) and update.get("type") == "USER_INTERACTION":
             message = update.get("message", "")
             options = update.get("options", [])
+            is_error_prompt = update.get("_is_error_feedback", False)
+            panel_title = "[bold red]❓ Error - Awaiting Input[/bold red]" if is_error_prompt else "[yellow]❓ Awaiting Input[/yellow]"
+            panel_border = "red" if is_error_prompt else "yellow"
+            
             prompt_text = f"{message}\n\n"
             if options: prompt_text += "Options:\n" + "\n".join(f"- {opt}" for opt in options)
-            self._write_to_log(Panel(Markdown(prompt_text), title="[yellow]❓ Awaiting Input[/yellow]", border_style="yellow"))
+            
+            self._write_to_log(Panel(Markdown(prompt_text), title=panel_title, border_style=panel_border))
+            
             self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
             self.call_from_thread(self.query_one(Input).focus)
             return False # Signal to PAUSE
@@ -535,13 +541,12 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
             return
 
         sub_cmd = parts[1].lower()
-        manager = self.handler.session_manager
 
         if sub_cmd == 'new':
             session_name = " ".join(parts[2:]) if len(parts) > 2 else None
-            manager.new_session(session_name)
+            self.handler.new_session(session_name)
             self.query_one("#output-log").clear()
-            self._write_to_log(Panel(f"Switched to new session: '{manager.get_active_session_name()}'", border_style="green"))
+            self._write_to_log(Panel(f"Switched to new session: '{self.handler.get_active_session_name()}'", border_style="green"))
             self.call_from_thread(self.update_session_label)
         
         elif sub_cmd == 'switch':
@@ -549,8 +554,8 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
                 self._write_to_log(Panel("[yellow]Usage: /session switch <session_name>[/yellow]"))
                 return
             session_name = " ".join(parts[2:])
-            if session_name in manager.list_sessions():
-                manager.switch_session(session_name)
+            if session_name in self.handler.list_sessions():
+                self.handler.switch_session(session_name)
                 self.query_one("#output-log").clear()
                 self._write_to_log(Panel(f"Switched to session: '{session_name}'", border_style="green"))
                 self.call_from_thread(self.update_session_label)
@@ -558,8 +563,8 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
                 self._write_to_log(Panel(f"[red]Session '{escape(session_name)}' not found.[/red]"))
 
         elif sub_cmd == 'list':
-            sessions = manager.list_sessions()
-            active_session = manager.get_active_session_name()
+            sessions = self.handler.list_sessions()
+            active_session = self.handler.get_active_session_name()
             if not sessions:
                 self._write_to_log(Panel("No sessions found.", title="Sessions"))
                 return
@@ -573,7 +578,7 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
             self._write_to_log(Panel(Markdown(list_text), title="Available Sessions"))
         
         elif sub_cmd == 'current':
-            self._write_to_log(Panel(f"The current active session is: [bold yellow]{manager.get_active_session_name()}[/bold yellow]"))
+            self._write_to_log(Panel(f"The current active session is: [bold yellow]{self.handler.get_active_session_name()}[/bold yellow]"))
 
     def _handle_snippet_command(self, parts: list[str]):
         """Handles all /snippet subcommands."""

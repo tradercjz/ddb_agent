@@ -156,9 +156,9 @@ class QueryDataTool(BaseTool):
     def run(self, args: QueryDataInput) -> ExecutionResult:
         # Add limit to query if not already present
         query = args.query.strip()
-        if args.limit and not query.lower().startswith('select top'):
-            if query.lower().startswith('select'):
-                query = query.replace('select', f'select top {args.limit}', 1)
+        # if args.limit and not query.lower().startswith('select top'):
+        #     if query.lower().startswith('select'):
+        #         query = query.replace('select', f'select top {args.limit}', 1)
         
         result = self.executor.run(query)
         return result

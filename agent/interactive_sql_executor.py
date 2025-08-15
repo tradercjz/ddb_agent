@@ -8,6 +8,7 @@ from agent.tool_manager_enhanced import EnhancedToolManager
 from rag.rag_entry import DDBRAG
 from agent.task_status import TaskStart, TaskEnd, TaskError, ReactThought, ReactAction, ReactObservation
 from utils.json_parser import parse_json_string
+from llm.llm_prompt import normalize_history_for_llm
 
 class InteractiveSQLExecutor:
     """
@@ -112,95 +113,169 @@ class InteractiveSQLExecutor:
                     prompt_lines.append(f"- {param_name}: ({schema.get('type', 'any')}) {schema.get('description', '')}")
             prompt_lines.append("")
         return "\n".join(prompt_lines)
+    
+    
 
     def execute_task(self, user_input: str, agent) -> Generator[Dict, None, None]:
         yield TaskStart(task_description=user_input, message="🚀 Starting Interactive Analyst task...")
         
-        
-        history = [{"role": "user", "content": user_input}]
+        try:
+            history = [{"role": "user", "content": user_input}]
 
-        for i in range(self.max_turns):
-            # 1. Build environment details
-            current_mode = agent.get_interactive_mode()
-            environment_details = f"""In each user message, the environment_details will specify the current mode. There are two modes:
-- ACT MODE: In this mode, you have access to all tools EXCEPT the plan_mode_response tool.
-- PLAN MODE: In this special mode, you have access to the plan_mode_response tool.
-Current Mode: {current_mode}"""
-            
-            # 2. Get and format available tools
-            tool_defs_list = self.tool_manager.get_tool_definitions(mode=current_mode)
-            tools_for_prompt = self._format_tools_for_prompt(tool_defs_list)
+            consecutive_errors = 0
+            max_consecutive_errors = 5 
+            turn_count = 0 
 
-            reverse_aliases = {v: k for k, v in self.tool_manager.tools.items()}
-            known_tool_names_for_prompt = [reverse_aliases.get(t['name'], t['name']) for t in tool_defs_list]
+            while True:
+                turn_count += 1
+                if turn_count > self.max_turns: # 保留一个总轮次上限作为最终保险
+                    yield TaskEnd(success=False, final_message=f"Task aborted: Exceeded maximum total turns ({self.max_turns}).", message="❌ Task failed: reached maximum total turns.")
+                    return
+                
+                # 1. Build environment details
+                current_mode = agent.get_interactive_mode()
+                environment_details = f"""In each user message, the environment_details will specify the current mode. There are two modes:
+    - ACT MODE: In this mode, you have access to all tools EXCEPT the plan_mode_response tool.
+    - PLAN MODE: In this special mode, you have access to the plan_mode_response tool.
+    Current Mode: {current_mode}"""
+                
+                # 2. Get and format available tools
+                tool_defs_list = self.tool_manager.get_tool_definitions(mode=current_mode)
+                tools_for_prompt = self._format_tools_for_prompt(tool_defs_list)
 
-            # 3. Prepare file context
-            available_files = """
-- file_name: kline
-  description: 沪深日频K线行情数据 (Shanghai and Shenzhen daily K-line market data)
-  Usage: select * from kline as kline;
-"""
-            
-            # 4. Call LLM with the complete, structured context
-            response_generator = interactive_sql_agent_prompt(
-                conversation_history=history,
-                available_tools=tools_for_prompt,
-                environment_details=environment_details,
-                available_files=available_files,
-            )
-            
-            llm_response = ""
-            try:
-                while True: next(response_generator)
-            except StopIteration as e:
-                llm_response = e.value.content
+                reverse_aliases = {v: k for k, v in self.tool_manager.tools.items()}
+                known_tool_names_for_prompt = [reverse_aliases.get(t['name'], t['name']) for t in tool_defs_list]
 
-            # 5. Parse, yield thought, and update history
-            parsed_response = self._parse_xml_response(llm_response, known_tool_names_for_prompt)
-            thought = parsed_response["thought"]
-            action = parsed_response.get("action")
-            
-            yield ReactThought(thought=thought, message=f"🤔 Thinking... (Turn {i+1}, Mode: {current_mode})")
-            history.append({"role": "assistant", "content": llm_response})
+                # 3. Prepare file context
+                available_files = """
+    - file_name: kline
+    description: 沪深日频K线行情数据 (Shanghai and Shenzhen daily K-line market data)
+    Usage: select * from kline as kline;
+    """
+                normalized_history = normalize_history_for_llm(history)
 
-            if not action:
-                observation = "Agent did not produce a valid action. Please analyze the history and decide the next step."
-                yield ReactObservation(observation=observation, is_error=True, message="🔍 Observing result...")
-                history.append({"role": "tool_result", "content": observation})
-                continue
-
-            tool_name = action["tool_name"]
-            arguments = action["arguments"]
-
-            # 6. Execute action and process result (logic remains the same as before)
-            yield ReactAction(tool_name=tool_name, tool_args=arguments, message=f"🎬 Calling tool: {tool_name}")
-            exec_result = self.tool_manager.call_tool(tool_name, arguments)
-            
-            is_error = not exec_result.success
-            observation_content = ""
-            
-            if is_error:
-                observation_content = f"Error: {exec_result.error_message}"
-            elif isinstance(exec_result.data, dict) and exec_result.data.get("_is_interactive_request"):
-                interaction_data = exec_result.data
-                user_choice = yield interaction_data
-                if user_choice: # Check if user_choice is not None
-                    observation_content = f"User responded with: '{user_choice}'"
-                    history.append({"role": "user", "content": user_choice})
-                else:
-                    # This branch is now reachable if resumed by next() instead of send()
-                    observation_content = "Resumed without user input. Continuing with current plan."
-            elif isinstance(exec_result.data, dict) and exec_result.data.get("_is_completion_signal"):
-                final_payload = exec_result.data
-                yield TaskEnd(success=True, final_message=final_payload['result'], message="✅ Task completed successfully.")
-                return
-            else:
+                # 4. Call LLM with the complete, structured context
+                response_generator = interactive_sql_agent_prompt(
+                    conversation_history=normalized_history,
+                    available_tools=tools_for_prompt,
+                    environment_details=environment_details,
+                    available_files=available_files,
+                )
+                
+                llm_response = ""
                 try:
-                    observation_content = json.dumps(exec_result.data, indent=2, ensure_ascii=False) if isinstance(exec_result.data, (dict, list)) else str(exec_result.data)
-                except TypeError:
-                    observation_content = str(exec_result.data)
+                    while True: next(response_generator)
+                except StopIteration as e:
+                    llm_response = e.value.content
 
-            yield ReactObservation(observation=observation_content, is_error=is_error, message="🔍 Observing result...")
-            history.append({"role": "tool_result", "content": observation_content})
+                # 5. Parse, yield thought, and update history
+                parsed_response = self._parse_xml_response(llm_response, known_tool_names_for_prompt)
+                thought = parsed_response["thought"]
+                action = parsed_response.get("action")
+                
+                yield ReactThought(thought=thought, message=f"🤔 Thinking... (Turn {turn_count}, Mode: {current_mode})")
+                history.append({"role": "assistant", "content": llm_response})
 
-        yield TaskEnd(success=False, final_message="Task failed to complete within the maximum number of turns.", message="❌ Task failed: reached maximum turns.")
+                if not action:
+                    consecutive_errors += 1
+                    observation = "Agent did not produce a valid action. Please analyze the history and decide the next step."
+                    yield ReactObservation(observation=observation, is_error=True, message="🔍 Observing result...")
+                    history.append({"role": "tool_result", "content": observation})
+                    if consecutive_errors >= max_consecutive_errors:
+                        yield TaskEnd(success=False, final_message=f"Task aborted after {max_consecutive_errors} consecutive errors. The agent was unable to proceed.", message="❌ Task failed: too many consecutive errors.")
+                        return
+                    continue
+
+                tool_name = action["tool_name"]
+                arguments = action["arguments"]
+
+                # 6. Execute action and process result (logic remains the same as before)
+                yield ReactAction(tool_name=tool_name, tool_args=arguments, message=f"🎬 Calling tool: {tool_name}")
+                exec_result = self.tool_manager.call_tool(tool_name, arguments)
+                
+                is_error = not exec_result.success
+                observation_content = ""
+                
+                if is_error:
+                    consecutive_errors += 1
+                    if consecutive_errors >= max_consecutive_errors:
+                        error_message = exec_result.error_message or "Unknown error."
+                        yield TaskEnd(success=False, final_message=f"Task aborted after {max_consecutive_errors} consecutive errors. Last error:\n\n{error_message}", message="❌ Task failed: too many consecutive errors.")
+                        return
+                    error_message = exec_result.error_message or "An unknown error occurred."
+
+                    # 1. 构造求助信息
+                    feedback_args = {
+                        "message": f"The action `{tool_name}` failed with the following error:\n\n```\n{error_message}\n```\n\nHow should I proceed? You can suggest a fix, or tell me to 'abort'.",
+                        "options": ["Retry the last step", "Abort the task"] # 提供建议选项
+                    }
+
+                    # 2. 调用求助工具，这将返回一个用于暂停的交互式请求
+                    feedback_request_result = self.tool_manager.call_tool("ask_for_human_feedback", feedback_args)
+
+                    # 3. yield 这个请求，暂停执行并等待用户反馈
+                    user_feedback = yield feedback_request_result.data
+                    
+                    # 4. 收到反馈后，将其整合到观察结果中，让LLM进行下一步决策
+                    if user_feedback:
+                        observation_content = f"The previous action failed. Error: {error_message}\n\nI asked the user for help, and they responded: '{user_feedback}'"
+                        history.append({"role": "user", "content": user_feedback})
+                    else:
+                        observation_content = f"The previous action failed. Error: {error_message}\n\nTask was resumed without specific user feedback."
+                elif isinstance(exec_result.data, dict) and exec_result.data.get("_is_interactive_request"):
+                    consecutive_errors = 0
+                    interaction_data = exec_result.data
+                    user_choice = yield interaction_data
+                    if user_choice: # Check if user_choice is not None
+                        observation_content = f"User responded with: '{user_choice}'"
+                        history.append({"role": "user", "content": user_choice})
+                    else:
+                        # This branch is now reachable if resumed by next() instead of send()
+                        observation_content = "Resumed without user input. Continuing with current plan."
+                elif isinstance(exec_result.data, dict) and exec_result.data.get("_is_completion_signal"):
+                    consecutive_errors = 0
+                    final_payload = exec_result.data
+                    yield TaskEnd(success=True, final_message=final_payload['result'], message="✅ Task completed successfully.")
+                    return
+                else:
+                    consecutive_errors = 0
+                    try:
+                        observation_content = json.dumps(exec_result.data, indent=2, ensure_ascii=False) if isinstance(exec_result.data, (dict, list)) else str(exec_result.data)
+                    except TypeError:
+                        observation_content = str(exec_result.data)
+
+                yield ReactObservation(observation=observation_content, is_error=is_error, message="🔍 Observing result...")
+
+                # 1. 创建上下文前缀，明确告诉模型这是哪个工具的结果
+                tool_result_prefix = f"[{tool_name}] Result:"
+
+                # 2. 准备环境详情
+                current_mode = agent.get_interactive_mode()
+                environment_details_content = f"""<environment_details>
+                In each user message, the environment_details will specify the current mode. There are two modes:
+                - ACT MODE: In this mode, you have access to all tools EXCEPT the plan_mode_response tool.
+                - PLAN MODE: In this special mode, you have access to the plan_mode_response tool.
+                Current Mode: {current_mode}
+                </environment_details>"""
+
+                # 3. 构建一个和成功日志完全一致的多部分 user 消息
+                tool_result_message = {
+                    "role": "user",
+                    "content": [
+                        # 部分 1: 上下文前缀
+                        {"type": "text", "text": tool_result_prefix},
+                        # 部分 2: 真实的工具输出
+                        {"type": "text", "text": observation_content},
+                        # 部分 3: 每次都附带的环境详情
+                        {"type": "text", "text": environment_details_content}
+                    ]
+                }
+
+                # 4. 将这个结构化的 user 消息添加到历史记录中
+                history.append(tool_result_message)
+
+            yield TaskEnd(success=False, final_message="Task failed to complete within the maximum number of turns.", message="❌ Task failed: reached maximum turns.")
+        except Exception as e:
+            import traceback
+            traceback.print_stack()
+            print(str(e))

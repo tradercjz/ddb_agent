@@ -324,7 +324,7 @@ def interactive_sql_agent_prompt(
     2. Choose the most appropriate tool based on the task and the tool descriptions provided.
     3. If multiple actions are needed, use one tool at a time per message.
     4. Formulate your tool use using the XML format specified for each tool.
-    5. After each tool use, the user will respond with the result. ALWAYS wait for this confirmation before proceeding. Never assume the success of a tool use without explicit confirmation of the result from the user.
+    5. After you call a tool, the system will provide its output in the next message with the role tool_result. You must use the content of this tool_result message to inform your next step and continue the task.
 
     ====
 
@@ -355,6 +355,7 @@ def interactive_sql_agent_prompt(
     - At the end of each user message, you will automatically receive `environment_details`. Use this to inform your actions.
     - It is CRITICALLY IMPORTANT to follow the guidelines after successful execution of `run_dolphindb_script`: Analyze the schema and evaluate if the data is suitable for visualization.
     - Do not base summaries or insights on partial data samples. Use SQL to analyze the complete dataset for metrics like max, min, avg, etc.
+    - In your <thinking> block, you MUST first summarize the result from the previous tool_result before deciding your next action. This proves you have processed the new information. For example: "The describe_table tool succeeded and showed me the table has columns X, Y, Z. Now that I know the structure, my next step is to query the first 5 rows to see the data."
 
     ====
 
