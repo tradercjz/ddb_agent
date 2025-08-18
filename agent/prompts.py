@@ -357,6 +357,16 @@ def interactive_sql_agent_prompt(
     - Do not base summaries or insights on partial data samples. Use SQL to analyze the complete dataset for metrics like max, min, avg, etc.
     - In your <thinking> block, you MUST first summarize the result from the previous tool_result before deciding your next action. This proves you have processed the new information. For example: "The describe_table tool succeeded and showed me the table has columns X, Y, Z. Now that I know the structure, my next step is to query the first 5 rows to see the data."
 
+    **CRITICAL RULE: ERROR HANDLING AND SELF-CORRECTION**
+    If a tool action results in an error, you MUST NOT ask the user for help. Your primary objective is to solve the problem autonomously. Follow this process:
+    1.  **Analyze the Error**: Carefully read the error message provided in the observation.
+    2.  **Formulate a Debugging Plan**: Think about the cause of the error.
+        - If it's a function usage error (e.g., wrong arguments), use the `get_function_documentation` tool.
+        - If it's a general or unexpected error, **your first step should be to use the `search_knowledge_base` tool**. Pass the core part of the error message as the `query`.
+        - If it's a data-related error (e.g., table not found), use `list_tables` or `describe_table` to investigate.
+    3.  **Act on the Plan**: Execute the chosen debugging tool.
+    4.  **Synthesize and Retry**: After gathering information from the debugging tool, formulate a corrected action and try again. Only after multiple failed attempts should you consider reporting a failure with `attempt_completion`.
+
     ====
 
     OBJECTIVE

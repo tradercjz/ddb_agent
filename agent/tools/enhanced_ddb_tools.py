@@ -9,6 +9,7 @@ import os
 from agent.execution_result import ExecutionResult 
 from .tool_interface import BaseTool, ToolInput
 from agent.code_executor import CodeExecutor
+from rag.rag_entry import DDBRAG
 
 
 class InspectDatabaseInput(ToolInput):
@@ -360,4 +361,70 @@ class GetFunctionDocumentationTool(BaseTool):
                 success=False,
                 executed_script=f"Failed to read documentation for function '{function_name}'.",
                 error_message=str(e)
+            )
+        
+class SearchKnowledgeBaseInput(ToolInput):
+    """Input model for the knowledge base search tool."""
+    query: str = Field(description="The specific error message, function name, or concept to search for in the documentation and code snippets.")
+
+class SearchKnowledgeBaseTool(BaseTool):
+    """
+    A tool to search the project's knowledge base (RAG system) for relevant information.
+    Use this tool when you encounter an error, are unsure about a function's usage,
+    or need more context to solve a problem. It provides context from documentation and code examples.
+    """
+    name = "search_knowledge_base"
+    description = (
+        "Searches the knowledge base for documentation and code examples related to a query. "
+        "This is the primary tool for debugging and self-correction."
+    )
+    args_schema = SearchKnowledgeBaseInput
+
+    def __init__(self, rag_system: DDBRAG):
+        """
+        Initializes the tool with a reference to the RAG system.
+        
+        Args:
+            rag_system: An instance of the DDBRAG class.
+        """
+        self.rag_system = rag_system
+
+    def run(self, args: SearchKnowledgeBaseInput) -> ExecutionResult:
+        """
+        Executes the RAG retrieval process.
+        """
+        try:
+            # DDBRAG.retrieve 是一个生成器，我们需要消耗它来获取最终结果
+            docs_generator = self.rag_system.retrieve(args.query, top_k=3)
+            
+            # 循环消耗生成器，可以忽略中间的状态更新
+            final_docs = []
+            try:
+                while True:
+                    # 我们只关心最终的返回结果，所以不断 next
+                    # 在这个同步的 run 方法里，我们不能 yield from，所以我们用一个循环来驱动生成器
+                    # 注意：如果 retrieve 方法很复杂且有实际的 yield 值，需要相应处理
+                    # 但在这里，我们假设它最后通过 StopIteration 返回结果
+                    next(docs_generator)
+            except StopIteration as e:
+                # 生成器结束时，最终的文档列表在异常的 value 属性中
+                final_docs = e.value
+
+            if not final_docs:
+                return ExecutionResult(success=True, data="No relevant information found in the knowledge base.")
+
+            # 将检索到的文档格式化为单个字符串，作为工具的输出
+            context_str = "\n\n---\n\n".join(
+                f"Source: {doc.file_path}\n\n```\n{doc.source_code}\n```" 
+                for doc in final_docs
+            )
+            
+            return ExecutionResult(
+                success=True,
+                data=f"Found the following relevant information:\n\n{context_str}"
+            )
+        except Exception as e:
+            return ExecutionResult(
+                success=False,
+                error_message=f"Failed to search knowledge base: {str(e)}"
             )

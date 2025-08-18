@@ -204,24 +204,14 @@ class InteractiveSQLExecutor:
                         return
                     error_message = exec_result.error_message or "An unknown error occurred."
 
-                    # 1. 构造求助信息
-                    feedback_args = {
-                        "message": f"The action `{tool_name}` failed with the following error:\n\n```\n{error_message}\n```\n\nHow should I proceed? You can suggest a fix, or tell me to 'abort'.",
-                        "options": ["Retry the last step", "Abort the task"] # 提供建议选项
-                    }
-
-                    # 2. 调用求助工具，这将返回一个用于暂停的交互式请求
-                    feedback_request_result = self.tool_manager.call_tool("ask_for_human_feedback", feedback_args)
-
-                    # 3. yield 这个请求，暂停执行并等待用户反馈
-                    user_feedback = yield feedback_request_result.data
-                    
-                    # 4. 收到反馈后，将其整合到观察结果中，让LLM进行下一步决策
-                    if user_feedback:
-                        observation_content = f"The previous action failed. Error: {error_message}\n\nI asked the user for help, and they responded: '{user_feedback}'"
-                        history.append({"role": "user", "content": user_feedback})
-                    else:
-                        observation_content = f"The previous action failed. Error: {error_message}\n\nTask was resumed without specific user feedback."
+                    # 不再向用户求助，而是将错误信息直接作为观察结果
+                    # 这会迫使 LLM 在下一轮思考如何处理这个错误
+                    observation_content = (
+                        f"Action '{tool_name}' failed with the following error:\n\n"
+                        f"```\n{error_message}\n```\n\n"
+                        "I need to analyze this error and decide how to fix it. "
+                        "I should use tools like `search_knowledge_base` or `get_function_documentation` to get more information before trying again."
+                    )
                 elif isinstance(exec_result.data, dict) and exec_result.data.get("_is_completion_signal"):
                     consecutive_errors = 0
                     final_payload = exec_result.data

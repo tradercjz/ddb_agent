@@ -23,7 +23,7 @@ from rich.pretty import pprint
 
 from agent.tools.ddb_tools import  RunDolphinDBScriptTool
 from agent.tools.enhanced_ddb_tools import (
-    InspectDatabaseTool, ListTablesTool, DescribeTableTool, 
+    InspectDatabaseTool, ListTablesTool, DescribeTableTool, SearchKnowledgeBaseTool, 
     ValidateScriptTool, QueryDataTool, CreateSampleDataTool, OptimizeQueryTool,
     GetFunctionDocumentationTool
 )
@@ -70,7 +70,8 @@ class DDBAgent:
             OptimizeQueryTool(executor=self.code_executor),
             PlanModeResponseTool(),
             AskForHumanFeedbackTool(),
-            AttemptCompletionTool()
+            AttemptCompletionTool(),
+            SearchKnowledgeBaseTool(rag_system=self.rag)
         ], mcp_market_manager=mcp_market_manager, mcp_server_manager=mcp_server_manager, enable_mcp= mcp_market_manager != None and mcp_server_manager != None)
         
         # 初始化增强规划器和执行器
