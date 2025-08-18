@@ -554,7 +554,7 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
                 self._write_to_log(Panel("[yellow]Usage: /session switch <session_name>[/yellow]"))
                 return
             session_name = " ".join(parts[2:])
-            if session_name in self.handler.list_sessions():
+            if session_name in  [session['id'] for session in self.handler.list_sessions()]:
                 self.handler.switch_session(session_name)
                 self.query_one("#output-log").clear()
                 self._write_to_log(Panel(f"Switched to session: '{session_name}'", border_style="green"))
@@ -570,7 +570,7 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
                 return
             
             list_text = ""
-            for s in sorted(sessions):
+            for s in sorted(sessions, key=lambda x: x["id"]):
                 if s == active_session:
                     list_text += f"- [bold yellow]{s} (active)[/bold yellow]\n"
                 else:
