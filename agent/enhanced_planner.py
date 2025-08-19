@@ -111,7 +111,7 @@ class EnhancedPlanner:
         self.tool_manager = tool_manager
         self.rag_system = rag_system
     
-    @llm.prompt(model="deepseek")
+    @llm.prompt()
     def _analyze_task_complexity(self, task_description: str, available_tools: str) -> str:
         """
         Analyze the complexity of a given task and categorize it.
@@ -129,7 +129,7 @@ class EnhancedPlanner:
         """
         pass
     
-    @llm.prompt(model="deepseek")
+    @llm.prompt()
     def _generate_initial_plan(self, task_description: str,
                               available_tools: str, rag_context: str) -> str:
         """
@@ -202,7 +202,7 @@ class EnhancedPlanner:
         """
         pass
     
-    @llm.prompt(model="gemini-2.5-pro")
+    @llm.prompt()
     def _replan_after_failure(self, original_plan: str, failed_step: str, 
                              error_message: str, execution_context: str) -> str:
         """

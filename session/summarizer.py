@@ -4,7 +4,7 @@ from typing import List, Dict, Any
 from llm.llm_prompt import llm
 
 # We can give the summarizer a dedicated, faster model if needed.
-@llm.prompt(model="deepseek-chat")
+@llm.prompt()
 def summarize_history_prompt(conversation_to_summarize: str) -> str:
     """
     You are an expert conversation summarizer. Your task is to read a raw conversation history and distill it into a concise, structured summary. This summary will be used as long-term memory for an AI assistant.

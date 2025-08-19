@@ -71,7 +71,7 @@ def generate_final_user_answer(
     pass
 
 
-@llm.prompt(model="sonnet4")
+@llm.prompt()
 def react_agent_prompt(
     task_description: str,
     history: List[Dict[str, str]],
@@ -152,7 +152,7 @@ def react_agent_prompt(
         "rag_context": rag_context
     }
 
-@llm.prompt(model="deepseek-reasoner") # 我们可以为代码任务指定一个更擅长编码的模型
+@llm.prompt() # 我们可以为代码任务指定一个更擅长编码的模型
 def generate_initial_script(user_query: str, rag_context: str) -> str:
     """
     You are a world-class DolphinDB expert developer. Your task is to write a DolphinDB script to solve the user's request.
@@ -177,7 +177,7 @@ def generate_initial_script(user_query: str, rag_context: str) -> str:
     pass
 
 
-@llm.prompt(model="deepseek-reasoner") # 同样使用编码模型
+@llm.prompt() # 同样使用编码模型
 def fix_script_from_error(
     original_query: str,
     failed_code: str,
@@ -217,7 +217,7 @@ def fix_script_from_error(
     """
     pass
 
-@llm.prompt(model="deepseek-reasoner") # Planner需要最强的模型
+@llm.prompt() # Planner需要最强的模型
 def debugging_planner(
     original_query: str,
     failed_code: str,
@@ -274,7 +274,7 @@ def debugging_planner(
     pass
 
 
-@llm.prompt(model="sonnet4") # Or your preferred powerful model for reasoning
+@llm.prompt() # Or your preferred powerful model for reasoning
 def interactive_sql_agent_prompt(
     conversation_history: List[Dict[str, str]],
     available_tools: str,
