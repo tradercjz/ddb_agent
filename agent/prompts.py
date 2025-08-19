@@ -71,7 +71,7 @@ def generate_final_user_answer(
     pass
 
 
-@llm.prompt(model="sonnet4")
+@llm.prompt()
 def react_agent_prompt(
     task_description: str,
     history: List[Dict[str, str]],
@@ -274,7 +274,7 @@ def debugging_planner(
     pass
 
 
-@llm.prompt(model="sonnet4") # Or your preferred powerful model for reasoning
+@llm.prompt() # Or your preferred powerful model for reasoning
 def interactive_sql_agent_prompt(
     conversation_history: List[Dict[str, str]],
     available_tools: str,
