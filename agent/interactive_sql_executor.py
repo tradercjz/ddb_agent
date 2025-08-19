@@ -116,11 +116,14 @@ class InteractiveSQLExecutor:
     
     
 
-    def execute_task(self, user_input: str, agent) -> Generator[Dict, None, None]:
+    def execute_task(self, user_input: str, agent, conversation_history: List[Dict]) -> Generator[Dict, None, List[Dict]]:
         yield TaskStart(task_description=user_input, message="🚀 Starting Interactive Analyst task...")
         
         try:
-            history = [{"role": "user", "content": user_input}]
+            if not conversation_history or conversation_history[-1].get("content") != user_input:
+                 conversation_history.append({"role": "user", "content": user_input})
+            
+            history = conversation_history
 
             consecutive_errors = 0
             max_consecutive_errors = 5 
@@ -217,7 +220,7 @@ class InteractiveSQLExecutor:
                     final_payload = exec_result.data
                     yield ReactObservation(observation="Task completion signaled.", is_error=False, message="🔍 Observing result...")
                     yield TaskEnd(success=True, final_message=final_payload['result'], message="✅ Task completed successfully.")
-                    return # GRACEFULLY EXIT THE LOOP
+                    return history
                 elif isinstance(exec_result.data, dict) and exec_result.data.get("_is_interactive_request"):
                     consecutive_errors = 0
                     interaction_data = exec_result.data
@@ -228,11 +231,6 @@ class InteractiveSQLExecutor:
                     else:
                         # This branch is now reachable if resumed by next() instead of send()
                         observation_content = "Resumed without user input. Continuing with current plan."
-                elif isinstance(exec_result.data, dict) and exec_result.data.get("_is_completion_signal"):
-                    consecutive_errors = 0
-                    final_payload = exec_result.data
-                    yield TaskEnd(success=True, final_message=final_payload['result'], message="✅ Task completed successfully.")
-                    return
                 else:
                     consecutive_errors = 0
                     try:

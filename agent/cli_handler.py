@@ -122,3 +122,33 @@ class CLISessionHandler:
             session_data["conversation_history"].append({"role": "user", "content": user_input})
             session_data["conversation_history"].append(final_message_obj)
             self.session_manager.save_session_data(self.active_session_id, session_data)
+
+
+    def run_interactive_sql_task(self, user_input: str) -> Generator[Union[AnyRagStatus, AnyTaskStatus], None, None]:
+        # 1. 加载当前会话数据
+        session_data = self.session_manager.load_session_data(self.active_session_id)
+        
+        # 2. 检查是否需要摘要
+        if self.session_manager.summarize_if_needed(session_data):
+            print("INFO: History summarized and compacted.")
+
+        # 3. 获取上下文历史
+        contextual_history = self.session_manager.get_contextual_history(session_data)
+        
+        # 4. 调用无状态核心执行任务
+        # 注意：这里 user_input 也被传入，因为 executor 的逻辑需要它
+        final_history = yield from self.agent_core.run_interactive_sql_task(user_input, contextual_history)
+        
+       
+
+        # 6. 保存更新后的会话
+        if final_history:
+            # 用 executor 返回的完整交互历史替换旧的 conversation_history
+            # 因为它已经包含了初始的用户输入和所有中间步骤
+            session_data["conversation_history"] = final_history
+            self.session_manager.save_session_data(self.active_session_id, session_data)
+        else:
+            # 如果没有返回历史（可能出错了），至少保存用户的输入
+            session_data["conversation_history"].append({"role": "user", "content": user_input})
+            session_data["conversation_history"].append({"role": "assistant", "content": "[Task ended unexpectedly without returning history]"})
+            self.session_manager.save_session_data(self.active_session_id, session_data)

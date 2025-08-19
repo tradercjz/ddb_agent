@@ -107,12 +107,14 @@ class DDBAgent:
         """获取当前的交互式 SQL 模式。"""
         return self.interactive_mode
     
-    def run_interactive_sql_task(self, user_input: str) -> Generator[Dict[str, Any], None, None]:
+    def run_interactive_sql_task(self, user_input: str,  conversation_history: List[Dict[str, Any]]) -> Generator[Dict[str, Any], None, List[Dict[str, Any]]]:
         """
         Orchestrates the new interactive analysis task with PLAN and ACT modes.
         """
         # This method simply delegates the execution to our new executor.
-        yield from self.interactive_sql_executor.execute_task(user_input, self)
+        final_message = yield from self.interactive_sql_executor.execute_task(user_input, self, conversation_history)
+        return final_message
+       
 
     def get_mcp_market_manager(self) -> Optional[MCPMarketManager]:
         """Returns the MCP market manager if available."""

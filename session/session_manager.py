@@ -98,7 +98,7 @@ class SessionManager:
         返回 True 表示执行了总结，否则返回 False。
         """
         history = session_data.get("conversation_history", [])
-        current_tokens = sum(count_tokens(msg.get('content', '')) for msg in history)
+        current_tokens = sum(count_tokens(str(msg.get('content', ''))) for msg in history)
         
         if current_tokens > max_tokens and len(history) > retain_count:
             messages_to_summarize = history[:-retain_count]

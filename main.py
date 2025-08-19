@@ -220,6 +220,31 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
     def _write_to_log(self, content: Any):
         self.call_from_thread(self.query_one("#output-log", RichLog).write, content)
 
+    def _execute_interactive_sql_task_with_ui(self, task_description: str):
+        """Worker to START a new interactive task and manage its UI lifecycle."""
+        self._write_to_log(Panel(f"[bold blue]Interactive SQL Task:[/bold blue] {escape(task_description)}", title="[bold cyan]Interactive Analyst[/bold cyan]", border_style="cyan"))
+        
+        try:
+            self.paused_interactive_task = self.handler.run_interactive_sql_task(task_description)
+            
+            for update in self.paused_interactive_task:
+                # 如果它返回 False，意味着任务已暂停，我们应该停止迭代并退出 worker
+                if not self._process_interactive_update(update):
+                    return 
+
+        except StopIteration:
+            self.paused_interactive_task = None
+        except Exception as e:
+            import traceback
+            tb_str = traceback.format_exc()
+            self._write_to_log(Panel(f"[bold red]An unexpected error occurred during the SQL task:[/bold red]\n{tb_str}", border_style="red"))
+            self.paused_interactive_task = None
+        finally:
+            # 只有在任务没有暂停的情况下，才重新启用输入框
+            if not self.paused_interactive_task:
+                self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
+                self.call_from_thread(self.query_one(Input).focus)
+
     def _handle_command(self, command: str):
         try:
             parts = shlex.split(command)
@@ -306,7 +331,7 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
             elif cmd == '/sql':
                 if len(parts) > 1:
                     task_description = " ".join(parts[1:])
-                    worker = partial(self._handle_interactive_sql_task, task_description)
+                    worker = partial(self._execute_interactive_sql_task_with_ui, task_description)
                     self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
                 else:
                     self._write_to_log(Panel("[yellow]Please provide a task description for /sql.[/yellow]"))
