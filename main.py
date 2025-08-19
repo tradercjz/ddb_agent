@@ -595,7 +595,7 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
             return
 
         sub_cmd = parts[1].lower()
-        snippet_manager = self.agent.snippet_manager
+        snippet_manager = self.handler.agent_core.snippet_manager
 
         if sub_cmd == 'new':
             self.call_from_thread(self.push_screen, SnippetEditorScreen(snippet_manager))
@@ -609,7 +609,8 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
             list_text = ""
             for s in all_snippets:
                 list_text += f"- [bold cyan]{s.name}[/bold cyan]: {escape(s.description or 'No description.')}\n"
-            self._write_to_log(Panel(Markdown(list_text), title="Your Snippets"))
+            
+            self._write_to_log(Panel(list_text, title="Your Snippets"))
 
         elif sub_cmd == 'edit':
             if len(parts) < 3:
