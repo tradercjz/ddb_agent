@@ -27,6 +27,7 @@ from agent.tools.enhanced_ddb_tools import (
     ValidateScriptTool, QueryDataTool, CreateSampleDataTool, OptimizeQueryTool,
     GetFunctionDocumentationTool
 )
+from agent.tools.web_tools import BaiduSearchTool
 from utils.json_parser import parse_json_string
 
 
@@ -71,7 +72,8 @@ class DDBAgent:
             PlanModeResponseTool(),
             AskForHumanFeedbackTool(),
             AttemptCompletionTool(),
-            SearchKnowledgeBaseTool(rag_system=self.rag)
+            SearchKnowledgeBaseTool(rag_system=self.rag),
+            BaiduSearchTool()
         ], mcp_market_manager=mcp_market_manager, mcp_server_manager=mcp_server_manager, enable_mcp= mcp_market_manager != None and mcp_server_manager != None)
         
         # 初始化增强规划器和执行器
