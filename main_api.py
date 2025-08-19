@@ -4,6 +4,7 @@ from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 from pydantic import BaseModel
 import json
+import os
 from typing import List, Dict, Any
 
 from agent.agent import DDBAgent
@@ -29,7 +30,7 @@ async def lifespan(app: FastAPI):
     mcp_server_manager = MCPServerManager(market_manager=mcp_market_manager)
     agent_core = DDBAgent(
         project_path=".", 
-        model_name="gpt-oss-120b", 
+        model_name=os.getenv("DEEPSEEK_MODEL","deepseek-chat"), 
         max_window_size=128000,
         mcp_market_manager=mcp_market_manager,
         mcp_server_manager=mcp_server_manager,
@@ -98,4 +99,4 @@ async def stream_chat_task(request_body: ChatTaskRequest, request: Request):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main_api:app", host="192.168.0.174", port=8000, reload=True)
+    uvicorn.run("main_api:app", host=os.getenv("HOST", "127.0.0.1"), port=os.getenv("PORT", 9000), reload=True)

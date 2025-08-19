@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Tuple
 from llm.llm_prompt import llm
 
 
-@llm.prompt(model="gpt-oss-120b") # 可以选用一个擅长总结的模型
+@llm.prompt() # 可以选用一个擅长总结的模型
 def generate_final_user_answer(
     task_description: str,
     execution_history: List[Dict[str, str]],

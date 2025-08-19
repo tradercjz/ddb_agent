@@ -83,7 +83,7 @@ class DDBAgent:
         self.interactive_mode = "PLAN"
 
         # 定义一个通用的聊天Prompt
-        @llm.prompt("gpt-oss-120b")
+        @llm.prompt()
         def _default_chat_prompt(conversation_history: List[Dict[str, str]]):
             """"
             You are a helpful DolphinDB assistant. Continue the conversation naturally.

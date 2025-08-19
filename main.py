@@ -648,14 +648,14 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
         sub_cmd = parts[1].lower()
 
         if sub_cmd == 'market':
-            if self.mcp_market_manager:
-                self.call_from_thread(self.push_screen, MCPMarketScreen(self.mcp_market_manager, self.mcp_server_manager))
+            if self.handler.agent_core.mcp_market_manager:
+                self.call_from_thread(self.push_screen, MCPMarketScreen(self.handler.agent_core.mcp_market_manager, self.handler.agent_core.mcp_server_manager))
             else:
                 self._write_to_log(Panel("[red]MCP市场管理器未初始化[/red]", border_style="red"))
         
         elif sub_cmd == 'manager':
-            if self.mcp_market_manager and self.mcp_server_manager:
-                self.call_from_thread(self.push_screen, MCPManagerScreen(self.mcp_server_manager, self.mcp_market_manager))
+            if self.handler.agent_core.mcp_market_manager and self.handler.agent_core.mcp_server_manager:
+                self.call_from_thread(self.push_screen, MCPManagerScreen(self.handler.agent_core.mcp_server_manager, self.handler.agent_core.mcp_market_manager))
             else:
                 self._write_to_log(Panel("[red]MCP管理器未初始化[/red]", border_style="red"))
         
@@ -691,12 +691,12 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
 
     def _handle_mcp_list(self):
         """列出所有已安装的MCP服务器"""
-        if not self.mcp_market_manager:
+        if not self.handler.agent_core.mcp_market_manager:
             self._write_to_log(Panel("[red]MCP市场管理器未初始化[/red]", border_style="red"))
             return
         
         try:
-            installed_servers = self.mcp_market_manager.get_installed_servers()
+            installed_servers = self.handler.agent_core.mcp_market_manager.get_installed_servers()
             
             if not installed_servers:
                 self._write_to_log(Panel("没有已安装的MCP服务器。使用 `/mcp market` 浏览和安装服务器。", title="MCP服务器"))
@@ -704,7 +704,7 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
             
             list_text = "## 已安装的MCP服务器\n\n"
             for server in installed_servers:
-                status = self.mcp_server_manager.get_server_status(server.info.name) if self.mcp_server_manager else server.status
+                status = self.handler.agent_core.mcp_server_manager.get_server_status(server.info.name) if self.handler.agent_core.mcp_server_manager else server.status
                 status_emoji = {
                     "running": "🟢",
                     "stopped": "🔴", 
@@ -770,12 +770,12 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
 
     def _handle_mcp_tools(self):
         """列出所有可用的MCP工具"""
-        if not self.mcp_server_manager:
+        if not self.handler.agent_core.mcp_server_manager:
             self._write_to_log(Panel("[red]MCP服务器管理器未初始化[/red]", border_style="red"))
             return
         
         try:
-            all_tools = self.mcp_server_manager.get_all_tools()
+            all_tools = self.handler.agent_core.mcp_server_manager.get_all_tools()
             
             if not all_tools:
                 self._write_to_log(Panel("没有可用的MCP工具。请先启动一些MCP服务器。", title="MCP工具"))
@@ -798,7 +798,7 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
 
     def _handle_mcp_install(self, server_name: str):
         """安装MCP服务器"""
-        if not self.mcp_market_manager:
+        if not self.handler.agent_core.mcp_market_manager:
             self._write_to_log(Panel("[red]MCP市场管理器未初始化[/red]", border_style="red"))
             return
         
@@ -806,7 +806,7 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
             async def do_install():
                 try:
                     self._write_to_log(Panel(f"正在安装MCP服务器: {escape(server_name)}...", border_style="yellow"))
-                    success = await self.mcp_market_manager.install_server(server_name)
+                    success = await self.handler.agent_core.mcp_market_manager.install_server(server_name)
                     
                     if success:
                         self._write_to_log(Panel(f"✅ MCP服务器 {escape(server_name)} 安装成功", border_style="green"))
