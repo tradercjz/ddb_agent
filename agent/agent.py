@@ -208,7 +208,7 @@ class DDBAgent:
         relevant_files = yield from self.rag.retrieve(current_user_input, top_k=5)
 
         # 2. 上下文构建
-        system_prompt = "You are a world-class DolphinDB expert. Answer the user's query based on the provided context. If file context is provided, prioritize it. Be concise, accurate, and provide code examples where appropriate."
+        system_prompt = "You are a helpful assistant. Your task is to answer the user's question strictly based on the information found in the provided official DolphinDB documentation links. If you cannot find a direct answer in the provided links, you must state that you cannot find a built-in function for this purpose based on the documentation. Do not use any prior knowledge."
         
         final_messages = self.context_builder.build(
             system_prompt=system_prompt,
