@@ -109,10 +109,14 @@ class DDBAgent:
         """获取当前的交互式 SQL 模式。"""
         return self.interactive_mode
     
-    def run_interactive_sql_task(self, user_input: str,  conversation_history: List[Dict[str, Any]]) -> Generator[Dict[str, Any], None, List[Dict[str, Any]]]:
+    def run_interactive_sql_task(self, user_input: str,  conversation_history: List[Dict[str, Any]], injected_context: Optional[str] = None) -> Generator[Dict[str, Any], None, List[Dict[str, Any]]]:
         """
         Orchestrates the new interactive analysis task with PLAN and ACT modes.
         """
+        if injected_context:
+            self.interactive_sql_executor.set_context(injected_context)
+        else:
+            self.interactive_sql_executor.clear_context()
         # This method simply delegates the execution to our new executor.
         final_message = yield from self.interactive_sql_executor.execute_task(user_input, self, conversation_history)
         return final_message

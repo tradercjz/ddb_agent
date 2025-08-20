@@ -167,9 +167,14 @@ class CLISessionHandler:
         if not success:
             return False, schemas_or_error
         
-        # 格式化并注入到 Executor
-        markdown_context = self._format_schemas_as_markdown(schemas_or_error)
-        executor.set_context(markdown_context)
+        # 格式化并保存到session
+        session_data = self.session_manager.load_session_data(self.active_session_id)
+        session_data['injected_context'] = {
+            "markdown": self._format_schemas_as_markdown(schemas_or_error),
+            "source_paths": table_paths_to_inject
+        }
+        self.session_manager.save_session_data(self.active_session_id, session_data)
+        
         
         return True, f"Successfully injected schemas for: {', '.join(table_paths_to_inject)}"
 
@@ -195,28 +200,30 @@ class CLISessionHandler:
             return False, result # result is error message
 
         # 格式化并注入
-        markdown_context = self._format_schemas_as_markdown(result)
-        executor.set_context(markdown_context)
+        session_data = self.session_manager.load_session_data(self.active_session_id)
+        session_data['injected_context'] = {
+            "markdown": self._format_schemas_as_markdown(result),
+            "source_paths": table_paths
+        }
+        self.session_manager.save_session_data(self.active_session_id, session_data)
+        
         
         return True, f"Successfully injected schemas for: {', '.join(table_paths)}"
 
     def tui_handle_context_show(self) -> str:
-        """获取当前注入的上下文给TUI展示。"""
-        executor = self._get_sql_executor()
-        if not executor:
-            return "SQL Executor not available. Context is managed within an active /sql task."
-        
-        context = executor.get_context()
-        return context if context else "No context has been injected for the current task."
+        # 从 Session 文件读取。
+        session_data = self.session_manager.load_session_data(self.active_session_id)
+        context = session_data.get('injected_context', {})
+        return context.get('markdown', "No context has been saved to the current session.")
 
     def tui_handle_context_clear(self) -> str:
-        """清除当前任务的上下文并返回确认信息。"""
-        executor = self._get_sql_executor()
-        if not executor:
-            return "SQL Executor not available."
-        
-        executor.clear_context()
-        return "Injected context for the current task has been cleared."
+        # 从 Session 文件中清除。
+        session_data = self.session_manager.load_session_data(self.active_session_id)
+        if 'injected_context' in session_data:
+            del session_data['injected_context']
+            self.session_manager.save_session_data(self.active_session_id, session_data)
+            return "Saved context for the current session has been cleared."
+        return "No saved context to clear."
 
     # --- CLI任务执行入口 ---
     def run_react_task(self, user_input: str) -> Generator[Union[AnyRagStatus, AnyTaskStatus], None, None]:
@@ -291,9 +298,11 @@ class CLISessionHandler:
         # 3. 获取上下文历史
         contextual_history = self.session_manager.get_contextual_history(session_data)
         
+        injected_context = session_data.get('injected_context', {}).get('markdown')
+        
         # 4. 调用无状态核心执行任务
         # 注意：这里 user_input 也被传入，因为 executor 的逻辑需要它
-        final_history = yield from self.agent_core.run_interactive_sql_task(user_input, contextual_history)
+        final_history = yield from self.agent_core.run_interactive_sql_task(user_input, contextual_history, injected_context)
         
        
 
