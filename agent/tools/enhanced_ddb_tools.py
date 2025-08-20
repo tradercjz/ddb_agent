@@ -328,11 +328,9 @@ class GetFunctionDocumentationTool(BaseTool):
 
         # 4. 检查文件是否存在
         if not os.path.exists(doc_file_path):
-            # 可以提供更友好的提示，比如建议Agent检查函数名拼写
-            return (
-                f"Error: Documentation for function '{function_name}' not found. "
-                f"Searched at: '{doc_file_path}'. "
-                "Please ensure the function name is spelled correctly."
+            return ExecutionResult(
+                success=False,
+                error_message=f"Documentation for function '{function_name}' not found."
             )
 
         try:

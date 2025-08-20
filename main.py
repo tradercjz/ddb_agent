@@ -2,7 +2,7 @@ import os
 import shlex
 import time
 from functools import partial
-from typing import Any, Dict, Generator, Optional, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 import uuid
 from rich.panel import Panel
 from rich.markdown import Markdown
@@ -10,6 +10,7 @@ from rich.syntax import Syntax
 from rich.text import Text
 from rich.markup import escape
 from rich.pretty import pprint
+from rich.table import Table
 
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, Input, RichLog, Static, Label
@@ -69,9 +70,8 @@ class DDBAgentApp(App):
         self._spinner_timer = None
         self.paused_interactive_task: Optional[Generator] = None
         
-        # 初始化MCP组件
-        #self.mcp_market_manager = agent.get_mcp_market_manager()
-        #self.mcp_server_manager = agent.get_mcp_server_manager()
+        self.interaction_state = "NORMAL"  # "NORMAL", "AWAITING_DB_SELECTION", "AWAITING_TABLE_SELECTION"
+        self.interaction_context: Dict[str, Any] = {} 
         
 
     def compose(self) -> ComposeResult:
@@ -189,33 +189,40 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
         self.query_one(Input).value = ""
         self.query_one(Input).disabled = True
 
-        is_command = user_input.lower().startswith('/')
-        is_task_paused = self.paused_interactive_task is not None
+        if self.interaction_state == "AWAITING_DB_SELECTION":
+            worker = partial(self._handle_db_selection, user_input)
+            self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
+        elif self.interaction_state == "AWAITING_TABLE_SELECTION":
+            worker = partial(self._handle_table_selection, user_input)
+            self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
+        else:
+            is_command = user_input.lower().startswith('/')
+            is_task_paused = self.paused_interactive_task is not None
 
-        if is_task_paused and is_command:
-            # 场景1: 任务暂停时，输入了一个命令
-            # 我们处理命令，但任务保持暂停。
-            # _handle_command 执行后会 re-enable 输入框
-            worker = partial(self._handle_mode_change_and_resume, user_input)
-            self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
+            if is_task_paused and is_command:
+                # 场景1: 任务暂停时，输入了一个命令
+                # 我们处理命令，但任务保持暂停。
+                # _handle_command 执行后会 re-enable 输入框
+                worker = partial(self._handle_mode_change_and_resume, user_input)
+                self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
 
-        elif is_task_paused and not is_command:
-            # 场景2: 任务暂停时，输入了反馈
-            # 我们恢复任务。任务的后续流程将决定输入框的状态。
-            worker = partial(self._continue_interactive_task, user_choice=user_input)
-            self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
-        
-        elif not is_task_paused and is_command:
-            # 场景3: 正常状态下，输入了一个命令
-            # 我们处理命令。
-            worker = partial(self._handle_command, user_input)
-            self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
+            elif is_task_paused and not is_command:
+                # 场景2: 任务暂停时，输入了反馈
+                # 我们恢复任务。任务的后续流程将决定输入框的状态。
+                worker = partial(self._continue_interactive_task, user_choice=user_input)
+                self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
             
-        elif not is_task_paused and not is_command:
-            # 场景4: 正常状态下，输入了普通对话/任务
-            # 我们启动一个新任务。
-            worker = partial(self._handle_chat_task, user_input)
-            self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
+            elif not is_task_paused and is_command:
+                # 场景3: 正常状态下，输入了一个命令
+                # 我们处理命令。
+                worker = partial(self._handle_command, user_input)
+                self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
+                
+            elif not is_task_paused and not is_command:
+                # 场景4: 正常状态下，输入了普通对话/任务
+                # 我们启动一个新任务。
+                worker = partial(self._handle_chat_task, user_input)
+                self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
 
     def _write_to_log(self, content: Any):
         self.call_from_thread(self.query_one("#output-log", RichLog).write, content)
@@ -337,6 +344,15 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
                     self._write_to_log(Panel("[yellow]Please provide a task description for /sql.[/yellow]"))
                     self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
                 return # Return early to avoid re-enabling input box
+            
+            elif cmd == '/use':
+                # 启动 /use 命令的交互流程
+                worker = partial(self._handle_use_command_start, parts)
+                self.run_worker(worker, exclusive=True, thread=True)
+                return # 提前返回，因为 worker 会管理输入框状态
+            
+            elif cmd == '/context':
+                self._handle_context_command(parts)
 
             elif cmd == '/mode':
                 if len(parts) > 1:
@@ -400,6 +416,186 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
             if not self.paused_interactive_task:
                 self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
                 self.call_from_thread(self.query_one(Input).focus)
+
+
+    def _handle_use_command_start(self, parts: List[str]):
+        """处理 /use 命令的启动，无论是交互式还是直接的。"""
+        self._write_to_log(Panel(f"[bold]>[/bold] {escape(' '.join(parts))}", border_style="dim"))
+
+        if len(parts) > 1:
+            # 如果有参数，启动直接注入流程
+            path = parts[1]
+            self._handle_direct_injection(path)
+        else:
+            # 如果没有参数，启动交互式流程
+            self._start_interactive_use_flow()
+
+    def _handle_direct_injection(self, path: str):
+        """
+        处理直接注入的 worker。
+        """
+        self._write_to_log(Panel(f"正在尝试添加库表到上下文 `{escape(path)}`...", title="[cyan]添加库表到上下文[/cyan]", border_style="cyan"))
+
+        success, message = self.handler.tui_handle_direct_injection(path)
+
+        if success:
+            self._write_to_log(Panel(f"[green]✅ {escape(message)}[/green]"))
+        else:
+            self._write_to_log(Panel(f"[red]❌ 库表添加失败: {escape(message)}[/red]"))
+        
+        # 无论成功失败，重置状态并启用输入
+        self._reset_interaction()
+
+    def _start_interactive_use_flow(self):
+        """
+        启动交互式流程 (原 _handle_use_command_start 的逻辑)。
+        """
+        self.interaction_state = "AWAITING_DB_SELECTION"
+        self._write_to_log(Panel("正在获取数据库列表...", title="[cyan]步骤 1/3: 选择数据库[/cyan]", border_style="cyan"))
+        
+        success, result = self.handler.tui_handle_use_command_start()
+
+        if not success:
+            self._write_to_log(Panel(f"[red]错误: {escape(result)}[/red]", border_style="red"))
+            self._reset_interaction()
+            return
+
+        if not result:
+            self._write_to_log(Panel("[yellow]未找到任何数据库。[/yellow]"))
+            self._reset_interaction()
+            return
+        
+        self.interaction_context['db_list'] = result
+
+        table = Table(title="可用数据库", show_header=True, header_style="bold magenta")
+        table.add_column("编号", style="dim", width=6)
+        table.add_column("数据库路径")
+        for i, db_path in enumerate(result):
+            table.add_row(str(i + 1), db_path)
+        
+        self._write_to_log(table)
+        self.call_from_thread(self.query_one(Input).focus)
+        self.call_from_thread(setattr, self.query_one(Input), "placeholder", "请输入数据库编号或完整路径...")
+        self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
+
+    def _handle_db_selection(self, user_input: str):
+        """处理用户选择数据库的输入。"""
+        self._write_to_log(Panel(f"[bold]>[/bold] {escape(user_input)}", border_style="dim"))
+        db_list = self.interaction_context.get('db_list', [])
+        selected_db = ""
+
+        try:
+            # 尝试按编号选择
+            choice_idx = int(user_input) - 1
+            if 0 <= choice_idx < len(db_list):
+                selected_db = db_list[choice_idx]
+            else:
+                raise ValueError
+        except (ValueError, IndexError):
+            # 尝试按名称匹配
+            if user_input in db_list:
+                selected_db = user_input
+            else:
+                self._write_to_log(Panel("[red]无效的选择。请重新输入。[/red]"))
+                self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
+                self.call_from_thread(self.query_one(Input).focus)
+                return
+        
+        self.interaction_context['selected_db'] = selected_db
+        self.interaction_state = "AWAITING_TABLE_SELECTION"
+
+        self._write_to_log(Panel(f"正在获取 `{selected_db}` 下的表...", title="[cyan]步骤 2/3: 选择表[/cyan]", border_style="cyan"))
+        
+        success, result = self.handler.tui_handle_use_command_db_selected(selected_db)
+
+        if not success:
+            self._write_to_log(Panel(f"[red]错误: {escape(result)}[/red]"))
+            self._reset_interaction()
+            return
+
+        if not result:
+            self._write_to_log(Panel(f"[yellow]数据库 `{selected_db}` 下未找到任何表。[/yellow]"))
+            self._reset_interaction()
+            return
+
+        self.interaction_context['table_list'] = result
+        
+        table = Table(title=f"'{selected_db}'中的表", show_header=True, header_style="bold magenta")
+        table.add_column("编号", style="dim", width=6)
+        table.add_column("表名")
+        for i, table_name in enumerate(result):
+            table.add_row(str(i + 1), table_name)
+        
+        self._write_to_log(table)
+        self.call_from_thread(self.query_one(Input).focus)
+        self.call_from_thread(setattr, self.query_one(Input), "placeholder", "请输入表编号或名称 (多个用逗号隔开)...")
+        self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
+
+    def _handle_table_selection(self, user_input: str):
+        """处理用户选择表的输入。"""
+        self._write_to_log(Panel(f"[bold]>[/bold] {escape(user_input)}", border_style="dim"))
+        table_list = self.interaction_context.get('table_list', [])
+        selected_tables = []
+        
+        choices = [c.strip() for c in user_input.split(',')]
+        
+        for choice in choices:
+            try:
+                choice_idx = int(choice) - 1
+                if 0 <= choice_idx < len(table_list):
+                    selected_tables.append(table_list[choice_idx])
+                else:
+                    raise ValueError
+            except (ValueError, IndexError):
+                if choice in table_list:
+                    selected_tables.append(choice)
+                else:
+                    self._write_to_log(Panel(f"[red]无效的选择: '{escape(choice)}'。请重新输入。[/red]"))
+                    self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
+                    self.call_from_thread(self.query_one(Input).focus)
+                    return
+        
+        if not selected_tables:
+            self._write_to_log(Panel("[yellow]您没有选择任何表。操作已取消。[/yellow]"))
+            self._reset_interaction()
+            return
+            
+        self._write_to_log(Panel(f"正在为 {len(selected_tables)} 个表注入Schema...", title="[cyan]步骤 3/3: 注入上下文[/cyan]", border_style="cyan"))
+
+        success, result = self.handler.tui_handle_use_command_tables_selected(
+            self.interaction_context['selected_db'],
+            selected_tables
+        )
+
+        if success:
+            self._write_to_log(Panel(f"[green]✅ {escape(result)}[/green]"))
+        else:
+            self._write_to_log(Panel(f"[red]❌ 注入失败: {escape(result)}[/red]"))
+        
+        self._reset_interaction()
+
+    def _handle_context_command(self, parts: List[str]):
+        """处理 /context 命令。"""
+        self._write_to_log(Panel(f"[bold]>[/bold] {escape(' '.join(parts))}", border_style="dim"))
+        
+        sub_cmd = parts[1].lower() if len(parts) > 1 else "show"
+        
+        if sub_cmd == "show":
+            context_str = self.handler.tui_handle_context_show()
+            self._write_to_log(Panel(Markdown(context_str), title="[cyan]当前注入的上下文[/cyan]"))
+        elif sub_cmd == "clear":
+            message = self.handler.tui_handle_context_clear()
+            self._write_to_log(Panel(f"[green]✅ {escape(message)}[/green]"))
+        else:
+            self._write_to_log(Panel("[red]未知命令。用法: /context [show|clear][/red]"))
+
+    def _reset_interaction(self):
+        """重置交互状态并重新启用输入框。"""
+        self.interaction_state = "NORMAL"
+        self.interaction_context = {}
+        self.call_from_thread(setattr, self.query_one(Input), "placeholder", "Type your query, /command, or press Ctrl+N for a new session...")
+        self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
+        self.call_from_thread(self.query_one(Input).focus)
 
     def _continue_interactive_task(self, user_choice: str):
         """Worker to CONTINUE a paused interactive task."""

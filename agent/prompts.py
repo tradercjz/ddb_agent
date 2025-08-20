@@ -279,7 +279,7 @@ def interactive_sql_agent_prompt(
     conversation_history: List[Dict[str, str]],
     available_tools: str,
     environment_details: str,
-    available_files: str,
+    just_in_time_context: str
 ) -> Tuple[str, Dict[str, Any]]:
     """
     {# This is the new USER PROMPT template. It's clean and focused on dynamic context. #}
@@ -328,11 +328,12 @@ def interactive_sql_agent_prompt(
 
     ====
 
-    Data Files
+    AVAILABLE DATA CONTEXT
 
-    You have access to the following data files.
-    {available_files}
     
+    {"# User-Provided Data Context (Highest Priority)" if just_in_time_context else ""}
+    {just_in_time_context if just_in_time_context else ""}
+        
     ====
 
     ACT MODE V.S. PLAN MODE

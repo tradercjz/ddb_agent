@@ -18,6 +18,16 @@ class InteractiveSQLExecutor:
         self.tool_manager = tool_manager
         self.rag = rag_system
         self.max_turns = 15
+        self.injected_context: Optional[str] = None
+
+    def set_context(self, context_str: str):
+        self.injected_context = context_str
+
+    def get_context(self) -> Optional[str]:
+        return self.injected_context
+
+    def clear_context(self):
+        self.injected_context = None
         
     def _parse_xml_response(self, text: str, known_tools: List[str]) -> Dict[str, Any]:
         """
@@ -117,6 +127,7 @@ class InteractiveSQLExecutor:
     
 
     def execute_task(self, user_input: str, agent, conversation_history: List[Dict]) -> Generator[Dict, None, List[Dict]]:
+
         yield TaskStart(task_description=user_input, message="🚀 Starting Interactive Analyst task...")
         
         try:
@@ -149,12 +160,18 @@ class InteractiveSQLExecutor:
                 reverse_aliases = {v: k for k, v in self.tool_manager.tools.items()}
                 known_tool_names_for_prompt = [reverse_aliases.get(t['name'], t['name']) for t in tool_defs_list]
 
-                # 3. Prepare file context
-                available_files = """
-    - file_name: kline
-    description: 沪深日频K线行情数据 (Shanghai and Shenzhen daily K-line market data)
-    Usage: select * from kline as kline;
-    """
+                # 3. inject context 
+                just_in_time_context = None
+                if self.injected_context:
+                    just_in_time_context = (
+                        "====\n\n"
+                        "# User-Provided Data Context (Highest Priority)\n\n"
+                        "The user has just provided the following data context for this specific task. "
+                        "You MUST use this schema information as the primary source of truth for database structures.\n\n"
+                        f"{self.injected_context}\n\n"
+                        "====\n"
+                    )
+
                 normalized_history = normalize_history_for_llm(history)
 
                 # 4. Call LLM with the complete, structured context
@@ -162,7 +179,7 @@ class InteractiveSQLExecutor:
                     conversation_history=normalized_history,
                     available_tools=tools_for_prompt,
                     environment_details=environment_details,
-                    available_files=available_files,
+                    just_in_time_context=just_in_time_context
                 )
                 
                 llm_response = ""

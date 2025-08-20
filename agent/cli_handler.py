@@ -1,8 +1,9 @@
 import os
 import json
-from typing import Generator, Union, List, Dict, Any
+from typing import Generator, Tuple, Union, List, Dict, Any, Optional
 
 from agent.agent import DDBAgent, FinalMessage
+from agent.interactive_sql_executor import InteractiveSQLExecutor
 from llm.llm_client import StreamChunk
 from mcp.market.market_manager import MCPMarketManager
 from mcp.server.server_manager import MCPServerManager
@@ -10,6 +11,7 @@ from session.session_manager import SessionManager
 from agent.task_status import AnyTaskStatus
 from rag.rag_status import AnyRagStatus
 from datetime import datetime
+import pandas as pd
 
 class CLISessionHandler:
     """
@@ -61,6 +63,160 @@ class CLISessionHandler:
 
     def list_sessions(self) -> List[Dict[str, str]]:
         return self.session_manager.list_sessions()
+    
+    # --- 数据库上下文管理的核心逻辑 ---
+    def get_databases(self) -> Tuple[bool, Union[List[str], str]]:
+        """获取所有DolphinDB数据库的列表。"""
+        script = "getClusterDFSDatabases()"
+        exec_result = self.agent_core.code_executor.run(script)
+        if exec_result.success:
+            return True, exec_result.data.tolist()
+        else:
+            return False, exec_result.error_message
+
+    def get_tables(self, db_path: str) -> Tuple[bool, Union[List[str], str]]:
+        """获取指定数据库下的表列表。"""
+        script = f'database("{db_path}").getTables()'
+        exec_result = self.agent_core.code_executor.run(script)
+        if exec_result.success:
+            return True, exec_result.data.tolist()
+        else:
+            return False, exec_result.error_message
+
+    def get_schema_for_tables(self, table_paths: List[str]) -> Tuple[bool, Union[Dict[str, pd.DataFrame], str]]:
+        """获取一个或多个表的Schema。"""
+        schemas = {}
+        for path in table_paths:
+            # 解析路径 dfs://db_name/table_name
+            parts = path.replace("dfs://", "").split("/")
+            if len(parts) != 2:
+                return False, f"Invalid table path format: {path}"
+            db_name, table_name = parts
+            script = f"schema(loadTable('dfs://{db_name}', '{table_name}'))['colDefs']"
+            exec_result = self.agent_core.code_executor.run(script)
+            if exec_result.success:
+                schemas[path] = exec_result.data
+            else:
+                return False, f"Failed to get schema for {path}: {exec_result.error_message}"
+        return True, schemas
+
+    def _format_schemas_as_markdown(self, schemas: Dict[str, pd.DataFrame]) -> str:
+        """将Schema字典格式化为美观的Markdown文本。"""
+        markdown_parts = [
+            "<INJECTED_CONTEXT>",
+            "The user has injected the following table schemas into the context. Use this information for all subsequent queries.\n"
+        ]
+        for path, schema_df in schemas.items():
+            markdown_parts.append(f"### Schema for: `{path}`")
+            if isinstance(schema_df, pd.DataFrame):
+                # 将DataFrame转换为Markdown表格
+                markdown_parts.append(schema_df.to_markdown(index=False))
+            else:
+                markdown_parts.append(f"Could not display schema: {str(schema_df)}")
+            markdown_parts.append("\n")
+        
+        markdown_parts.append("</INJECTED_CONTEXT>")
+        return "\n".join(markdown_parts)
+
+    def _get_sql_executor(self) -> Optional[InteractiveSQLExecutor]:
+        """Helper to safely get the executor instance."""
+        executor = getattr(self.agent_core, 'interactive_sql_executor', None)
+        if isinstance(executor, InteractiveSQLExecutor):
+            return executor
+        return None
+    
+    def tui_handle_direct_injection(self, path: str) -> Tuple[bool, str]:
+        """
+        处理直接注入的逻辑。
+        自动判断路径是数据库还是表。
+        """
+        executor = self._get_sql_executor()
+        if not executor:
+            return False, "SQL Executor not available. Are you in a /sql session?"
+
+        # 规范化路径
+        if not path.startswith("dfs://"):
+            return False, "Invalid path. Path must start with 'dfs://'."
+
+        table_paths_to_inject = []
+
+        # 尝试将路径作为数据库处理
+        is_db, tables_or_error = self.get_tables(path)
+        
+        if is_db and isinstance(tables_or_error, list):
+            # 成功，说明 path 是一个数据库
+            if not tables_or_error:
+                return False, f"Database `{path}` is empty or does not exist."
+            # 获取该数据库下所有表的完整路径
+            table_paths_to_inject.extend([f"{path.strip('/')}/{table_name}" for table_name in tables_or_error])
+        else:
+            # 失败，我们假设 path 可能是一个表的路径
+            # 验证路径格式是否像一个表
+            parts = path.replace("dfs://", "").split("/")
+            if len(parts) == 2:
+                table_paths_to_inject.append(path)
+            else:
+                # 既不是有效的数据库，也不是有效的表路径格式
+                return False, f"Path `{path}` is not a valid database or table path. Error when treating as DB: {tables_or_error}"
+
+        if not table_paths_to_inject:
+             return False, "No valid tables found to inject."
+
+        # 获取所有目标表的 Schema
+        success, schemas_or_error = self.get_schema_for_tables(table_paths_to_inject)
+        if not success:
+            return False, schemas_or_error
+        
+        # 格式化并注入到 Executor
+        markdown_context = self._format_schemas_as_markdown(schemas_or_error)
+        executor.set_context(markdown_context)
+        
+        return True, f"Successfully injected schemas for: {', '.join(table_paths_to_inject)}"
+
+
+    def tui_handle_use_command_start(self) -> Tuple[bool, Union[List[str], str]]:
+        """第一步：获取数据库列表给TUI展示。"""
+        return self.get_databases()
+
+    def tui_handle_use_command_db_selected(self, db_path: str) -> Tuple[bool, Union[List[str], str]]:
+        """第二步：获取表列表给TUI展示。"""
+        return self.get_tables(db_path)
+
+    def tui_handle_use_command_tables_selected(self, db_path: str, table_names: List[str]) -> Tuple[bool, str]:
+        """第三步：获取Schemas，注入上下文，并返回确认信息。"""
+        executor = self._get_sql_executor()
+        if not executor:
+            return False, "SQL Executor not available. Are you in a /sql session?"
+
+        table_paths = [f"{db_path}/{name}" for name in table_names]
+        success, result = self.get_schema_for_tables(table_paths)
+        
+        if not success:
+            return False, result # result is error message
+
+        # 格式化并注入
+        markdown_context = self._format_schemas_as_markdown(result)
+        executor.set_context(markdown_context)
+        
+        return True, f"Successfully injected schemas for: {', '.join(table_paths)}"
+
+    def tui_handle_context_show(self) -> str:
+        """获取当前注入的上下文给TUI展示。"""
+        executor = self._get_sql_executor()
+        if not executor:
+            return "SQL Executor not available. Context is managed within an active /sql task."
+        
+        context = executor.get_context()
+        return context if context else "No context has been injected for the current task."
+
+    def tui_handle_context_clear(self) -> str:
+        """清除当前任务的上下文并返回确认信息。"""
+        executor = self._get_sql_executor()
+        if not executor:
+            return "SQL Executor not available."
+        
+        executor.clear_context()
+        return "Injected context for the current task has been cleared."
 
     # --- CLI任务执行入口 ---
     def run_react_task(self, user_input: str) -> Generator[Union[AnyRagStatus, AnyTaskStatus], None, None]:

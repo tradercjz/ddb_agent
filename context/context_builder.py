@@ -82,7 +82,7 @@ class ContextBuilder:
         
         # 从最新（末尾）的对话开始保留
         for msg in reversed(conversations):
-            msg_tokens = count_tokens(msg.get('content', ''), self.model_name)
+            msg_tokens = count_tokens(str(msg.get('content', '')), self.model_name)
             if current_tokens + msg_tokens <= budget:
                 pruned_history.insert(0, msg)
                 current_tokens += msg_tokens
