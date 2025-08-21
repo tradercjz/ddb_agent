@@ -12,6 +12,7 @@ from agent.task_status import AnyTaskStatus
 from rag.rag_status import AnyRagStatus
 from datetime import datetime
 import pandas as pd
+from agent.file_handler import FileHandler
 
 class CLISessionHandler:
     """
@@ -32,6 +33,7 @@ class CLISessionHandler:
         # 2. 管理CLI的当前会话状态
         self.config_file = os.path.join(project_path, ".ddb_agent", "session_config.json")
         self.active_session_id = self._load_active_session_id()
+        self.file_handler = FileHandler()
 
     def _load_active_session_id(self) -> str:
         if os.path.exists(self.config_file):
@@ -63,6 +65,48 @@ class CLISessionHandler:
 
     def list_sessions(self) -> List[Dict[str, str]]:
         return self.session_manager.list_sessions()
+    
+    # --- 使用'@'文件注入上下文相关的核心逻辑 ---
+    def preprocess_and_inject_files(self, file_paths: List[str]) -> Tuple[bool, str]:
+        """
+        批量处理文件引用，更新会话的 injected_context，并一次性保存。
+        """
+        # 确保列表是唯一的，避免重复处理
+        unique_file_paths = sorted(list(set(file_paths)))
+
+        session_data = self.session_manager.load_session_data(self.active_session_id)
+        
+        # 确保 injected_context 结构存在
+        session_data.setdefault('injected_context', {})
+        session_data['injected_context'].setdefault('files', {})
+
+        newly_processed_count = 0
+        errors = []
+        messages = []
+
+        for file_path in unique_file_paths:
+            # 如果文件已在上下文中，则跳过
+            if file_path in session_data['injected_context']['files']:
+                continue
+
+            success, message, context_obj = self.file_handler.process_file(file_path)
+            messages.append(f"- {file_path}: {message}")
+
+            if success:
+                if context_obj: # 仅当 context_obj 非空时才注入
+                    session_data['injected_context']['files'][file_path] = context_obj
+                    newly_processed_count += 1
+            else:
+                errors.append(message)
+
+        if errors:
+            return False, "Some files could not be processed:\n" + "\n".join(errors)
+
+        # 只有在实际添加了新文件时才保存
+        if newly_processed_count > 0:
+            self.session_manager.save_session_data(self.active_session_id, session_data)
+
+        return True, "\n".join(messages)
     
     # --- 数据库上下文管理的核心逻辑 ---
     def get_databases(self) -> Tuple[bool, Union[List[str], str]]:
@@ -169,14 +213,18 @@ class CLISessionHandler:
         
         # 格式化并保存到session
         session_data = self.session_manager.load_session_data(self.active_session_id)
-        session_data['injected_context'] = {
+        
+        # 使用 setdefault 确保顶级键存在，而不会覆盖
+        session_data.setdefault('injected_context', {})
+        
+        # 直接设置 'schemas' 子键
+        session_data['injected_context']['schemas'] = {
             "markdown": self._format_schemas_as_markdown(schemas_or_error),
             "source_paths": table_paths_to_inject
         }
         self.session_manager.save_session_data(self.active_session_id, session_data)
         
-        
-        return True, f"Successfully injected schemas for: {', '.join(table_paths_to_inject)}"
+        return True, f"Successfully saved schema context for: {', '.join(table_paths_to_inject)}"
 
 
     def tui_handle_use_command_start(self) -> Tuple[bool, Union[List[str], str]]:
@@ -201,7 +249,8 @@ class CLISessionHandler:
 
         # 格式化并注入
         session_data = self.session_manager.load_session_data(self.active_session_id)
-        session_data['injected_context'] = {
+        session_data.setdefault('injected_context', {})
+        session_data['injected_context']['schemas'] = {
             "markdown": self._format_schemas_as_markdown(result),
             "source_paths": table_paths
         }
@@ -211,19 +260,73 @@ class CLISessionHandler:
         return True, f"Successfully injected schemas for: {', '.join(table_paths)}"
 
     def tui_handle_context_show(self) -> str:
-        # 从 Session 文件读取。
+        """
+        获取并格式化当前会话中所有注入的上下文（包括数据库表和文件）。
+        """
         session_data = self.session_manager.load_session_data(self.active_session_id)
-        context = session_data.get('injected_context', {})
-        return context.get('markdown', "No context has been saved to the current session.")
+        injected_context = session_data.get('injected_context', {})
+        
+        schemas_context = injected_context.get('schemas', {})
+        files_context = injected_context.get('files', {})
 
-    def tui_handle_context_clear(self) -> str:
-        # 从 Session 文件中清除。
+        if not schemas_context and not files_context:
+            return "No context has been saved to the current session."
+
+        markdown_parts = []
+
+        # 1. 格式化并添加数据库表信息
+        if schemas_context:
+            markdown_parts.append("\n**Database Tables (from /use):**")
+            source_paths = schemas_context.get('source_paths', [])
+            if source_paths:
+                for path in source_paths:
+                    markdown_parts.append(f"- `{path}`")
+            else:
+                markdown_parts.append("- *No database tables have been loaded.*")
+
+        # 2. 格式化并添加文件信息
+        if files_context:
+            markdown_parts.append("\n**Loaded Files (from @):**")
+            if files_context:
+                for path, data in files_context.items():
+                    # 提取元信息用于展示
+                    load_type = data.get('type', 'N/A').replace('_', ' ').title()
+                    tokens = data.get('tokens', '?')
+                    info = f"({load_type}, {tokens} tokens)"
+                    markdown_parts.append(f"- `{path}`  `{info}`")
+            else:
+                markdown_parts.append("- *No files have been loaded.*")
+
+        return "\n".join(markdown_parts)
+
+    def tui_handle_context_clear(self,  args: List[str]) -> str:
         session_data = self.session_manager.load_session_data(self.active_session_id)
-        if 'injected_context' in session_data:
+        if 'injected_context' not in session_data:
+            return "No saved context to clear."
+
+        # 默认行为是全部清除
+        clear_all = '--all' in args or len(args) == 0
+        clear_schemas = '--schemas' in args or clear_all
+        clear_files = '--files' in args or clear_all
+        
+        cleared_parts = []
+        if clear_schemas and 'schemas' in session_data['injected_context']:
+            del session_data['injected_context']['schemas']
+            cleared_parts.append("database schemas")
+        
+        if clear_files and 'files' in session_data['injected_context']:
+            del session_data['injected_context']['files']
+            cleared_parts.append("loaded files")
+
+        # 如果清空后 injected_context 为空，则移除它
+        if not session_data['injected_context']:
             del session_data['injected_context']
-            self.session_manager.save_session_data(self.active_session_id, session_data)
-            return "Saved context for the current session has been cleared."
-        return "No saved context to clear."
+
+        if not cleared_parts:
+            return "Nothing to clear with the specified flags."
+
+        self.session_manager.save_session_data(self.active_session_id, session_data)
+        return f"Successfully cleared context for: {', '.join(cleared_parts)}."
 
     # --- CLI任务执行入口 ---
     def run_react_task(self, user_input: str) -> Generator[Union[AnyRagStatus, AnyTaskStatus], None, None]:
@@ -298,7 +401,7 @@ class CLISessionHandler:
         # 3. 获取上下文历史
         contextual_history = self.session_manager.get_contextual_history(session_data)
         
-        injected_context = session_data.get('injected_context', {}).get('markdown')
+        injected_context = session_data.get('injected_context', {})
         
         # 4. 调用无状态核心执行任务
         # 注意：这里 user_input 也被传入，因为 executor 的逻辑需要它

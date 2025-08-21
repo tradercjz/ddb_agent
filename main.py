@@ -1,6 +1,7 @@
 import os
 import shlex
 import time
+import re
 from functools import partial
 from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 import uuid
@@ -21,8 +22,6 @@ from rich.spinner import Spinner
 from agent.task_status import BaseTaskStatus, PlanGenerationEnd, StepExecutionEnd, StepExecutionStart, TaskEnd, ReactAction, ReactThought, ReactObservation, TaskError
 from rag.rag_status import AnyRagStatus, BaseRagStatus, RagError, RagSelectionProgress
 from snippets.tui_components import SnippetEditorScreen
-from utils.logger import setup_llm_logger
-from agent.agent import DDBAgent
 from llm.llm_client import LLMResponse, StreamChunk
 from llm.models import ModelManager
 
@@ -189,40 +188,74 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
         self.query_one(Input).value = ""
         self.query_one(Input).disabled = True
 
-        if self.interaction_state == "AWAITING_DB_SELECTION":
-            worker = partial(self._handle_db_selection, user_input)
-            self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
-        elif self.interaction_state == "AWAITING_TABLE_SELECTION":
-            worker = partial(self._handle_table_selection, user_input)
-            self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
+        is_command_only = user_input.lstrip().startswith('/')
+        parts = shlex.split(user_input)
+        cmd = parts[0].lower() if parts else ""
+        
+        # 如果是交互式命令的响应，则特殊处理
+        if self.interaction_state != "NORMAL":
+            if self.interaction_state == "AWAITING_DB_SELECTION":
+                self.run_worker(self._handle_db_selection, user_input, exclusive=True, thread=True)
+            elif self.interaction_state == "AWAITING_TABLE_SELECTION":
+                self.run_worker(self._handle_table_selection, user_input, exclusive=True, thread=True)
+        # 如果是暂停任务的响应
+        elif self.paused_interactive_task is not None:
+             if is_command_only:
+                 worker = partial(self._handle_mode_change_and_resume, user_input)
+                 self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
+             else:
+                 worker = partial(self._continue_interactive_task, user_choice=user_input)
+                 self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
+        # 如果是纯命令
+        elif is_command_only:
+            worker = partial(self._handle_command, user_input)
+            self.run_worker(worker, exclusive=True, thread=True)
+        # 否则，视为一个（可能包含@文件引用的）任务
         else:
-            is_command = user_input.lower().startswith('/')
-            is_task_paused = self.paused_interactive_task is not None
+            worker = partial(self._handle_unified_task, user_input)
+            self.run_worker(worker, exclusive=True, thread=True)
 
-            if is_task_paused and is_command:
-                # 场景1: 任务暂停时，输入了一个命令
-                # 我们处理命令，但任务保持暂停。
-                # _handle_command 执行后会 re-enable 输入框
-                worker = partial(self._handle_mode_change_and_resume, user_input)
-                self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
+    def _handle_unified_task(self, user_input: str):
+        """
+        统一的任务处理器：先解析和注入文件，再执行主任务。
+        """
+        self._write_to_log(Panel(f"[bold]>[/bold] {escape(user_input)}", border_style="dim"))
+        
+        try:
+            # --- 阶段一：解析和处理文件 ---
+            file_paths = re.findall(r'@([\S]+)', user_input)
+            if file_paths:
+                spinner_panel = Panel(Spinner("dots", text=" Processing file references..."), 
+                                      title="[yellow]Context Preparation[/yellow]", border_style="yellow")
+                self._write_to_log(spinner_panel)
 
-            elif is_task_paused and not is_command:
-                # 场景2: 任务暂停时，输入了反馈
-                # 我们恢复任务。任务的后续流程将决定输入框的状态。
-                worker = partial(self._continue_interactive_task, user_choice=user_input)
-                self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
-            
-            elif not is_task_paused and is_command:
-                # 场景3: 正常状态下，输入了一个命令
-                # 我们处理命令。
-                worker = partial(self._handle_command, user_input)
-                self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
+                success, message = self.handler.preprocess_and_inject_files(file_paths)
                 
-            elif not is_task_paused and not is_command:
-                # 场景4: 正常状态下，输入了普通对话/任务
-                # 我们启动一个新任务。
-                worker = partial(self._handle_chat_task, user_input)
-                self.run_worker(worker, exclusive=True, group="agent_work", thread=True)
+                if success:
+                    final_panel = Panel(f"[green]✅ Context Ready[/green]\n{escape(message)}", border_style="green")
+                else:
+                    self._write_to_log(Panel(f"[red]❌ File Error: {escape(message)}[/red]"))
+                    self._reset_interaction()
+                    return
+                self._write_to_log(final_panel)
+
+            # --- 阶段二：执行主任务 ---
+            # 简单的路由逻辑：如果包含 'sql', 'database', '查询', '表' 等关键词，则进入 /sql 模式
+            # 否则进入 /chat 模式
+            sql_keywords = ['sql', 'database', '查询', '表', '数据', 'dolphindb']
+            if any(keyword in user_input.lower() for keyword in sql_keywords) and self.handler._get_sql_executor():
+                self._execute_interactive_sql_task_with_ui(user_input)
+
+            else:
+                self._reset_interaction()
+            #else:
+                # 暂不处理，只是添加上下文
+                # self._handle_chat_task(user_input)
+
+        except Exception as e:
+            import traceback
+            self._write_to_log(Panel(f"[red]Task failed: {escape(str(e))}\n{traceback.format_exc()}[/red]"))
+            self._reset_interaction()
 
     def _write_to_log(self, content: Any):
         self.call_from_thread(self.query_one("#output-log", RichLog).write, content)
@@ -584,7 +617,8 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
             context_str = self.handler.tui_handle_context_show()
             self._write_to_log(Panel(Markdown(context_str), title="[cyan]当前注入的上下文[/cyan]"))
         elif sub_cmd == "clear":
-            message = self.handler.tui_handle_context_clear()
+            args = parts[2:]
+            message = self.handler.tui_handle_context_clear(args)
             self._write_to_log(Panel(f"[green]✅ {escape(message)}[/green]"))
         else:
             self._write_to_log(Panel("[red]未知命令。用法: /context [show|clear][/red]"))

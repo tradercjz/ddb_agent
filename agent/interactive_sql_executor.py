@@ -1,6 +1,7 @@
 # FILE: ./agent/interactive_sql_executor.py
 
 import json
+import os
 import re
 from typing import Generator, Dict, Any, List, Optional
 from agent.prompts import interactive_sql_agent_prompt
@@ -17,17 +18,8 @@ class InteractiveSQLExecutor:
     def __init__(self, tool_manager: EnhancedToolManager, rag_system: DDBRAG):
         self.tool_manager = tool_manager
         self.rag = rag_system
-        self.max_turns = 15
+        self.max_turns = 150
         self.injected_context: Optional[str] = None
-
-    def set_context(self, context_str: str):
-        self.injected_context = context_str
-
-    def get_context(self) -> Optional[str]:
-        return self.injected_context
-
-    def clear_context(self):
-        self.injected_context = None
         
     def _parse_xml_response(self, text: str, known_tools: List[str]) -> Dict[str, Any]:
         """
@@ -126,8 +118,33 @@ class InteractiveSQLExecutor:
     
     
 
-    def execute_task(self, user_input: str, agent, conversation_history: List[Dict]) -> Generator[Dict, None, List[Dict]]:
+    def execute_task(self, user_input: str, agent, conversation_history: List[Dict], injected_context: Optional[Dict] = None) -> Generator[Dict, None, List[Dict]]:
 
+        context_parts = []
+        if injected_context:
+            # 1. 格式化 Schema 上下文
+            schema_markdown = injected_context.get('schemas', {}).get('markdown')
+            if schema_markdown:
+                context_parts.append(schema_markdown)
+
+            # 2. 格式化文件上下文
+            files_dict = injected_context.get('files', {})
+            if files_dict:
+                file_context_str = "<INJECTED_FILES>\n"
+                file_context_str += "The user has also injected the content of the following files. Prioritize this content when the query mentions them.\n"
+                for path, data in files_dict.items():
+                    if data['type'] == 'full_content':
+                        lang = os.path.splitext(path)[1].lstrip('.')
+                        file_context_str += f"\n--- Content of file: `{path}` ---\n"
+                        # 使用我们提取的语言标识符
+                        file_context_str += f"```{lang}\n"
+                        file_context_str += data['content']
+                        file_context_str += "\n```\n"
+                file_context_str += "</INJECTED_FILES>"
+                context_parts.append(file_context_str)
+        
+        self.injected_context = "\n\n".join(context_parts) if context_parts else None
+        
         yield TaskStart(task_description=user_input, message="🚀 Starting Interactive Analyst task...")
         
         try:

@@ -57,7 +57,7 @@ class ListTablesTool(BaseTool):
     def run(self, args: ListTablesInput) -> ExecutionResult:
         if args.database_name:
             script = f"""
-            database("{args.database_name}").listTables()
+            getTables(database("{args.database_name}"))
             """
         else:
             script = """
