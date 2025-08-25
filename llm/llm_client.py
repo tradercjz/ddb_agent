@@ -71,9 +71,9 @@ class LLMClient:
             LLMResponse: llm原始返回
         """
         try:
-            target_model = model or os.getenv("DEEPSEEK_MODEL")
+            target_model = model or os.getenv("LLM_MODEL")
             if not target_model:
-                raise ValueError("No model specified and DEEPSEEK_MODEL environment variable is not set.")
+                raise ValueError("No model specified and LLM_MODEL environment variable is not set.")
             
             if log_requests:
                 self._log_request(conversation_history, target_model)
@@ -135,16 +135,16 @@ class LLMClientManager:
         获取一个LLMClient实例。如果已存在相同配置的实例，则从缓存返回。
         
         Args:
-            api_key: API密钥。如果为None，则从环境变量 DEEPSEEK_API_KEY 获取。
-            base_url: API基础URL。如果为None，则从环境变量 DEEPSEEK_URL 获取。
+            api_key: API密钥。如果为None，则从环境变量 LLM_API_KEY 获取。
+            base_url: API基础URL。如果为None，则从环境变量 LLM_BASE_URL 获取。
             logger: 日志记录器。
             
         Returns:
             LLMClient实例。
         """
         # 确定最终的配置
-        final_api_key = api_key or os.getenv("DEEPSEEK_API_KEY")
-        final_base_url = base_url or os.getenv("DEEPSEEK_URL")
+        final_api_key = api_key or os.getenv("LLM_API_KEY")
+        final_base_url = base_url or os.getenv("LLM_BASE_URL")
 
         if not final_api_key or not final_base_url:
             raise ValueError("API key and Base URL must be provided either as arguments or environment variables.")

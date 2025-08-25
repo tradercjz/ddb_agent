@@ -121,7 +121,7 @@ pip install -r requirements.txt
     "name": "deepseek-chat",
     "model_name": "deepseek-chat",
     "base_url": "https://api.deepseek.com/v1",
-    "api_key_env_var": "DEEPSEEK_API_KEY",
+    "api_key_env_var": "LLM_API_KEY",
     "description": "Default chat model from DeepSeek.",
     "log_requests": true
   },
@@ -142,9 +142,9 @@ pip install -r requirements.txt
 
 ```dotenv
 # .env file
-# Keys should match the "api_key_env_var" values in models.json
-DEEPSEEK_API_KEY="sk-your-deepseek-api-key"
-OPENAI_API_KEY="sk-your-openai-api-key"
+LLM_API_KEY="sk-your-llm-api-key"
+LLM_BASE_URL="your llm base url"
+LLM_MODEL="your llm model name"
 
 # DolphinDB connection details for the CodeExecutor
 DDB_HOST="localhost"
@@ -152,8 +152,15 @@ DDB_PORT="8848"
 DDB_USER="admin"
 DDB_PASSWORD="123456"
 ```
-
 ---
+
+
+.env与models.json的区别：
+
+.env用于设置整个项目的默认大模型
+
+models.json用于设置可用的模型，之后@llm.prompt里，可以指定使用特定模型，例如@llm.prompt(model="sonnet4"),这部分就是需要修改源码了
+
 
 ## 使用方法
 

@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
     mcp_server_manager = MCPServerManager(market_manager=mcp_market_manager)
     agent_core = DDBAgent(
         project_path=".", 
-        model_name=os.getenv("DEEPSEEK_MODEL","deepseek-chat"), 
+        model_name=os.getenv("LLM_MODEL","deepseek-chat"), 
         max_window_size=128000,
         mcp_market_manager=mcp_market_manager,
         mcp_server_manager=mcp_server_manager,
