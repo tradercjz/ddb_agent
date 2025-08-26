@@ -95,6 +95,60 @@ class DDBAgent:
         
         self.chat_prompt_func = _default_chat_prompt
 
+    def reconfigure_executor(self, connection_details: Dict[str, Any]):
+        """Closes the current CodeExecutor and creates a new one with new details."""
+        if self.code_executor:
+            self.code_executor.close()
+        
+        # If empty dict, it will load from .env by default (see CodeExecutor's __init__)
+        self.code_executor = CodeExecutor(
+            host=connection_details.get('host'),
+            port=connection_details.get('port'),
+            user=connection_details.get('user'),
+            password=connection_details.get('password')
+        )
+        target_host = connection_details.get('host') or os.getenv("DDB_HOST")
+        target_port = connection_details.get('port') or os.getenv("DDB_PORT")
+        print(f"CodeExecutor reconfigured to connect to {target_host}:{target_port}")
+        # reinitialize tool manager with new executor
+        self.tool_manager = EnhancedToolManager([
+            # 基础工具
+            RunDolphinDBScriptTool(executor=self.code_executor),
+            GetFunctionDocumentationTool("/home/jzchen/ddb_agent"),
+            # 增强工具集
+            InspectDatabaseTool(executor=self.code_executor),
+            ListTablesTool(executor=self.code_executor),
+            DescribeTableTool(executor=self.code_executor),
+            QueryDataTool(executor=self.code_executor),
+            CreateSampleDataTool(executor=self.code_executor),
+            OptimizeQueryTool(executor=self.code_executor),
+            PlanModeResponseTool(),
+            AskForHumanFeedbackTool(),
+            AttemptCompletionTool(),
+            SearchKnowledgeBaseTool(rag_system=self.rag),
+            BaiduSearchTool()
+        ], mcp_market_manager=self.mcp_market_manager, mcp_server_manager=self.mcp_server_manager, enable_mcp= self.mcp_market_manager != None and self.mcp_server_manager != None)
+        
+        # 初始化增强规划器和执行器
+        self.enhanced_planner = EnhancedPlanner(self.tool_manager, self.rag)
+        self.enhanced_executor = EnhancedExecutor(self.tool_manager, self.enhanced_planner)
+        self.last_successful_script: str | None = None 
+        self.react_executor = ReActExecutor(self.tool_manager, self.rag)
+        self.interactive_sql_executor = InteractiveSQLExecutor(self.tool_manager, self.rag)
+
+    def get_connection_details(self) -> Dict[str, Any]:
+        """
+        Returns a dictionary with the connection details of the
+        currently active CodeExecutor.
+        """
+      
+        return {
+            "host": self.code_executor.host,
+            "port": self.code_executor.port,
+            "user": self.code_executor.user
+        }
+      
+
     def set_interactive_mode(self, mode: str) -> bool:
         """
         设置交互式 SQL 模式。

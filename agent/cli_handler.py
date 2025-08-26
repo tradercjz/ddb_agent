@@ -1,6 +1,6 @@
 import os
 import json
-from time import time
+import time
 from typing import Generator, Tuple, Union, List, Dict, Any, Optional
 
 import httpx
@@ -43,7 +43,7 @@ class CLISessionHandler:
         self.config_file = os.path.join(project_path, ".ddb_agent", "session_config.json")
         self.active_session_id = self._load_active_session_id()
         self.file_handler = FileHandler()
-        self.cloud_client = CloudClient(base_url="http://127.0.0.1:8001")
+        self.cloud_client = CloudClient(base_url="http://dolphindb.cloud:8001")
 
     def cloud_login(self, username: str, password: str) -> Tuple[bool, str]:
         """
@@ -114,6 +114,62 @@ class CLISessionHandler:
 
         except (AuthError, APIError, httpx.RequestError) as e:
             yield CloudTaskUpdate(status="ERROR", message=f"An API error occurred: {str(e)}")
+
+    def cloud_delete_vm(self, env_id: str) -> Tuple[bool, str]:
+        """
+        Calls the cloud client to schedule a VM for deletion.
+        Returns a tuple of (success, message).
+        """
+        try:
+            response = self.cloud_client.delete_environment(env_id)
+            message = response.get("message", f"Deletion scheduled for '{env_id}'.")
+            return True, f"✅ {message}"
+        except (AuthError, APIError, httpx.RequestError) as e:
+            return False, f"❌ Error deleting environment: {e}"
+        
+    def switch_connection(self, connection_name: str) -> Tuple[bool, str]:
+        """
+        Switches the agent's active DolphinDB connection.
+        This is the core logic that tells the agent to reconfigure its CodeExecutor.
+        """
+        try:
+            # Case 1: Switching back to the default local connection
+            if connection_name.lower() in ["local", "default"]:
+                # Pass an empty dict to signal CodeExecutor to load from .env
+                self.agent_core.reconfigure_executor({}) 
+                return True, "✅ Switched to default **local** connection."
+
+            # Case 2: Switching to a cloud environment
+            if not self.cloud_client.is_logged_in:
+                 return False, "❌ You must be logged in to connect to a cloud environment."
+
+            envs = self.cloud_client.list_environments()
+            target_env = next(
+                (e for e in envs if e['id'] == connection_name and e['status'] == 'RUNNING'), 
+                None
+            )
+
+            if not target_env:
+                return False, f"❌ A running cloud environment named '{connection_name}' was not found."
+
+            connection_details = {
+                "host": target_env['public_ip'],
+                "port": target_env['port'],
+                "user": "admin", # Assuming default credentials for now
+                "password": "123456" 
+            }
+            self.agent_core.reconfigure_executor(connection_details)
+            return True, f"✅ Switched connection to cloud environment: **{connection_name}**"
+
+        except (AuthError, APIError, httpx.RequestError) as e:
+            return False, f"❌ Error switching connection: {e}"
+
+    def get_connection_status(self) -> Dict[str, Any]:
+        """
+        Retrieves the current connection details from the agent's core.
+        Returns a data dictionary, not a UI element.
+        """
+        return self.agent_core.get_connection_details()
 
     def _load_active_session_id(self) -> str:
         if os.path.exists(self.config_file):

@@ -191,6 +191,7 @@ You need to specify a subcommand. Available options:
 - `/cloud logout`: Log out from the cloud service.
 - `/cloud vms list`: List your cloud environments.
 - `/cloud vms create [spec]`: Create a new environment (e.g., `/cloud vms create 2c4g`).
+- `/cloud vms delete <environment_id>`
             """
             self._write_to_log(Panel(Markdown(help_text), title="[cyan]Cloud Help[/cyan]", border_style="cyan"))
             # Re-enable input so the user can try again
@@ -222,11 +223,22 @@ You need to specify a subcommand. Available options:
             self._write_to_log(Panel(message))
         
         elif sub_cmd == 'vms':
-            if len(parts) > 2 and parts[2].lower() == 'create':
+            action = parts[2].lower() if len(parts) > 2 else "list" # default to list
+
+            if action == 'create':
                 spec = parts[3] if len(parts) > 3 else "2c4g"
                 # The generator now yields data objects, not Panels
                 for update in self.handler.cloud_create_vm(spec):
                     self._render_cloud_task_update(update) # Use a dedicated render function
+            elif action == 'delete':
+                if len(parts) < 4:
+                    self._write_to_log(Panel("[bold red]Usage Error:[/bold red] `/cloud vms delete <environment_id>`", border_style="red"))
+                else:
+                    env_id_to_delete = parts[3]
+                    self._write_to_log(Panel(f"Sending request to delete '{env_id_to_delete}'..."))
+                    success, message = self.handler.cloud_delete_vm(env_id_to_delete)
+                    self._write_to_log(Panel(message, border_style="green" if success else "red"))
+                
             else: # 'list'
                 try:
                     environments_data = self.handler.cloud_list_vms()
@@ -430,6 +442,10 @@ You need to specify a subcommand. Available options:
 - `/session list`: List all available sessions.
 - `/session current`: Show the current active session.
 ---
+**DolphinDB Server**
+- `/ddbserver status` (or just `/ddbserver`): Displays the IP address and port of the currently active DolphinDB connection.
+- `/ddbserver switch <target>`: Switches the agent's connection to a cloud env
+---
 **MCP (Model Context Protocol) Commands**
 - `/mcp market`: Open MCP market to browse and install MCP servers.
 - `/mcp manager`: Open MCP server management interface.
@@ -460,6 +476,32 @@ You need to specify a subcommand. Available options:
             
             elif cmd == "/cloud":
                 self._handle_cloud_command(parts)
+
+            elif cmd == '/ddbserver':
+                sub_cmd = parts[1].lower() if len(parts) > 1 else "status" # Default to 'status'
+                if sub_cmd == 'switch':
+                    if len(parts) < 3:
+                        self._write_to_log(Panel("[yellow]Usage: /connections switch <environment_id | local>[/yellow]"))
+                    else:
+                        conn_name = parts[2]
+                        success, message = self.handler.switch_connection(conn_name)
+                        self._write_to_log(Panel(message, border_style="green" if success else "red"))
+                
+                elif sub_cmd == 'status':
+                    details = self.handler.get_connection_status()
+                    
+                    title = f"[cyan]🔌 dolphindb server:[/cyan]"
+                    text = (
+                        f"- **Host:** {details['host']}\n"
+                        f"- **Port:** {details['port']}\n"
+                        f"- **User:** {details['user']}"
+                    )
+                    self._write_to_log(Panel(text, title=title, border_style="cyan"))
+
+                else:
+                    self._write_to_log(Panel(f"[red]Unknown connections command: '{sub_cmd}'. Use 'switch' or 'status'.[/red]"))
+                
+                return 
 
             elif cmd == '/react':
                 if len(parts) > 1:

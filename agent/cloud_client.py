@@ -68,6 +68,21 @@ class _AsyncCloudClient:
             )
             response.raise_for_status()
             return response.json()
+        
+
+    async def delete_environment(self, env_id: str) -> Dict[str, Any]:
+        async with httpx.AsyncClient() as client:
+            response = await client.delete(
+                f"{self.base_url}/api/v1/environments/{env_id}",
+                headers=self._get_auth_headers()
+            )
+            if response.status_code >= 400:
+                try:
+                    detail = response.json().get("detail", "Unknown error")
+                    raise APIError(f"Failed to delete environment '{env_id}': {detail}")
+                except json.JSONDecodeError:
+                    raise APIError(f"Failed to delete environment '{env_id}': {response.text}")
+            return response.json()
 
 
 class CloudClient:
@@ -125,3 +140,11 @@ class CloudClient:
             raise AuthError("You are not logged in. Please run `/cloud login` first.")
         async_client = _AsyncCloudClient(self.base_url, self.token)
         return asyncio.run(async_client.get_environment_status(env_id))
+    
+    def delete_environment(self, env_id: str) -> Dict[str, Any]:
+        """Schedules an environment for deletion."""
+        if not self.is_logged_in:
+            raise AuthError("You are not logged in. Please run `/cloud login` first.")
+            
+        async_client = _AsyncCloudClient(self.base_url, self.token)
+        return asyncio.run(async_client.delete_environment(env_id))
