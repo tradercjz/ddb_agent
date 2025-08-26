@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import shlex
 import time
@@ -19,6 +20,7 @@ from textual.containers import VerticalScroll, Container, VerticalGroup
 from textual.binding import Binding
 from rich.spinner import Spinner
 
+from agent.cloud_schemas import CloudTaskUpdate
 from agent.task_status import BaseTaskStatus, PlanGenerationEnd, StepExecutionEnd, StepExecutionStart, TaskEnd, ReactAction, ReactThought, ReactObservation, TaskError
 from rag.rag_status import AnyRagStatus, BaseRagStatus, RagError, RagSelectionProgress
 from snippets.tui_components import SnippetEditorScreen
@@ -175,6 +177,126 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
             if self.paused_interactive_task:
                 resume_signal = f"User confirmed via {cmd_parts[1]} mode"
                 self._continue_interactive_task(resume_signal)
+
+    def _handle_cloud_command(self, parts: List[str]):
+        """Handles all /cloud subcommands by calling the handler and rendering the result."""
+
+        if len(parts) < 2:
+            help_text = """
+**Cloud Command Usage**
+
+You need to specify a subcommand. Available options:
+
+- `/cloud login <username> <password>`: Log in to the cloud service.
+- `/cloud logout`: Log out from the cloud service.
+- `/cloud vms list`: List your cloud environments.
+- `/cloud vms create [spec]`: Create a new environment (e.g., `/cloud vms create 2c4g`).
+            """
+            self._write_to_log(Panel(Markdown(help_text), title="[cyan]Cloud Help[/cyan]", border_style="cyan"))
+            # Re-enable input so the user can try again
+            self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
+            self.call_from_thread(self.query_one(Input).focus)
+            return # Exit the function early
+
+        sub_cmd = parts[1].lower()
+
+        if sub_cmd == 'login':
+            if len(parts) != 4:
+                self._write_to_log(Panel("[bold red]Usage Error:[/bold red] `/cloud login <username> <password>`", border_style="red"))
+                self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
+                self.call_from_thread(self.query_one(Input).focus)
+                return
+
+            # 2. Extract username and password.
+            username = parts[2]
+            password = parts[3]
+            
+            # 3. Start the background worker to perform the login.
+            worker = partial(self._perform_cloud_login, username, password)
+            self.run_worker(worker, exclusive=True,thread=True)
+            # The worker will re-enable the input box, so we return here.
+            return
+        
+        elif sub_cmd == 'logout':
+            message = self.handler.cloud_logout()
+            self._write_to_log(Panel(message))
+        
+        elif sub_cmd == 'vms':
+            if len(parts) > 2 and parts[2].lower() == 'create':
+                spec = parts[3] if len(parts) > 3 else "2c4g"
+                # The generator now yields data objects, not Panels
+                for update in self.handler.cloud_create_vm(spec):
+                    self._render_cloud_task_update(update) # Use a dedicated render function
+            else: # 'list'
+                try:
+                    environments_data = self.handler.cloud_list_vms()
+                    if not environments_data:
+                        self._write_to_log(Panel("[dim]No cloud environments found.[/dim]", title="Cloud Environments"))
+                    else:
+                        table = self._format_environments_as_table(environments_data)
+                        self._write_to_log(table)
+                except Exception as e:
+                    self._write_to_log(Panel(f"[red]Error fetching environments: {escape(str(e))}[/red]"))
+        else:
+            self._write_to_log(Panel(f"[red]Unknown /cloud command: {sub_cmd}[/red]"))
+
+        # Re-enable input for most commands
+        self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
+        self.call_from_thread(self.query_one(Input).focus)
+
+    def _render_cloud_task_update(self, update: CloudTaskUpdate):
+        """Renders a CloudTaskUpdate object into a Rich Panel."""
+        if update.status == "IN_PROGRESS":
+            self._write_to_log(Panel(f"⏳ {escape(update.message)}"))
+        elif update.status == "SUCCESS":
+            self._write_to_log(Panel(f"✅ [bold green]{escape(update.message)}[/bold green]", border_style="green"))
+        elif update.status == "ERROR":
+            self._write_to_log(Panel(f"❌ [bold red]{escape(update.message)}[/bold red]", border_style="red"))
+        elif update.status == "FINAL_LIST":
+            # The details dict contains the final list to be rendered as a table
+            environments = update.details.get("environments", [])
+            table = self._format_environments_as_table(environments)
+            self._write_to_log(table)
+
+    def _format_environments_as_table(self, environments: List[Dict[str, Any]]) -> Table:
+        """Takes a list of environment data and formats it into a Rich Table."""
+        table = Table(title="Your Cloud DolphinDB Environments", show_header=True, header_style="bold magenta")
+        table.add_column("Name (ID)", style="cyan")
+        table.add_column("Status", style="yellow")
+        table.add_column("IP Address", style="green")
+        table.add_column("Port")
+        table.add_column("Specs (CPU/Mem)")
+        table.add_column("Expires In")
+
+        for env in environments:
+            status_color = "green" if env['status'] == 'RUNNING' else "yellow"
+            expires_dt = datetime.fromisoformat(env['expires_at'])
+            now = datetime.utcnow()
+            expires_in = expires_dt - now
+            if expires_in.total_seconds() < 0:
+                expires_str = "[red]Expired[/red]"
+            else:
+                hours, rem = divmod(int(expires_in.total_seconds()), 3600)
+                minutes, _ = divmod(rem, 60)
+                expires_str = f"{hours}h {minutes}m"
+            
+            table.add_row(
+                env['id'], Text(env['status'], style=status_color), env.get('public_ip') or "N/A",
+                str(env['port']), f"{env['spec_cpu']}c / {env['spec_memory']}G", expires_str
+            )
+        return table
+
+
+    def _perform_cloud_login(self, username, password):
+        # This worker function is now perfectly aligned with the new architecture.
+        # It calls the data-only handler method and then renders the result.
+        self._write_to_log(Panel(f"Logging in as {username}..."))
+        success, message = self.handler.cloud_login(username, password)
+        # The TUI decides how to render the boolean and string into a Panel.
+        self._write_to_log(Panel(message, border_style="green" if success else "red"))
+        
+        self.call_from_thread(setattr, self.query_one(Input), "disabled", False)
+        self.call_from_thread(self.query_one(Input).focus)
 
     # --- Event Handler ---
     async def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -335,6 +457,9 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ $$/       $$/   $$/ $$$$$$/ $$/   $$/ $$$$$$$/    
             
             elif cmd == '/session':
                 self._handle_session_command(parts)
+            
+            elif cmd == "/cloud":
+                self._handle_cloud_command(parts)
 
             elif cmd == '/react':
                 if len(parts) > 1:

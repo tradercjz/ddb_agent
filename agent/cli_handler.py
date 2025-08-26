@@ -1,8 +1,13 @@
 import os
 import json
+from time import time
 from typing import Generator, Tuple, Union, List, Dict, Any, Optional
 
+import httpx
+from openai import APIError
+
 from agent.agent import DDBAgent, FinalMessage
+from agent.cloud_client import AuthError, CloudClient
 from agent.interactive_sql_executor import InteractiveSQLExecutor
 from llm.llm_client import StreamChunk
 from mcp.market.market_manager import MCPMarketManager
@@ -13,6 +18,10 @@ from rag.rag_status import AnyRagStatus
 from datetime import datetime
 import pandas as pd
 from agent.file_handler import FileHandler
+from datetime import datetime
+from agent.cloud_schemas import CloudTaskUpdate
+import re
+from datetime import datetime
 
 class CLISessionHandler:
     """
@@ -34,6 +43,77 @@ class CLISessionHandler:
         self.config_file = os.path.join(project_path, ".ddb_agent", "session_config.json")
         self.active_session_id = self._load_active_session_id()
         self.file_handler = FileHandler()
+        self.cloud_client = CloudClient(base_url="http://127.0.0.1:8001")
+
+    def cloud_login(self, username: str, password: str) -> Tuple[bool, str]:
+        """
+        Handles the logic for logging into the cloud service.
+        This method is synchronous and data-only.
+        
+        Returns:
+            A tuple containing (success_boolean, message_string).
+        """
+        try:
+            self.cloud_client.login(username, password)
+            return True, "✅ Login successful. You can now manage cloud environments."
+        except (AuthError, APIError, httpx.RequestError) as e:
+            return False, f"❌ Login failed: {e}"
+        
+    def cloud_list_vms(self) -> List[Dict[str, Any]]:
+        """
+        Fetches environments and returns them as a list of dictionaries.
+        NO UI FORMATTING.
+        """
+        try:
+            return self.cloud_client.list_environments()
+        except (AuthError, APIError, httpx.RequestError) as e:
+            raise e
+
+    def cloud_create_vm(self, spec: str) -> Generator[CloudTaskUpdate, None, None]:
+        """
+        A synchronous generator that yields structured CloudTaskUpdate objects.
+        NO UI WIDGETS.
+        """
+        try:
+            match = re.match(r'(\d+)c(\d+)g', spec.lower())
+            if not match:
+                yield CloudTaskUpdate(status="ERROR", message=f"Invalid spec format: '{spec}'. Use format like '2c4g'.")
+                return
+            cpu, mem = float(match.group(1)), float(match.group(2))
+
+            yield CloudTaskUpdate(status="IN_PROGRESS", message=f"Sending request to create a {cpu}c/{mem}G environment...")
+            
+            env = self.cloud_client.create_environment(cpu, mem, 24)
+            env_id = env['id']
+
+            timeout = 600
+            start_time = time.time()
+            last_message = ""
+            while time.time() - start_time < timeout:
+                status_env = self.cloud_client.get_environment_status(env_id)
+                status = status_env['status']
+                message = status_env.get('message', 'Waiting...')
+
+                if message != last_message:
+                    yield CloudTaskUpdate(status="IN_PROGRESS", message=f"[{status}] {message}")
+                    last_message = message
+
+                if status == 'RUNNING':
+                    yield CloudTaskUpdate(status="SUCCESS", message=f"Your environment '{env_id}' is ready.")
+                    # Yield the final list as a special update type
+                    final_list = self.cloud_list_vms()
+                    yield CloudTaskUpdate(status="FINAL_LIST", message="Final environment list.", details={"environments": final_list})
+                    return
+                elif status == 'ERROR':
+                    yield CloudTaskUpdate(status="ERROR", message=f"Creation failed. Reason: {message}")
+                    return
+                
+                time.sleep(5)
+            
+            yield CloudTaskUpdate(status="ERROR", message=f"Timed out after {timeout} seconds.")
+
+        except (AuthError, APIError, httpx.RequestError) as e:
+            yield CloudTaskUpdate(status="ERROR", message=f"An API error occurred: {str(e)}")
 
     def _load_active_session_id(self) -> str:
         if os.path.exists(self.config_file):
