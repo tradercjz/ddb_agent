@@ -43,7 +43,7 @@ class CLISessionHandler:
         self.config_file = os.path.join(project_path, ".ddb_agent", "session_config.json")
         self.active_session_id = self._load_active_session_id()
         self.file_handler = FileHandler()
-        self.cloud_client = CloudClient(base_url="http://dolphindb.cloud:8001")
+        self.cloud_client = CloudClient(base_url="https://www.kineticalpha.cn")
 
     def cloud_login(self, username: str, password: str) -> Tuple[bool, str]:
         """
