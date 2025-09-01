@@ -19,7 +19,7 @@ class ContextManager:
         A warning is added to the content indicating it has been truncated.
         """
         content = message.get('content', '')
-        message_tokens = count_tokens(content, model_name=self.model_name)
+        message_tokens = count_tokens(str(content), model_name=self.model_name)
 
         if message_tokens > self.safe_zone_size:
             print(f"Warning: A single message (role: {message['role']}) with {message_tokens} tokens "
@@ -93,5 +93,5 @@ class ContextManager:
     def _count_total_tokens(self, messages: List[Dict[str, str]]) -> int:
         if not messages:
             return 0
-        full_text = "".join(msg.get('content', '') for msg in messages if msg) # 增加 if msg 保护
+        full_text = "".join(str(msg.get('content', '')) for msg in messages if msg) # 增加 if msg 保护
         return count_tokens(full_text, model_name=self.model_name)
