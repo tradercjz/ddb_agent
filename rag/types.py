@@ -32,6 +32,8 @@ class CodeIndex(BaseIndexModel):
     tokens: Optional[int] = pydantic.Field(None, description="file tokens.")
     file_hash: Optional[str] = pydantic.Field(None, description="The MD5 hash of the file content at the time of indexing.")
 
+    embedding: Optional[List[float]] = pydantic.Field(None, description="The vector embedding of the file's summary.")
+
 class TextChunkIndex(BaseIndexModel):
     """
     Represents the indexed metadata for a single chunk of text.
@@ -50,6 +52,8 @@ class TextChunkIndex(BaseIndexModel):
     hypothetical_question: Optional[str] = pydantic.Field(None, description="A representative question this chunk can answer.")
     tokens: Optional[int] = pydantic.Field(None, description="file tokens.")
     file_hash: Optional[str] = pydantic.Field(None, description="The MD5 hash of the file content at the time of indexing.")
+
+    embedding: Optional[List[float]] = pydantic.Field(None, description="The vector embedding of the chunk's summary and question.")
 
 
 class ProjectIndex(BaseIndexModel):

@@ -1,5 +1,6 @@
 # file: ddb_agent/rag/rag_entry.py
 
+from collections import defaultdict
 import json
 import os
 
@@ -8,12 +9,18 @@ from llm.llm_prompt import llm
 from typing import Any, Dict, Generator, List
 
 from llm.models import ModelManager
+from rag.inverted_index import InvertedIndex
 from rag.rag_status import AnyRagStatus, RagEnd, RagError, RagIndexLoaded, RagRerankEnd, RagRerankStart, RagSelectionStart, RagStart
 from rag.types import BaseIndexModel
 from utils.json_parser import parse_json_string
 from .code_index_manager import CodeIndexManager
 from .text_index_manager import TextIndexManager
 from .candidate_selector import CandidateSelector, LLMCandidateSelector 
+from .fast_llm_selector import FastLLMSelector
+from .vector_search import FaissVectorSearch  
+from .embedding_models import VolcanoEmbedding
+from .vector_search import ChromaVectorSearch 
+
 
 class DDBRAG:
     """
@@ -27,6 +34,17 @@ class DDBRAG:
         self.index_file = index_file or os.path.join(project_path, ".ddb_agent", "file_index.json")
         self.index_manager = TextIndexManager(project_path=project_path, index_file = self.index_file)
         self.selection_strategy = selection_strategy
+        self.inverted_index = InvertedIndex()
+        all_indices = self.index_manager.get_all_indices()
+        try:
+            self.embedding_model = VolcanoEmbedding()
+        except ValueError as e:
+            self.embedding_model = None
+            print(f"Warning: VolcanoEmbedding model could not be initialized. Vector search will be disabled. Error: {e}")
+        if all_indices:
+            self.inverted_index.build_from_indices(all_indices)
+
+        self.vector_search = ChromaVectorSearch(project_path, all_indices)
 
     @llm.prompt()
     def _chat_prompt(self, user_query: str, context_files: str) -> str:
@@ -126,6 +144,108 @@ class DDBRAG:
                 print(f"Warning: Could not read file {file_path}: {e}")
         return sources
     
+    def _fuse_results_rrf(self, results_lists: List[List[str]], k: int = 60) -> List[str]:
+        """
+        Fuses multiple ranked lists of document IDs using Reciprocal Rank Fusion.
+        This is the core of our hybrid search.
+        """
+        scores = defaultdict(float)
+        # Important: Use a set to track which doc_ids have been seen in this fusion process
+        # to avoid duplicates in the final list.
+        seen_ids = set()
+        fused_list = []
+        
+        # We need to process lists in a way that preserves order for ranking
+        all_docs_in_order = []
+        for results in results_lists:
+            for doc_id in results:
+                if doc_id not in seen_ids:
+                    all_docs_in_order.append(doc_id)
+                    seen_ids.add(doc_id)
+
+        # Now calculate RRF scores
+        for results in results_lists:
+            for i, doc_id in enumerate(results):
+                # The rank is its position (i) + 1
+                scores[doc_id] += 1.0 / (k + i + 1)
+        
+        # Sort the unique documents by their fused score
+        sorted_docs = sorted(list(scores.keys()), key=lambda x: scores[x], reverse=True)
+        return sorted_docs
+    
+    def fast_retrieve(self, query: str, top_k: int = 5) -> Generator[AnyRagStatus, None, List[Document]]:
+        """
+        Retrieves the most relevant documents using a two-step process.
+        """
+        yield RagStart(message="🚀 Starting retrieval process...")
+        
+        # 1. 从所有索引源获取全部索引数据
+        all_text_indices = self.index_manager.get_all_indices()
+        all_indices = all_text_indices
+
+        if not all_indices:
+            print("No indices found to search from.")
+            return []
+        
+        keyword_results = self.inverted_index.search(query)
+        # if not pre_filtered_paths:
+        #     yield RagEnd(message="No relevant candidates found after keyword pre-filtering.", final_document_count=0)
+        #     return []
+        
+
+        vector_results = []
+        if self.embedding_model and self.vector_search:
+            try:
+                query_embedding = self.embedding_model.embed_query(query)
+                # Retrieve a larger set from vector search to allow for fusion.
+                vector_search_results_with_scores = self.vector_search.search(query_embedding, top_k=50)
+                vector_results = [path for path, score in vector_search_results_with_scores]
+            except Exception as e:
+                yield RagError(message=f"Vector search failed: {e}", step="vector_search")
+        
+        # 1c. Result Fusion (Combining the best of both worlds)
+        fused_paths = self._fuse_results_rrf([keyword_results, vector_results])
+
+
+        
+        index_map = {item.file_path: item for item in all_indices}
+        
+        # Get the full index objects for the fused candidates, preserving the fused order
+        pre_filtered_indices = [index_map.get(path) for path in fused_paths if index_map.get(path)]
+
+        yield RagIndexLoaded(message=f"🔍 Found {len(all_indices)} total index items.", total_items=len(all_indices))
+        yield RagSelectionStart(
+            message=f"Phase 1: Selecting candidates using '{self.selection_strategy}' strategy...",
+            strategy=self.selection_strategy
+        )
+        
+        # 2. 阶段一：粗筛 (Candidate Selection)
+        candidates: List[BaseIndexModel]
+        
+        selector = FastLLMSelector(pre_filtered_indices, self.index_manager)
+        candidates = yield from selector.select(query, max_workers=10) # 并发LLM筛选
+      
+
+        if not candidates:
+            yield RagEnd(message="No relevant candidates found after selection.", final_document_count=0)
+            return []
+        
+        yield RagRerankStart(
+            message="Phase 2: Using LLM to re-rank candidates...",
+            candidate_count=len(candidates)
+        )
+
+        final_candidates = candidates[:top_k]
+        final_identifiers = [c.file_path for c in final_candidates]
+
+        yield RagEnd(
+            message=f"Retrieval process completed. Selected top {len(final_identifiers)} documents.",
+            final_document_count=len(final_identifiers)
+        )
+
+        # 4. 根据最终的标识符列表，获取并返回文件/文本块内容
+        return self._get_files_content(final_identifiers)
+
     
     def retrieve(self, query: str, top_k: int = 5) -> Generator[AnyRagStatus, None, List[Document]]:
         """
