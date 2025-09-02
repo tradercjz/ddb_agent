@@ -167,41 +167,12 @@ class DDBRAG:
             candidate_count=len(candidates)
         )
 
-        # 3. 阶段二：精排 (Re-ranking by LLM)
-        candidates_for_llm = [c.model_dump() for c in candidates if c is not None]
-        #  然后再对这个字典列表进行 JSON 序列化
-        candidates_json_str = json.dumps(candidates_for_llm, indent=2, ensure_ascii=False)
+        # 我们直接从已排序的候选中选取前 top_k 个
+        final_candidates = candidates[:top_k]
+        final_identifiers = [c.file_path for c in final_candidates]
         
-        response_generator = self._rerank_candidates_prompt(
-            user_query=query,
-            candidates_json=candidates_json_str
-        )
-        
-        try:
-            try:
-                while True:
-                    part = next(response_generator)
-                    pass
-            except StopIteration as e:
-                response_str = e.value
-                final_identifiers = parse_json_string(response_str.content)
-                yield RagRerankEnd(
-                    message="✅ Re-ranking complete.",
-                    final_count=len(final_identifiers)
-                )
-        except Exception as e:
-            yield RagError(
-                message="Error parsing re-ranking response. Falling back.",
-                step="rerank",
-                error_details=str(e)
-            )
-            # 后备方案：如果LLM精排失败，直接使用粗筛结果
-            final_identifiers = [
-                c.get('module_name') or c.get('chunk_id') for c in candidates
-            ]
-
         yield RagEnd(
-            message="Retrieval process completed successfully.",
+            message=f"Retrieval process completed. Selected top {len(final_identifiers)} documents.",
             final_document_count=len(final_identifiers)
         )
 

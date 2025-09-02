@@ -76,7 +76,7 @@ class LLMCandidateSelector:
     Selects candidates by using an LLM to screen chunks of the index in parallel.
     """
     # 每个发给LLM的块，其token上限
-    MAX_TOKENS_PER_CHUNK = 32000 # 假设使用一个大的窗口模型进行筛选
+    MAX_TOKENS_PER_CHUNK = 128000 # 假设使用一个大的窗口模型进行筛选
 
     def __init__(self, all_index_items: List[BaseIndexModel],  index_manager: BaseIndexManager):
         self.all_items = all_index_items
@@ -86,8 +86,8 @@ class LLMCandidateSelector:
     @llm.prompt()
     def _select_from_chunk_prompt(self, user_query: str, index_chunk_json: str) -> str:
         """
-        You are an expert retrieval assistant. Your task is to analyze a CHUNK of a project's index 
-        and identify items relevant to the user's query.
+        You are an expert retrieval assistant. Your task is to analyze a CHUNK of a project's index, 
+        identify items relevant to the user's query, and assign a relevance score.
 
         User Query:
         {{ user_query }}
@@ -99,19 +99,19 @@ class LLMCandidateSelector:
 
         Instructions:
         1.  Review each item in the index chunk.
-        2.  Compare the user's query against each item's metadata (e.g., summary, keywords, symbols).
-        3.  Identify all items that are potentially relevant to answering the query.
+        2.  Compare the user's query against each item's metadata.
+        3.  For each relevant item, assign a relevance score from 1 (least relevant) to 10 (most relevant).
+        4.  If an item is not relevant, do not include it in the output.
 
-        Your response MUST be a JSON list containing file_path of the relevant items.
+        Your response MUST be a JSON array of objects. Each object must contain "file_path" and "score".
         If no items in this chunk are relevant, return an empty list [].
         Do not add any other text or explanations.
 
         Example Response:
         ```json
         [
-            "path/to/code_file.dos",
-            "document.md-chunk_5",
-            "utils/another_file.dos"
+            { "file_path": "path/to/code_file.dos", "score": 9 },
+            { "file_path": "document.md-chunk_5", "score": 7 }
         ]
         ```
         """
@@ -166,7 +166,7 @@ class LLMCandidateSelector:
 
             # 解析LLM返回的JSON列表
             relevant_items_in_chunk = parse_json_string(response_str.content)
-            return relevant_items_in_chunk
+            return relevant_items_in_chunk  if isinstance(relevant_items_in_chunk, list) else []
         except Exception as e:
             print(f"Error processing an index chunk with LLM: {e}")
             return []
@@ -187,7 +187,7 @@ class LLMCandidateSelector:
             found_count=0
         )
         # 2. 并行筛选
-        all_candidates = []
+        all_candidates_with_scores = []
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             processed_chunks = 0
             future_to_chunk_index = {
@@ -202,7 +202,7 @@ class LLMCandidateSelector:
                     result = future.result()
                     processed_chunks += 1
                     if result:
-                        all_candidates.extend(result)
+                        all_candidates_with_scores.extend(result)
                         yield RagSelectionProgress(
                             message=f"Phase 1: filter index  {processed_chunks}/{total_count} chunks...",
                             processed_count=processed_chunks,
@@ -216,14 +216,27 @@ class LLMCandidateSelector:
                         error_details=str(exc)
                     )
 
-        # 3. 合并与去重
-        unique_lst = list(set(all_candidates))
+        best_candidates = {}
+        for cand in all_candidates_with_scores:
+            path = cand.get("file_path")
+            score = cand.get("score", 0)
+            if path:
+                if path not in best_candidates or score > best_candidates[path].get("score", 0):
+                    best_candidates[path] = cand
+        
+        # 3. 排序：根据分数从高到低排序
+        sorted_candidates_list = sorted(best_candidates.values(), key=lambda x: x.get("score", 0), reverse=True)
+
+        # 4. 转换：将排序后的字典列表转换回 BaseIndexModel 对象列表
         final_candidates = []
-        for item in unique_lst:
-            final_candidates.append(self.index_manager.get_index_by_filepath(item))
+        for item_dict in sorted_candidates_list:
+            # get_index_by_filepath 依然可以复用
+            index_item = self.index_manager.get_index_by_filepath(item_dict["file_path"])
+            if index_item:
+                final_candidates.append(index_item)
 
         yield RagSelectionEnd(
-            message=f"Phase 1: Found {len(final_candidates)} unique candidates after screening.",
+            message=f"Phase 1: Found and ranked {len(final_candidates)} unique candidates.",
             candidate_count=len(final_candidates)
         )
         return final_candidates
