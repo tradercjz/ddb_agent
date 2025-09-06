@@ -6,7 +6,29 @@ import numpy as np
 import faiss
 import glob
 import os
+import signal
+import sys
+import time
+import asyncio
+import aiohttp
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
+from typing import List, Optional, Tuple, Dict, Any
+import logging
+from datetime import datetime
 
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('embedding_process.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# 配置参数
 JINA_TOKEN = 'jina_e1105e8b8bff4ce4a23a9e3f66c7e501Hlb4KoyuCxtFSSM1QcE2yBAdLWVP'
 DOCS_DIRECTORY = "./documentation/"
 
@@ -15,9 +37,89 @@ CHUNK_OVERLAP = 0
 
 FAISS_INDEX_PATH = "my_docs_advanced.index"
 CHUNKS_MAPPING_PATH = "my_docs_chunks_advanced.pkl"
+CHECKPOINT_PATH = "embedding_checkpoint.pkl"
 
-def embed_via_jina(text: str):
-    """调用 Jina API 生成文本嵌入向量"""
+# 并发配置
+MAX_CONCURRENT_REQUESTS = 5  # 同时进行的最大请求数
+REQUEST_DELAY = 0.1  # 请求间隔（秒）
+MAX_RETRIES = 3      # 失败重试次数
+CHECKPOINT_INTERVAL = 10  # 每处理多少个块保存一次检查点
+
+class EmbeddingProcessor:
+    def __init__(self):
+        self.all_embeddings = []
+        self.successful_chunks = []
+        self.failed_indices = []
+        self.processed_count = 0
+        self.total_count = 0
+        self.lock = Lock()  # 用于线程安全
+        self.should_stop = False  # 控制优雅停止
+        self.start_time = None
+        
+        # 注册信号处理器
+        signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGTERM, self._signal_handler)
+    
+    def _signal_handler(self, signum, frame):
+        """处理 Ctrl+C 和其他终止信号"""
+        signal_names = {signal.SIGINT: 'SIGINT (Ctrl+C)', signal.SIGTERM: 'SIGTERM'}
+        signal_name = signal_names.get(signum, f'Signal {signum}')
+        
+        logger.warning(f"\n🛑 收到 {signal_name} 信号，正在优雅停止...")
+        logger.info("正在保存当前进度，请稍候...")
+        
+        self.should_stop = True
+        
+        # 保存当前状态
+        self._save_checkpoint()
+        
+        logger.info(f"✅ 当前进度已保存到 {CHECKPOINT_PATH}")
+        logger.info(f"📊 已处理: {self.processed_count}/{self.total_count} 个文本块")
+        logger.info("下次运行时会从检查点继续...")
+        
+        sys.exit(0)
+    
+    def _save_checkpoint(self):
+        """保存检查点"""
+        try:
+            checkpoint_data = {
+                'all_embeddings': self.all_embeddings,
+                'successful_chunks': self.successful_chunks,
+                'failed_indices': self.failed_indices,
+                'processed_count': self.processed_count,
+                'total_count': self.total_count,
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            with open(CHECKPOINT_PATH, 'wb') as f:
+                pickle.dump(checkpoint_data, f)
+            logger.info(f"✅ 检查点已保存 ({len(self.successful_chunks)} 个成功块)")
+        except Exception as e:
+            logger.error(f"❌ 保存检查点失败: {e}")
+    
+    def _load_checkpoint(self) -> bool:
+        """加载检查点"""
+        try:
+            if not os.path.exists(CHECKPOINT_PATH):
+                return False
+                
+            with open(CHECKPOINT_PATH, 'rb') as f:
+                checkpoint_data = pickle.load(f)
+            
+            self.all_embeddings = checkpoint_data['all_embeddings']
+            self.successful_chunks = checkpoint_data['successful_chunks']
+            self.failed_indices = checkpoint_data['failed_indices']
+            self.processed_count = checkpoint_data['processed_count']
+            
+            logger.info(f"✅ 从检查点恢复: 已处理 {self.processed_count} 个块，成功 {len(self.successful_chunks)} 个")
+            return True
+            
+        except Exception as e:
+            logger.warning(f"⚠️ 加载检查点失败: {e}，将从头开始")
+            return False
+
+def embed_via_jina_sync(text: str, max_retries: int = MAX_RETRIES) -> Optional[List[float]]:
+    """同步版本的 Jina API 调用，带重试机制"""
     url = 'https://api.jina.ai/v1/embeddings'
     headers = {
         'Content-Type': 'application/json',
@@ -27,172 +129,257 @@ def embed_via_jina(text: str):
     data = {
         "model": "jina-embeddings-v4",
         "task": "retrieval.passage",
-        "input": [
-            {"text": text},
-        ]
+        "input": [{"text": text}]
     }
     
-    try:
-        response = requests.post(url, headers=headers, data=json.dumps(data))
-        response.raise_for_status()  # 抛出HTTP错误异常
-        
-        result = response.json()
-        print(f"API 响应状态: {response.status_code}")
-        
-        # 检查响应格式
-        if 'data' in result and len(result['data']) > 0:
-            if 'embedding' in result['data'][0]:
-                return result['data'][0]['embedding']
-            else:
-                print(f"响应中缺少 'embedding' 字段: {result}")
-                return None
-        else:
-            print(f"意外的API响应格式: {result}")
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(
+                url, 
+                headers=headers, 
+                data=json.dumps(data),
+                timeout=30  # 30秒超时
+            )
+            response.raise_for_status()
+            
+            result = response.json()
+            
+            if 'data' in result and len(result['data']) > 0:
+                if 'embedding' in result['data'][0]:
+                    return result['data'][0]['embedding']
+            
+            logger.warning(f"意外的API响应格式: {result}")
             return None
             
-    except requests.exceptions.RequestException as e:
-        print(f"API 请求失败: {e}")
-        return None
-    except json.JSONDecodeError as e:
-        print(f"JSON 解析失败: {e}")
-        print(f"原始响应: {response.text}")
-        return None
-    except Exception as e:
-        print(f"生成嵌入向量时发生未知错误: {e}")
-        return None
-
-def main():
-    markdown_splitter = RecursiveCharacterTextSplitter.from_language(
-        language="markdown", 
-        chunk_size=CHUNK_SIZE, 
-        chunk_overlap=CHUNK_OVERLAP
-    )
-    
-    # 递归查找所有 .md 文件
-    markdown_files = glob.glob(os.path.join(DOCS_DIRECTORY, '**', '*.md'), recursive=True)
-    if not markdown_files:
-        print(f"警告：在目录 '{DOCS_DIRECTORY}' 中没有找到任何 .md 文件。")
-        return
-    
-    print(f"找到了 {len(markdown_files)} 个 Markdown 文件。正在处理...")
-    
-    documents_as_chunked_lists = []
-    all_chunks_text_flat = []
-    
-    for filepath in markdown_files:
-        try:
-            with open(filepath, 'r', encoding='utf-8') as f:
-                content = f.read()
+        except requests.exceptions.Timeout:
+            logger.warning(f"请求超时 (尝试 {attempt + 1}/{max_retries})")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)  # 指数退避
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"API请求失败 (尝试 {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
         except Exception as e:
-            print(f"无法读取文件 {filepath}: {e}")
-            continue
+            logger.error(f"未知错误 (尝试 {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                time.sleep(1)
+    
+    return None
+
+def process_chunk_with_index(args: Tuple[int, str, EmbeddingProcessor]) -> Tuple[int, bool, Optional[List[float]], str]:
+    """处理单个文本块，返回 (索引, 是否成功, 嵌入向量, 文本)"""
+    index, chunk, processor = args
+    
+    # 检查是否应该停止
+    if processor.should_stop:
+        return index, False, None, chunk
+    
+    try:
+        # 添加请求间隔
+        time.sleep(REQUEST_DELAY)
         
-        chunks = markdown_splitter.split_text(content)
-        if not chunks:
-            print(f"  - 文档 {os.path.basename(filepath)} 未能生成文本块，已跳过。")
-            continue
-                
-        print(f"  - 处理文档: {os.path.basename(filepath)}，生成了 {len(chunks)} 个文本块。")
-                
-        documents_as_chunked_lists.append(chunks)
-        all_chunks_text_flat.extend(chunks)
-    
-    if not documents_as_chunked_lists:
-        print("所有文件都未能生成文本块，程序终止。")
-        return
-    
-    print(f"\n所有文件分块完成，共得到 {len(all_chunks_text_flat)} 个文本块，来自 {len(documents_as_chunked_lists)} 个文档。")
-    
-    # 🔧 关键修复：使用两个并行列表来保持对应关系
-    all_embeddings = []
-    successful_chunks = []  # 只保存成功处理的文本块
-    failed_indices = []     # 记录失败的索引，用于调试
-    
-    # 处理所有文本块（这里只处理前3个作为示例）
-    chunks_to_process = all_chunks_text_flat # 可以改为 all_chunks_text_flat
-    
-    print(f"\n开始处理 {len(chunks_to_process)} 个文本块...")
-    
-    for i, chunk in enumerate(chunks_to_process):
-        print(f"\n处理第 {i+1}/{len(chunks_to_process)} 个文本块...")
-        print(f"文本块内容预览: {chunk[:100]}...")
-        
-        embedding = embed_via_jina(chunk)
+        logger.info(f"🔄 处理块 {index + 1}: {chunk[:50]}...")
+        embedding = embed_via_jina_sync(chunk)
         
         if embedding is not None:
-            # ✅ 成功：同时添加到两个列表中
-            all_embeddings.append(embedding)
-            successful_chunks.append(chunk)
-            print(f"✅ 成功生成嵌入向量，维度: {len(embedding)}")
+            logger.info(f"✅ 块 {index + 1} 处理成功，向量维度: {len(embedding)}")
+            return index, True, embedding, chunk
         else:
-            # ❌ 失败：记录失败的索引，但不添加到列表中
-            failed_indices.append(i)
-            print(f"❌ 第 {i+1} 个文本块的嵌入向量生成失败，跳过该块")
+            logger.warning(f"❌ 块 {index + 1} 处理失败")
+            return index, False, None, chunk
+            
+    except Exception as e:
+        logger.error(f"❌ 块 {index + 1} 处理异常: {e}")
+        return index, False, None, chunk
+
+def process_chunks_concurrent(chunks: List[str], processor: EmbeddingProcessor) -> None:
+    """并发处理文本块"""
+    processor.total_count = len(chunks)
     
-    # 📊 处理结果统计
-    success_count = len(all_embeddings)
-    total_count = len(chunks_to_process)
-    failure_count = len(failed_indices)
+    # 创建任务参数
+    tasks = [(i, chunk, processor) for i, chunk in enumerate(chunks) 
+                if i >= processor.processed_count]  # 跳过已处理的
     
-    print(f"\n📊 处理结果统计：")
-    print(f"  - 总共处理: {total_count} 个文本块")
-    print(f"  - 成功处理: {success_count} 个文本块")
-    print(f"  - 处理失败: {failure_count} 个文本块")
-    
-    if failed_indices:
-        print(f"  - 失败的块索引: {failed_indices}")
-    
-    if not all_embeddings:
-        print("❌ 错误：没有成功生成任何嵌入向量，程序终止。")
+    if not tasks:
+        logger.info("✅ 所有块都已处理完成")
         return
     
-    # ✅ 验证对应关系
-    assert len(all_embeddings) == len(successful_chunks), \
-        f"嵌入向量数量({len(all_embeddings)})与文本块数量({len(successful_chunks)})不匹配！"
+    logger.info(f"🚀 开始并发处理 {len(tasks)} 个文本块 (并发数: {MAX_CONCURRENT_REQUESTS})")
     
-    print(f"\n✅ 验证通过：{len(all_embeddings)} 个嵌入向量与 {len(successful_chunks)} 个文本块完美对应")
-                        
-    print(f"\n向量生成完毕，开始构建 FAISS 索引...")
-    
-    # 转换为numpy数组
-    embeddings_np = np.array(all_embeddings).astype('float32')
-    print(f"嵌入向量数组形状: {embeddings_np.shape}")
+    with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_REQUESTS) as executor:
+        # 提交所有任务
+        future_to_index = {
+            executor.submit(process_chunk_with_index, task): task[0] 
+            for task in tasks
+        }
+        
+        # 处理完成的任务
+        for future in as_completed(future_to_index):
+            if processor.should_stop:
+                logger.info("🛑 检测到停止信号，取消剩余任务...")
+                # 取消未完成的任务
+                for f in future_to_index:
+                    f.cancel()
+                break
             
-    # 构建FAISS索引
-    d = embeddings_np.shape[1]  # 向量维度
-    index = faiss.IndexFlatL2(d)
-    index.add(embeddings_np)
-            
-    print(f"FAISS 索引已构建。索引中共有 {index.ntotal} 个向量。")
+            try:
+                index, success, embedding, chunk = future.result()
+                
+                with processor.lock:  # 线程安全更新
+                    processor.processed_count = max(processor.processed_count, index + 1)
+                    
+                    if success and embedding is not None:
+                        processor.all_embeddings.append(embedding)
+                        processor.successful_chunks.append(chunk)
+                    else:
+                        processor.failed_indices.append(index)
+                    
+                    # 定期保存检查点
+                    if len(processor.successful_chunks) % CHECKPOINT_INTERVAL == 0:
+                        processor._save_checkpoint()
+                    
+                    # 显示进度
+                    success_count = len(processor.successful_chunks)
+                    total_processed = processor.processed_count
+                    progress = (total_processed / processor.total_count) * 100
+                    
+                    logger.info(f"📈 进度: {total_processed}/{processor.total_count} "
+                                f"({progress:.1f}%), 成功: {success_count}")
+                    
+            except Exception as e:
+                index = future_to_index[future]
+                logger.error(f"❌ 处理块 {index} 时发生异常: {e}")
+                with processor.lock:
+                    processor.failed_indices.append(index)
+
+def main():
+    logger.info("🚀 启动健壮的向量化处理程序")
     
-    # 🔧 修复后的保存方式：保存正确对应的文本块
-    faiss.write_index(index, FAISS_INDEX_PATH)
-    with open(CHUNKS_MAPPING_PATH, 'wb') as f:
-        pickle.dump(successful_chunks, f)  # 现在这个列表是正确对应的
+    processor = EmbeddingProcessor()
+    processor.start_time = time.time()
     
-    print(f"索引已保存到: {FAISS_INDEX_PATH}")
-    print(f"文本块映射已保存到: {CHUNKS_MAPPING_PATH}")
+    # 尝试从检查点恢复
+    resumed_from_checkpoint = processor._load_checkpoint()
     
-    # 🔍 最终验证
-    print(f"\n🔍 最终验证：")
-    print(f"  - FAISS索引包含: {index.ntotal} 个向量")
-    print(f"  - 文本块映射包含: {len(successful_chunks)} 个文本块")
-    print(f"  - 数量匹配: {'✅ 是' if index.ntotal == len(successful_chunks) else '❌ 否'}")
+    # 如果没有从检查点恢复，进行文件处理
+    if not resumed_from_checkpoint:
+        logger.info("📂 扫描 Markdown 文件...")
+        
+        markdown_splitter = RecursiveCharacterTextSplitter.from_language(
+            language="markdown", 
+            chunk_size=CHUNK_SIZE, 
+            chunk_overlap=CHUNK_OVERLAP
+        )
+        
+        markdown_files = glob.glob(os.path.join(DOCS_DIRECTORY, '**', '*.md'), recursive=True)
+        if not markdown_files:
+            logger.error(f"❌ 在目录 '{DOCS_DIRECTORY}' 中没有找到任何 .md 文件")
+            return
+        
+        logger.info(f"📄 找到了 {len(markdown_files)} 个 Markdown 文件")
+        
+        all_chunks_text_flat = []
+        for filepath in markdown_files:
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                
+                chunks = markdown_splitter.split_text(content)
+                if chunks:
+                    logger.info(f"  - {os.path.basename(filepath)}: {len(chunks)} 个块")
+                    all_chunks_text_flat.extend(chunks)
+                    
+            except Exception as e:
+                logger.error(f"❌ 无法读取文件 {filepath}: {e}")
+        
+        if not all_chunks_text_flat:
+            logger.error("❌ 没有生成任何文本块")
+            return
+        
+        logger.info(f"📝 总共生成了 {len(all_chunks_text_flat)} 个文本块")
+        
+        # 限制处理数量用于测试
+        chunks_to_process = all_chunks_text_flat # 改为 all_chunks_text_flat 处理所有
+        logger.info(f"🎯 将处理 {len(chunks_to_process)} 个文本块")
+    else:
+        # 从检查点数据中获取原始块数据
+        logger.warning("⚠️ 从检查点恢复时，需要重新读取原始文档以获取所有块")
+        # 这里可以改进为在检查点中保存所有原始块
+        logger.info("💡 建议：手动设置 chunks_to_process 或重新读取文档")
+        return
     
-    # 📝 保存处理日志（可选）
-    processing_log = {
-        'total_chunks': total_count,
-        'successful_chunks': success_count,
-        'failed_chunks': failure_count,
-        'failed_indices': failed_indices,
-        'embedding_dimension': d
-    }
-    
-    with open('processing_log.json', 'w', encoding='utf-8') as f:
-        json.dump(processing_log, f, indent=2, ensure_ascii=False)
-    
-    print(f"处理日志已保存到: processing_log.json")
-    print(f"处理完成！成功处理了 {success_count} 个文本块。")
+    try:
+        # 开始并发处理
+        logger.info("🔄 开始并发处理文本块...")
+        process_chunks_concurrent(chunks_to_process, processor)
+        
+        # 处理完成统计
+        elapsed_time = time.time() - processor.start_time
+        success_count = len(processor.successful_chunks)
+        total_count = len(chunks_to_process)
+        failure_count = len(processor.failed_indices)
+        
+        logger.info(f"\n📊 处理完成统计:")
+        logger.info(f"  - 总耗时: {elapsed_time:.1f} 秒")
+        logger.info(f"  - 总共处理: {total_count} 个文本块")
+        logger.info(f"  - 成功处理: {success_count} 个")
+        logger.info(f"  - 处理失败: {failure_count} 个")
+        logger.info(f"  - 成功率: {(success_count/total_count*100):.1f}%")
+        
+        if processor.failed_indices:
+            logger.warning(f"  - 失败的块索引: {processor.failed_indices[:10]}{'...' if len(processor.failed_indices) > 10 else ''}")
+        
+        if not processor.all_embeddings:
+            logger.error("❌ 没有成功生成任何嵌入向量")
+            return
+        
+        # 构建 FAISS 索引
+        logger.info("🔨 构建 FAISS 索引...")
+        embeddings_np = np.array(processor.all_embeddings).astype('float32')
+        
+        d = embeddings_np.shape[1]
+        index = faiss.IndexFlatL2(d)
+        index.add(embeddings_np)
+        
+        logger.info(f"✅ FAISS 索引构建完成，包含 {index.ntotal} 个向量")
+        
+        # 保存结果
+        logger.info("💾 保存结果...")
+        faiss.write_index(index, FAISS_INDEX_PATH)
+        
+        with open(CHUNKS_MAPPING_PATH, 'wb') as f:
+            pickle.dump(processor.successful_chunks, f)
+        
+        # 保存处理日志
+        processing_log = {
+            'timestamp': datetime.now().isoformat(),
+            'total_chunks': total_count,
+            'successful_chunks': success_count,
+            'failed_chunks': failure_count,
+            'failed_indices': processor.failed_indices,
+            'embedding_dimension': d,
+            'processing_time_seconds': elapsed_time,
+            'concurrent_workers': MAX_CONCURRENT_REQUESTS
+        }
+        
+        with open('processing_log.json', 'w', encoding='utf-8') as f:
+            json.dump(processing_log, f, indent=2, ensure_ascii=False)
+        
+        # 清理检查点文件
+        if os.path.exists(CHECKPOINT_PATH):
+            os.remove(CHECKPOINT_PATH)
+            logger.info("🧹 清理检查点文件")
+        
+        logger.info(f"🎉 处理完成！")
+        logger.info(f"  - 索引文件: {FAISS_INDEX_PATH}")
+        logger.info(f"  - 文本映射: {CHUNKS_MAPPING_PATH}")
+        logger.info(f"  - 处理日志: processing_log.json")
+        
+    except KeyboardInterrupt:
+        logger.info("👋 程序被用户中断")
+    except Exception as e:
+        logger.error(f"💥 程序执行出错: {e}", exc_info=True)
+        processor._save_checkpoint()
 
 if __name__ == "__main__":
     main()

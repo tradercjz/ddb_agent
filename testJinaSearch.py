@@ -181,9 +181,9 @@ if __name__ == "__main__":
     # 可以选择单次搜索或交互式搜索
     
     # 方式1: 单次搜索
-    print("=== 单次搜索模式 ===")
-    user_query = "failed to open chunks怎么处理"
-    results = search_knowledge_base(user_query, k=2)
+    # print("=== 单次搜索模式 ===")
+    # user_query = "failed to open chunks怎么处理"
+    # results = search_knowledge_base(user_query, k=2)
     
     # 方式2: 交互式搜索 (取消注释下面的行来启用)
-    # interactive_search()
+    interactive_search()
