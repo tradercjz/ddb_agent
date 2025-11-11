@@ -7,12 +7,11 @@ class ModelConfig(BaseModel):
     """
     Represents the configuration for a single LLM.
     """
-    name: str = Field(description="A unique, user-friendly name for this configuration.")
-    model_name: str = Field(description="The actual model name to be passed to the API.")
+    name: str = Field(description="A unique, user-friendly name for this configuration (used in code to reference the model).")
+    model_name: str = Field(description="The actual model name to be passed to the API (e.g., 'deepseek-chat', 'google/gemini-2.5-pro').")
     base_url: str = Field(description="The base URL of the API provider.")
     api_key: Optional[str] = Field(None, description="Direct API key (less secure).")
     api_key_env_var: Optional[str] = Field(None, description="Environment variable name for the API key (recommended).")
-    model_type: Optional[str] = Field(None, description="Type of the model provider (e.g., 'openai', 'deepseek').")
     description: Optional[str] = Field(None, description="A brief description of the model.")
     max_context_tokens: Optional[int] = Field(None, description="Maximum number of tokens the model can handle in a single request. If not set, defaults to 50000.")
     log_requests: Optional[bool] = Field(False, description="Whether to log requests made to this model. Defaults to False.")

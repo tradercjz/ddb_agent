@@ -12,6 +12,7 @@ from services.agent_service import AgentService
 from mcp.market.market_manager import MCPMarketManager
 from mcp.server.server_manager import MCPServerManager
 from fastapi.middleware.cors import CORSMiddleware
+from llm.models import ModelManager
 
 
 class ReactTaskRequest(BaseModel):
@@ -26,12 +27,23 @@ async def lifespan(app: FastAPI):
     print("INFO:     Starting up DDB-Agent Service...")
     
     # 1. 初始化核心引擎
+    # 从 .env 获取默认模型配置名称
+    default_model_name = os.getenv("Default_LLM_Model", "deepseek")
+
+    # 验证默认模型配置是否存在
+    model_config = ModelManager.get_model_config(default_model_name)
+    if not model_config:
+        raise ValueError(
+            f"Default model configuration '{default_model_name}' not found in models.json. "
+            f"Please check your Default_LLM_Model environment variable."
+        )
+
     mcp_market_manager = MCPMarketManager()
     mcp_server_manager = MCPServerManager(market_manager=mcp_market_manager)
     agent_core = DDBAgent(
-        project_path=".", 
-        model_name=os.getenv("LLM_MODEL","deepseek-chat"), 
-        max_window_size=128000,
+        project_path=".",
+        model_name=default_model_name,  # 使用配置名称（如 "deepseek"），而非实际模型名
+        max_window_size=model_config.max_context_tokens or 128000,
         mcp_market_manager=mcp_market_manager,
         mcp_server_manager=mcp_server_manager,
         enable_mcp=True # 显式启用

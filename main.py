@@ -1857,6 +1857,17 @@ if __name__ == "__main__":
 
         ModelManager.load_models()
 
+        # 从 .env 获取默认模型配置名称
+        default_model_name = os.getenv("Default_LLM_Model", "deepseek")
+
+        # 验证默认模型配置是否存在
+        model_config = ModelManager.get_model_config(default_model_name)
+        if not model_config:
+            raise ValueError(
+                f"Default model configuration '{default_model_name}' not found in models.json. "
+                f"Please check your Default_LLM_Model environment variable."
+            )
+
         mcp_market_manager = MCPMarketManager()
         mcp_server_manager = MCPServerManager(mcp_market_manager)
 
@@ -1864,8 +1875,8 @@ if __name__ == "__main__":
 
         cli_handler = CLISessionHandler(
             project_path=project_path,
-            model_name="deepseek-chat",
-            max_window_size=64000,
+            model_name=default_model_name,  # 使用配置名称（如 "deepseek"），而非实际模型名
+            max_window_size=model_config.max_context_tokens or 64000,
             mcp_market_manager = mcp_market_manager,
             mcp_server_manager = mcp_server_manager
         )

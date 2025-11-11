@@ -71,10 +71,11 @@ class LLMClient:
             LLMResponse: llm原始返回
         """
         try:
-            target_model = model or os.getenv("LLM_MODEL")
-            if not target_model:
-                raise ValueError("No model specified and LLM_MODEL environment variable is not set.")
-            
+            if not model:
+                raise ValueError("Model must be specified. Please provide the model name from models.json configuration.")
+
+            target_model = model
+
             if log_requests:
                 self._log_request(conversation_history, target_model)
             
@@ -133,31 +134,27 @@ class LLMClientManager:
     def get_client(cls, api_key: Optional[str] = None, base_url: Optional[str] = None, logger=None) -> LLMClient:
         """
         获取一个LLMClient实例。如果已存在相同配置的实例，则从缓存返回。
-        
+
         Args:
-            api_key: API密钥。如果为None，则从环境变量 LLM_API_KEY 获取。
-            base_url: API基础URL。如果为None，则从环境变量 LLM_BASE_URL 获取。
+            api_key: API密钥（必需，从 models.json 配置中获取）。
+            base_url: API基础URL（必需，从 models.json 配置中获取）。
             logger: 日志记录器。
-            
+
         Returns:
             LLMClient实例。
         """
-        # 确定最终的配置
-        final_api_key = api_key or os.getenv("LLM_API_KEY")
-        final_base_url = base_url or os.getenv("LLM_BASE_URL")
-
-        if not final_api_key or not final_base_url:
-            raise ValueError("API key and Base URL must be provided either as arguments or environment variables.")
+        if not api_key or not base_url:
+            raise ValueError("API key and Base URL must be provided from models.json configuration.")
 
         # 使用base_url作为缓存的key，通常一个base_url对应一个服务商
-        cache_key = final_base_url
+        cache_key = base_url
 
         if cache_key not in cls._clients:
-            print(f"Creating new LLMClient for: {final_base_url}")
+            print(f"Creating new LLMClient for: {base_url}")
             cls._clients[cache_key] = LLMClient(
-                api_key=final_api_key,
-                base_url=final_base_url,
+                api_key=api_key,
+                base_url=base_url,
                 logger=logger
             )
-        
+
         return cls._clients[cache_key]
