@@ -51,7 +51,7 @@ def main():
         ModelManager.load_models()
         agent = DDBAgent(
             project_path=os.getcwd(),
-            model_name="deepseek-chat",
+            model_name="deepseek",  # 使用配置名，而非实际模型名
             max_window_size=64000
         )
         

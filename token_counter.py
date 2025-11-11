@@ -82,13 +82,13 @@ def get_tokenizer(model_name: str) -> Optional[transformers.PreTrainedTokenizer]
 
 # 使用 lru_cache 进一步对计数结果进行缓存，提高对相同文本计数的性能
 @lru_cache(maxsize=1024)
-def count_tokens(text: str, model_name: str = "deepseek-default") -> int:
+def count_tokens(text: str, model_name: str = "deepseek") -> int:
     """
     计算给定文本的 token 数量。
 
     Args:
         text: 要计算 token 的文本。
-        model_name: 要使用的模型名称（别名），默认为 'deepseek-default'。
+        model_name: 要使用的模型名称（别名），默认为 'deepseek'。
                     这个名称应在 TOKENIZER_CONFIGS 中有定义。
 
     Returns:

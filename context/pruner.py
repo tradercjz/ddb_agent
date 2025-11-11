@@ -101,7 +101,7 @@ class ExtractPruner(BasePruner):
     """
     An intelligent pruner that extracts relevant code snippets from large files.
     """
-    def __init__(self, max_tokens: int, llm_model_name: str = "deepseek-default", max_workers = 8):
+    def __init__(self, max_tokens: int, llm_model_name: str = "deepseek", max_workers = 8):
         super().__init__(max_tokens)
         self.llm_model_name = llm_model_name
         self.full_file_threshold = int(max_tokens * 0.8)

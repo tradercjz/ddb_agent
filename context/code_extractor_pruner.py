@@ -17,7 +17,7 @@ class CodeExtractorPruner:
     Implements the 'extract' context pruning strategy.
     It extracts relevant code snippets from large files based on conversation history.
     """
-    def __init__(self, max_tokens: int, llm_model_name: str = "deepseek-default"):
+    def __init__(self, max_tokens: int, llm_model_name: str = "deepseek"):
         self.max_tokens = max_tokens
         self.llm_model_name = llm_model_name
         # 设置一个阈值，小于此阈值的文件将被完整保留，以提高效率
