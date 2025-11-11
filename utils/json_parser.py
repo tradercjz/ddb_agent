@@ -43,5 +43,7 @@ def parse_json_string(json_str):
             print(f"The problematic string and error details have been saved to: {filepath}")
 
         except Exception as log_e:
-            # 如果连写入日志文件都失败了，打印一个严重的警告
+            # 如果连写入日志文件都失败了,打印一个严重的警告
             print(f"CRITICAL: Failed to write error log file to '{error_log_dir}'. Error: {log_e}")
+        
+        return None

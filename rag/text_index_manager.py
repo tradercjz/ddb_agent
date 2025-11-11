@@ -16,7 +16,7 @@ class TextIndexManager(BaseIndexManager):
 
     MAX_TOKENS_PER_CHUNK = 100*1000
 
-    def __init__(self, project_path: str, index_file: str = ".ddb_agent/text_index"):
+    def __init__(self, project_path: str, index_file: str = ".ddb_agent/file_index.json"):
         super().__init__(project_path, index_file)
 
     @llm.prompt()  # 使用 .env 中 Default_LLM_Model 配置的默认模型
@@ -41,7 +41,7 @@ class TextIndexManager(BaseIndexManager):
         ```json
         {
           "file_path": "{{ file_path }}",
-          "chunk_id": "0"
+          "chunk_id": "0",
           "source_document": "{{ source_document }}",
           "start_line": {{ start_line }},
           "end_line": {{ end_line }},
@@ -198,6 +198,9 @@ class TextIndexManager(BaseIndexManager):
                     response_str = e.value 
 
                 json_content = parse_json_string(response_str.content)
+                if json_content is None:
+                    print(f"  - Error: LLM returned empty or invalid response for {file_path}. Skipping.")
+                    return None
                 final_chunk_index = [TextChunkIndex(**json_content)]
             else:
                 chunks = self._chunk_text(full_text)

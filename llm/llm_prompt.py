@@ -1,5 +1,6 @@
 import functools
 import inspect
+import os
 from typing import Any, Callable, Dict, Generator, Optional, Type, TypeVar, List
 from jinja2 import Environment, BaseLoader
 
@@ -62,11 +63,15 @@ class PromptDecorator:
         初始化装饰器
         
         Args:
+            model: 模型名称别名（从 models.json 中获取），如果为 None 则从 .env 的 Default_LLM_Model 读取
+            api_key: API密钥（可选，用于覆盖配置）
+            base_url: API基础URL（可选，用于覆盖配置）
             response_model: 响应的数据模型类型
-            stream: 是否启用流式响应
+            log_requests: 是否记录请求日志
             **kwargs: 其他配置参数
         """
-        self.model_name_alias = model
+        # 如果没有指定模型，从环境变量中读取默认模型
+        self.model_name_alias = model or os.getenv("Default_LLM_Model", "deepseek")
         self.override_api_key = api_key
         self.override_base_url = base_url
         self.response_model = response_model
