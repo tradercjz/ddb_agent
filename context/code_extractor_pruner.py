@@ -1,5 +1,6 @@
 # file: ddb_agent/context/code_extractor_pruner.py
 
+import os
 import json
 from typing import List, Dict, Any, Tuple
 from llm.llm_prompt import llm  # 假设您使用之前设计的llm.prompt
@@ -17,9 +18,10 @@ class CodeExtractorPruner:
     Implements the 'extract' context pruning strategy.
     It extracts relevant code snippets from large files based on conversation history.
     """
-    def __init__(self, max_tokens: int, llm_model_name: str = "deepseek-default"):
+    def __init__(self, max_tokens: int, llm_model_name: str = None):
         self.max_tokens = max_tokens
-        self.llm_model_name = llm_model_name
+        # 如果未指定模型名，从环境变量读取
+        self.llm_model_name = llm_model_name or os.getenv("Default_LLM_Model", "deepseek")
         # 设置一个阈值，小于此阈值的文件将被完整保留，以提高效率
         self.full_file_threshold = int(max_tokens * 0.8)
 

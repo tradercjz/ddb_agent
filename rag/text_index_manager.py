@@ -19,7 +19,7 @@ class TextIndexManager(BaseIndexManager):
     def __init__(self, project_path: str, index_file: str = ".ddb_agent/text_index"):
         super().__init__(project_path, index_file)
 
-    @llm.prompt(model="deepseek-chat")
+    @llm.prompt()  # 使用 .env 中 Default_LLM_Model 配置的默认模型
     def _create_index_for_small_file(self, file_path: str, file_content: str):
         """
         你是一位专业的文档分析专家。你的任务是处DolphinDB文档，并为其提取用于搜索引擎的关键元数据。

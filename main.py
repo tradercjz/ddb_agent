@@ -6,6 +6,7 @@ import re
 from functools import partial
 from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 import uuid
+from dotenv import load_dotenv
 from rich.panel import Panel
 from rich.markdown import Markdown
 from rich.syntax import Syntax
@@ -1850,7 +1851,11 @@ You need to specify a subcommand. Available options:
             
 if __name__ == "__main__":
     try:
-        project_path = os.path.dirname(os.path.abspath(__file__))
+        # 加载环境变量
+        load_dotenv()
+
+        # 从 .env 获取项目路径，如果未设置则使用脚本所在目录
+        project_path = os.getenv("PROJECT_PATH") or os.path.dirname(os.path.abspath(__file__))
         log_dir = ".ddb_agent/logs"
         os.makedirs(log_dir, exist_ok=True)
         #setup_llm_logger(log_file_path=os.path.join(log_dir, "llm_requests.log"))

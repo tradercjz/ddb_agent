@@ -1,5 +1,6 @@
 # file: ddb_agent/context/pruner.py
 
+import os
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
@@ -101,9 +102,10 @@ class ExtractPruner(BasePruner):
     """
     An intelligent pruner that extracts relevant code snippets from large files.
     """
-    def __init__(self, max_tokens: int, llm_model_name: str = "deepseek-default", max_workers = 8):
+    def __init__(self, max_tokens: int, llm_model_name: str = None, max_workers = 8):
         super().__init__(max_tokens)
-        self.llm_model_name = llm_model_name
+        # 如果未指定模型名，从环境变量读取
+        self.llm_model_name = llm_model_name or os.getenv("Default_LLM_Model", "deepseek")
         self.full_file_threshold = int(max_tokens * 0.8)
         self.max_workers = max_workers
 

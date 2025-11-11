@@ -6,6 +6,7 @@ from pydantic import BaseModel
 import json
 import os
 from typing import List, Dict, Any
+from dotenv import load_dotenv
 
 from agent.agent import DDBAgent
 from services.agent_service import AgentService
@@ -13,6 +14,9 @@ from mcp.market.market_manager import MCPMarketManager
 from mcp.server.server_manager import MCPServerManager
 from fastapi.middleware.cors import CORSMiddleware
 from llm.models import ModelManager
+
+# 加载环境变量
+load_dotenv()
 
 
 class ReactTaskRequest(BaseModel):
@@ -27,6 +31,9 @@ async def lifespan(app: FastAPI):
     print("INFO:     Starting up DDB-Agent Service...")
     
     # 1. 初始化核心引擎
+    # 从 .env 获取项目路径
+    project_path = os.getenv("PROJECT_PATH", ".")
+
     # 从 .env 获取默认模型配置名称
     default_model_name = os.getenv("Default_LLM_Model", "deepseek")
 
@@ -41,7 +48,7 @@ async def lifespan(app: FastAPI):
     mcp_market_manager = MCPMarketManager()
     mcp_server_manager = MCPServerManager(market_manager=mcp_market_manager)
     agent_core = DDBAgent(
-        project_path=".",
+        project_path=project_path,
         model_name=default_model_name,  # 使用配置名称（如 "deepseek"），而非实际模型名
         max_window_size=model_config.max_context_tokens or 128000,
         mcp_market_manager=mcp_market_manager,

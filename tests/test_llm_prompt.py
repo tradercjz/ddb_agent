@@ -12,7 +12,7 @@ def test_hello(name: str) -> str:
 
     """
 
-@llm.prompt(model="deepseek-default")
+@llm.prompt(model="deepseek")
 def test_json_resp(name: str) -> str:
     """
     我是{{ name }}，请返回JSON格式的响应
