@@ -20,13 +20,13 @@ class TextIndexManager(BaseIndexManager):
         super().__init__(project_path, index_file)
 
     @llm.prompt()  # 使用 .env 中 Default_LLM_Model 配置的默认模型
-    def _create_index_for_small_file(self, file_path: str, file_content: str):
+    def _create_chunk_index(self, source_document: str, start_line: int, end_line: int, content: str):
         """
-        你是一位专业的文档分析专家。你的任务是处DolphinDB文档，并为其提取用于搜索引擎的关键元数据。
+        你是一位专业的文档分析专家。你的任务是处理 DolphinDB 文档，并为其提取用于搜索引擎的关键元数据。
 
         源文档 (Source Document): {{ source_document }}
         分块位置 (Chunk Location): Lines {{ start_line }} to {{ end_line }}
-        
+
         文本分块内容 (Text Chunk Content):
         <CONTENT>
         {{ content }}
@@ -40,11 +40,6 @@ class TextIndexManager(BaseIndexManager):
         你的回答**必须**遵循以下 JSON 格式。不要添加任何额外的文字或解释。
         ```json
         {
-          "file_path": "{{ file_path }}",
-          "chunk_id": "0",
-          "source_document": "{{ source_document }}",
-          "start_line": {{ start_line }},
-          "end_line": {{ end_line }},
           "summary": "对文本片段内容的简洁摘要。",
           "keywords": ["关键词1", "关键词2", "关键词3"],
           "hypothetical_question": "一个该文本片段可以回答的问题。"
@@ -52,59 +47,11 @@ class TextIndexManager(BaseIndexManager):
         ```
         """
         return {
-            "file_path": file_path,
-            "chunk_id": "0",
-            "source_document": file_path,
-            "start_line": 1,
-            "end_line": len(file_content.splitlines()),
-            "content": file_content.replace('"', '\\"'),  # Escape double quotes for JSON
+            "source_document": source_document,
+            "start_line": start_line,
+            "end_line": end_line,
+            "content": content
         }
-
-
-        
-    @llm.prompt()
-    def _create_chunk_index_prompt(
-        self, 
-        file_path: str,
-        chunk_id: str,
-        source_document: str,
-        start_line: int,
-        end_line: int,
-        content: str
-    ) -> dict:
-        """
-        You are an expert document analyst. Your task is to process a chunk of text from a larger document 
-        and extract key metadata for a search index.
-
-        Source Document: {{ source_document }}
-        Chunk Location: Lines {{ start_line }} to {{ end_line }}
-        
-        Text Chunk Content:
-        <CONTENT>
-        {{ content }}
-        </CONTENT>
-
-        Please perform the following actions:
-        1.  **Summarize**: Write a concise, one-sentence summary of this chunk's main point.
-        2.  **Keywords**: Extract 3-5 relevant keywords.
-        3.  **Hypothetical Question**: Formulate a single, clear question that this chunk of text could directly answer. This question will be used for searching.
-
-        Your response MUST be in the following JSON format. Do not add any extra text or explanations.
-        ```json
-        {
-          "file_path": "{{ file_path }}",
-          "chunk_id": "{{ chunk_id }}",
-          "source_document": "{{ source_document }}",
-          "start_line": {{ start_line }},
-          "end_line": {{ end_line }},
-          "summary": "A concise summary of the chunk's content.",
-          "keywords": ["keyword1", "keyword2", "keyword3"],
-          "hypothetical_question": "A question that this chunk can answer."
-        }
-        ```
-        """
-        # 使用 `e`过滤器来转义JSON字符串中的特殊字符
-        return {"content": content.replace('"', '\\"')}
 
     # --- 文本分块与索引构建 ---
 
@@ -185,23 +132,37 @@ class TextIndexManager(BaseIndexManager):
             chunks = []
             final_chunk_index = []
             if total_tokens <= self.MAX_TOKENS_PER_CHUNK:
-                response_generator = self._create_index_for_small_file(
-                    file_path=file_path,
-                    file_content=full_text
+                print(f"    - Indexing entire file (total tokens: {total_tokens})...")
+
+                response_generator = self._create_chunk_index(
+                    source_document=file_path,
+                    start_line=1,
+                    end_line=len(full_text.splitlines()),
+                    content=full_text
                 )
-                
+
                 try:
                     while True:
                         part = next(response_generator)
                         pass
                 except StopIteration as e:
-                    response_str = e.value 
+                    response_str = e.value
 
                 json_content = parse_json_string(response_str.content)
                 if json_content is None:
                     print(f"  - Error: LLM returned empty or invalid response for {file_path}. Skipping.")
                     return None
-                final_chunk_index = [TextChunkIndex(**json_content)]
+
+                # 在代码中组装完整的 TextChunkIndex 对象
+                chunk_index = TextChunkIndex(
+                    file_path=file_path,
+                    chunk_id="0",
+                    source_document=file_path,
+                    start_line=1,
+                    end_line=len(full_text.splitlines()),
+                    **json_content  # 只包含 LLM 生成的字段：summary, keywords, hypothetical_question
+                )
+                final_chunk_index = [chunk_index]
             else:
                 chunks = self._chunk_text(full_text)
 
@@ -209,21 +170,38 @@ class TextIndexManager(BaseIndexManager):
                 for i, (start_line, end_line, content) in enumerate(chunks):
                     chunk_id = f"{os.path.basename(file_path)}-chunk_{i}"
                     print(f"    - Indexing chunk {i+1}/{len(chunks)} (lines {start_line}-{end_line})...")
-                    
+
                     try:
                         # 调用 LLM 生成索引元数据
-                        response_str = self._create_chunk_index_prompt(
-                            file_path=file_path,
-                            chunk_id=chunk_id,
+                        response_generator = self._create_chunk_index(
                             source_document=file_path,
                             start_line=start_line,
                             end_line=end_line,
                             content=content
                         )
 
-                        json_content = parse_json_string(response_str)
-                        chunk_index = TextChunkIndex(**json_content)
-                        
+                        try:
+                            while True:
+                                part = next(response_generator)
+                                pass
+                        except StopIteration as e:
+                            response_str = e.value
+
+                        json_content = parse_json_string(response_str.content)
+                        if json_content is None:
+                            print(f"    - Error: LLM returned empty or invalid response for chunk {i+1}. Skipping.")
+                            continue
+
+                        # 在代码中组装完整的 TextChunkIndex 对象
+                        chunk_index = TextChunkIndex(
+                            file_path=file_path,
+                            chunk_id=chunk_id,
+                            source_document=file_path,
+                            start_line=start_line,
+                            end_line=end_line,
+                            **json_content  # 只包含 LLM 生成的字段：summary, keywords, hypothetical_question
+                        )
+
                         final_chunk_index.append(chunk_index)
                     except Exception as e:
                         print(f"    - Error indexing chunk {i+1}: {e}")
