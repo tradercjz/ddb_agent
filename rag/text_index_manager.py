@@ -2,7 +2,8 @@
 
 import os
 import json
-from typing import List, Tuple
+import time
+from typing import List, Tuple, Callable, Any
 from llm.llm_prompt import llm
 from token_counter import count_tokens
 from utils.json_parser import parse_json_string
@@ -10,6 +11,7 @@ from .types import TextChunkIndex
 from utils.text_extractor import extract_text_from_file
 from .base_manager import BaseIndexManager
 from llm.models import ModelManager
+from llm.llm_client import LLMResponse
 
 class TextIndexManager(BaseIndexManager):
     """Manages indexing and retrieval for text documents."""
@@ -18,6 +20,65 @@ class TextIndexManager(BaseIndexManager):
 
     def __init__(self, project_path: str, index_file: str = ".ddb_agent/file_index.json"):
         super().__init__(project_path, index_file)
+
+    def _call_llm_with_retry(self, llm_func: Callable, max_retries: int = 3, **kwargs) -> LLMResponse:
+        """
+        调用 LLM 函数，失败时自动重试
+
+        Args:
+            llm_func: LLM 函数（带 @llm.prompt 装饰器的函数）
+            max_retries: 最大重试次数
+            **kwargs: 传递给 llm_func 的参数
+
+        Returns:
+            LLMResponse 对象
+        """
+        retry_count = 0
+        last_error = None
+
+        while retry_count <= max_retries:
+            try:
+                # 调用 LLM 函数（返回 generator）
+                response_generator = llm_func(**kwargs)
+
+                # 消费 generator 获取最终结果
+                try:
+                    while True:
+                        part = next(response_generator)
+                        pass
+                except StopIteration as e:
+                    response = e.value
+
+                # 检查是否成功
+                if response.success:
+                    if retry_count > 0:
+                        print(f"    ✓ Retry {retry_count} succeeded.")
+                    return response
+
+                # 如果失败，记录错误并重试
+                last_error = response.error_message
+                retry_count += 1
+
+                if retry_count <= max_retries:
+                    wait_time = 2 ** (retry_count - 1)  # 指数退避：1s, 2s, 4s
+                    print(f"    ⚠ LLM call failed: {response.error_message} (Type: {response.error_type}). Retrying {retry_count}/{max_retries} in {wait_time}s...")
+                    time.sleep(wait_time)
+
+            except Exception as e:
+                last_error = str(e)
+                retry_count += 1
+
+                if retry_count <= max_retries:
+                    wait_time = 2 ** (retry_count - 1)
+                    print(f"    ⚠ Exception during LLM call: {e}. Retrying {retry_count}/{max_retries} in {wait_time}s...")
+                    time.sleep(wait_time)
+
+        # 所有重试都失败，返回失败的 LLMResponse
+        return LLMResponse(
+            success=False,
+            error_message=f"Failed after {max_retries} retries. Last error: {last_error}",
+            error_type="MaxRetriesExceeded"
+        )
 
     @llm.prompt()  # 使用 .env 中 Default_LLM_Model 配置的默认模型
     def _create_index_for_small_file(self, file_path: str, file_content: str):
@@ -185,21 +246,27 @@ class TextIndexManager(BaseIndexManager):
             chunks = []
             final_chunk_index = []
             if total_tokens <= self.MAX_TOKENS_PER_CHUNK:
-                response_generator = self._create_index_for_small_file(
+                # 使用重试机制调用 LLM
+                response_str = self._call_llm_with_retry(
+                    llm_func=self._create_index_for_small_file,
+                    max_retries=3,
                     file_path=file_path,
                     file_content=full_text
                 )
-                
-                try:
-                    while True:
-                        part = next(response_generator)
-                        pass
-                except StopIteration as e:
-                    response_str = e.value 
+
+                # 检查 LLM API 是否成功
+                if not response_str.success:
+                    print(f"  - Error: LLM API failed for {file_path}: {response_str.error_message} (Type: {response_str.error_type}). Skipping.")
+                    return None
+
+                # 检查返回内容是否为空
+                if not response_str.content or response_str.content.strip() == "":
+                    print(f"  - Error: LLM returned empty content for {file_path}. Skipping.")
+                    return None
 
                 json_content = parse_json_string(response_str.content)
                 if json_content is None:
-                    print(f"  - Error: LLM returned empty or invalid response for {file_path}. Skipping.")
+                    print(f"  - Error: Failed to parse JSON response for {file_path}. Skipping.")
                     return None
                 final_chunk_index = [TextChunkIndex(**json_content)]
             else:
@@ -211,8 +278,10 @@ class TextIndexManager(BaseIndexManager):
                     print(f"    - Indexing chunk {i+1}/{len(chunks)} (lines {start_line}-{end_line})...")
                     
                     try:
-                        # 调用 LLM 生成索引元数据
-                        response_str = self._create_chunk_index_prompt(
+                        # 使用重试机制调用 LLM 生成索引元数据
+                        response_str = self._call_llm_with_retry(
+                            llm_func=self._create_chunk_index_prompt,
+                            max_retries=3,
                             file_path=file_path,
                             chunk_id=chunk_id,
                             source_document=file_path,
@@ -221,12 +290,27 @@ class TextIndexManager(BaseIndexManager):
                             content=content
                         )
 
-                        json_content = parse_json_string(response_str)
+                        # 检查 LLM API 是否成功
+                        if not response_str.success:
+                            print(f"    - Error: LLM API failed for chunk {i+1}: {response_str.error_message} (Type: {response_str.error_type}). Skipping chunk.")
+                            continue
+
+                        # 检查返回内容是否为空
+                        if not response_str.content or response_str.content.strip() == "":
+                            print(f"    - Error: LLM returned empty content for chunk {i+1}. Skipping chunk.")
+                            continue
+
+                        json_content = parse_json_string(response_str.content)
+                        if json_content is None:
+                            print(f"    - Error: Failed to parse JSON response for chunk {i+1}. Skipping chunk.")
+                            continue
+
                         chunk_index = TextChunkIndex(**json_content)
-                        
                         final_chunk_index.append(chunk_index)
                     except Exception as e:
                         print(f"    - Error indexing chunk {i+1}: {e}")
+                        import traceback
+                        traceback.print_exc()
                 
 
             self._add_or_update_and_save(final_chunk_index)
