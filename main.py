@@ -6,6 +6,7 @@ import re
 from functools import partial
 from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 import uuid
+from dotenv import load_dotenv
 from rich.panel import Panel
 from rich.markdown import Markdown
 from rich.syntax import Syntax
@@ -1850,12 +1851,27 @@ You need to specify a subcommand. Available options:
             
 if __name__ == "__main__":
     try:
-        project_path = os.path.dirname(os.path.abspath(__file__))
+        # 加载环境变量
+        load_dotenv()
+
+        # 从 .env 获取项目路径，如果未设置则使用脚本所在目录
+        project_path = os.getenv("PROJECT_PATH") or os.path.dirname(os.path.abspath(__file__))
         log_dir = ".ddb_agent/logs"
         os.makedirs(log_dir, exist_ok=True)
         #setup_llm_logger(log_file_path=os.path.join(log_dir, "llm_requests.log"))
 
         ModelManager.load_models()
+
+        # 从 .env 获取默认模型配置名称
+        default_model_name = os.getenv("DEFAULT_LLM_MODEL", "deepseek")
+
+        # 验证默认模型配置是否存在
+        model_config = ModelManager.get_model_config(default_model_name)
+        if not model_config:
+            raise ValueError(
+                f"Default model configuration '{default_model_name}' not found in models.json. "
+                f"Please check your DEFAULT_LLM_MODEL environment variable."
+            )
 
         mcp_market_manager = MCPMarketManager()
         mcp_server_manager = MCPServerManager(mcp_market_manager)
@@ -1864,8 +1880,8 @@ if __name__ == "__main__":
 
         cli_handler = CLISessionHandler(
             project_path=project_path,
-            model_name="deepseek-chat",
-            max_window_size=64000,
+            model_name=default_model_name,  # 使用配置名称（如 "deepseek"），而非实际模型名
+            max_window_size=model_config.max_context_tokens or 64000,
             mcp_market_manager = mcp_market_manager,
             mcp_server_manager = mcp_server_manager
         )

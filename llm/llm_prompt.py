@@ -1,5 +1,6 @@
 import functools
 import inspect
+import os
 from typing import Any, Callable, Dict, Generator, Optional, Type, TypeVar, List
 from jinja2 import Environment, BaseLoader
 
@@ -62,11 +63,15 @@ class PromptDecorator:
         初始化装饰器
         
         Args:
+            model: 模型名称别名（从 models.json 中获取），如果为 None 则从 .env 的 DEFAULT_LLM_MODEL 读取
+            api_key: API密钥（可选，用于覆盖配置）
+            base_url: API基础URL（可选，用于覆盖配置）
             response_model: 响应的数据模型类型
-            stream: 是否启用流式响应
+            log_requests: 是否记录请求日志
             **kwargs: 其他配置参数
         """
-        self.model_name_alias = model
+        # 如果没有指定模型，从环境变量中读取默认模型
+        self.model_name_alias = model or os.getenv("DEFAULT_LLM_MODEL", "deepseek")
         self.override_api_key = api_key
         self.override_base_url = base_url
         self.response_model = response_model
@@ -189,20 +194,38 @@ class PromptDecorator:
             )
 
             pruned_messages = context_manager.prune(llm_messages)
-            
+
             # --- 决定最终的日志开关状态 ---
-            # 优先级: 装饰器直接覆盖 > 配置文件 > 默认Fals
+            # 优先级: 装饰器直接覆盖 > 配置文件 > 默认False
             final_log_requests = self.override_log_requests
             if final_log_requests is None and model_config:
                 final_log_requests = model_config.log_requests
             final_log_requests = final_log_requests or True
-            
+
+            # --- 决定最终的 RPM 限制 ---
+            # 优先级: 模型配置 > 环境变量 > 默认值60
+            final_rpm_limit = None
+            if model_config and model_config.rpm_limit is not None:
+                final_rpm_limit = model_config.rpm_limit
+            else:
+                # 从环境变量读取全局 RPM 限制
+                env_rpm_limit = os.getenv("LLM_RPM_LIMIT")
+                if env_rpm_limit:
+                    try:
+                        final_rpm_limit = int(env_rpm_limit)
+                    except ValueError:
+                        print(f"⚠ Invalid LLM_RPM_LIMIT value: {env_rpm_limit}, using default 60")
+                        final_rpm_limit = 60
+                else:
+                    final_rpm_limit = 60  # 默认值
+
             # 调用LLM API
             llm_result = self._call_llm_api(
-                messages = pruned_messages, 
+                messages = pruned_messages,
                 model = final_model_name,
                 api_key = final_api_key,
                 base_url = final_base_url,
+                rpm_limit = final_rpm_limit,
                 log_requests = final_log_requests
             )
             
@@ -223,17 +246,22 @@ class PromptDecorator:
         
         return wrapper
     
-    def _call_llm_api(self, messages: List[Dict[str, str]], model: Optional[str] = None, api_key: Optional[str] = None, base_url: Optional[str] = None,  log_requests: bool = False) -> Generator[StreamChunk, None, LLMResponse]:
+    def _call_llm_api(self, messages: List[Dict[str, str]], model: Optional[str] = None, api_key: Optional[str] = None, base_url: Optional[str] = None, rpm_limit: Optional[int] = None, log_requests: bool = False) -> Generator[StreamChunk, None, LLMResponse]:
         """
-        调用LLM API (这里是一个模拟实现)
-        
+        调用LLM API
+
         Args:
-            prompt: 渲染后的提示文本
-            
+            messages: 消息历史
+            model: 模型名称
+            api_key: API密钥
+            base_url: API基础URL
+            rpm_limit: RPM限制
+            log_requests: 是否记录请求
+
         Returns:
-            LLM的响应文本
+            LLM的响应
         """
-        llm_client = LLMClientManager.get_client(api_key=api_key, base_url=base_url)
+        llm_client = LLMClientManager.get_client(api_key=api_key, base_url=base_url, rpm_limit=rpm_limit)
 
         response = llm_client.generate_response(
             conversation_history=messages,

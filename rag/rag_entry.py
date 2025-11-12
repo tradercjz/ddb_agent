@@ -20,12 +20,15 @@ class DDBRAG:
     A simple RAG implementation for DolphinDB agent.
     """
     def __init__(self, project_path: str, index_file: str = None, selection_strategy: str = 'llm' ):
-        """ 
+        """
             selection_strategy: 处理索引过大场景
         """
         self.project_path = project_path
-        self.index_file = index_file or os.path.join(project_path, ".ddb_agent", "file_index.json")
-        self.index_manager = TextIndexManager(project_path=project_path, index_file = self.index_file)
+        # 使用相对路径，由 BaseIndexManager 统一处理拼接
+        relative_index_file = index_file or ".ddb_agent/file_index.json"
+        self.index_manager = TextIndexManager(project_path=project_path, index_file=relative_index_file)
+        # 如果需要完整路径，从 index_manager 获取
+        self.index_file = self.index_manager.index_path
         self.selection_strategy = selection_strategy
 
     @llm.prompt()

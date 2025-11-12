@@ -44,8 +44,6 @@ class BaseIndexManager(ABC):
     #     """
     #     pass
 
-    from typing import List, Union
-
     def _add_or_update_and_save(self, new_item: Union[BaseIndexModel, List[BaseIndexModel]]):
         """
         A thread-safe template method to add/update an item or a list of items in the index and save.
@@ -119,7 +117,6 @@ class BaseIndexManager(ABC):
         """
         A common utility to discover files, shared by subclasses.
         """
-        import os
         discovered_files = []
         ignore_dirs = {'.git', 'node_modules', 'dist', 'build', '__pycache__', '.idea', '.vscode', '.ddb_agent'}
         
@@ -156,16 +153,27 @@ class BaseIndexManager(ABC):
             return "" # Return empty string if file not found
 
     
-    def build_index(self, file_extensions: Optional[Union[str, List[str]]] = None, max_workers: int = 4):
+    def build_index(self, file_extensions: Optional[Union[str, List[str]]] = None, max_workers: Optional[int] = None):
         """
         Automatically discovers files and builds or updates the index.
 
         Args:
             file_extensions: A list of file extensions to include (e.g., ['.dos', '.txt']).
                              If None, all files will be processed.
+            max_workers: Maximum number of worker threads. If None, reads from BUILD_INDEX_WORKER env var (default: 4).
         """
+        # 从环境变量读取 max_workers，如果未设置则默认为 4
+        if max_workers is None:
+            max_workers = int(os.getenv("BUILD_INDEX_WORKER", "4"))
+
+        print(f"=== Build Index Configuration ===")
+        print(f"Max workers: {max_workers}")
+        print(f"File extensions: {file_extensions or 'All'}")
+        print(f"Project path: {self.project_path}")
+        print(f"=================================\n")
+
         # 1. 自动发现文件
-        print(f"Discovering files with extensions: {file_extensions or 'All'} in '{self.project_path}'...")
+        print(f"Discovering files...")
         file_paths_to_index = self._discover_files(file_extensions)
 
         if not file_paths_to_index:
@@ -186,16 +194,19 @@ class BaseIndexManager(ABC):
                 try:
                     # 获取单个文件的处理结果
                     result_index = future.result()
-                    
+
                     if result_index:
                         # --- 核心修改在这里 ---
                         # 调用线程安全的更新和保存方法
                         self._add_or_update_and_save(result_index)
-                        print(f"[{processed_count}/{len(file_paths_to_index)}] Indexed and saved: {file_path}")
+                        print(f"[{processed_count}/{len(file_paths_to_index)}] Successfully indexed and saved: {file_path}")
                     else:
-                        print(f"[{processed_count}/{len(file_paths_to_index)}] Failed to index (skipped): {file_path}")
+                        # None 可能表示：已索引跳过、提取失败、LLM 失败等（详细原因已在 _process_single_file 中打印）
+                        print(f"[{processed_count}/{len(file_paths_to_index)}] ⊘ Skipped: {file_path}")
                 except Exception as exc:
-                    print(f"[{processed_count}/{len(file_paths_to_index)}] Exception for {file_path}: {exc}")
+                    print(f"[{processed_count}/{len(file_paths_to_index)}] ✗ Exception for {file_path}: {exc}")
+                    import traceback
+                    traceback.print_exc()
         
         
         print("Index building complete. All processed files have been saved incrementally.")
