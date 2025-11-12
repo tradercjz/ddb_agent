@@ -18,7 +18,7 @@ def test_api_direct():
     print("=" * 60)
     
     # 1. 获取默认模型配置
-    default_model_name = os.getenv("Default_LLM_Model", "deepseek")
+    default_model_name = os.getenv("DEFAULT_LLM_MODEL", "deepseek")
     print(f"✓ 从 .env 读取默认模型: {default_model_name}")
     
     # 2. 从 models.json 获取模型配置

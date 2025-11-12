@@ -1863,14 +1863,14 @@ if __name__ == "__main__":
         ModelManager.load_models()
 
         # 从 .env 获取默认模型配置名称
-        default_model_name = os.getenv("Default_LLM_Model", "deepseek")
+        default_model_name = os.getenv("DEFAULT_LLM_MODEL", "deepseek")
 
         # 验证默认模型配置是否存在
         model_config = ModelManager.get_model_config(default_model_name)
         if not model_config:
             raise ValueError(
                 f"Default model configuration '{default_model_name}' not found in models.json. "
-                f"Please check your Default_LLM_Model environment variable."
+                f"Please check your DEFAULT_LLM_MODEL environment variable."
             )
 
         mcp_market_manager = MCPMarketManager()

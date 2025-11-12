@@ -88,7 +88,7 @@ def count_tokens(text: str, model_name: str = None) -> int:
 
     Args:
         text: 要计算 token 的文本。
-        model_name: 要使用的模型名称（别名），如果为 None，则从 .env 的 Default_LLM_Model 读取。
+        model_name: 要使用的模型名称（别名），如果为 None，则从 .env 的 DEFAULT_LLM_MODEL 读取。
                     这个名称应在 TOKENIZER_CONFIGS 中有定义。
 
     Returns:
@@ -96,7 +96,7 @@ def count_tokens(text: str, model_name: str = None) -> int:
     """
     # 如果未指定模型名，从环境变量读取
     if model_name is None:
-        model_name = os.getenv("Default_LLM_Model", "deepseek")
+        model_name = os.getenv("DEFAULT_LLM_MODEL", "deepseek")
 
     tokenizer = get_tokenizer(model_name)
 

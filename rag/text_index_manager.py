@@ -19,7 +19,7 @@ class TextIndexManager(BaseIndexManager):
     def __init__(self, project_path: str, index_file: str = ".ddb_agent/file_index.json"):
         super().__init__(project_path, index_file)
 
-    @llm.prompt()  # 使用 .env 中 Default_LLM_Model 配置的默认模型
+    @llm.prompt()  # 使用 .env 中 DEFAULT_LLM_MODEL 配置的默认模型
     def _create_chunk_index(self, source_document: str, start_line: int, end_line: int, content: str):
         """
         你是一位专业的文档分析专家。你的任务是处理 DolphinDB 文档，并为其提取用于搜索引擎的关键元数据。

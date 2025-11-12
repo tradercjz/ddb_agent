@@ -105,7 +105,7 @@ class ExtractPruner(BasePruner):
     def __init__(self, max_tokens: int, llm_model_name: str = None, max_workers = 8):
         super().__init__(max_tokens)
         # 如果未指定模型名，从环境变量读取
-        self.llm_model_name = llm_model_name or os.getenv("Default_LLM_Model", "deepseek")
+        self.llm_model_name = llm_model_name or os.getenv("DEFAULT_LLM_MODEL", "deepseek")
         self.full_file_threshold = int(max_tokens * 0.8)
         self.max_workers = max_workers
 
