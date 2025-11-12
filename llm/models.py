@@ -15,6 +15,7 @@ class ModelConfig(BaseModel):
     description: Optional[str] = Field(None, description="A brief description of the model.")
     max_context_tokens: Optional[int] = Field(None, description="Maximum number of tokens the model can handle in a single request. If not set, defaults to 50000.")
     log_requests: Optional[bool] = Field(False, description="Whether to log requests made to this model. Defaults to False.")
+    rpm_limit: Optional[int] = Field(None, description="Requests per minute limit for this model. If not set, uses global LLM_RPM_LIMIT from .env (default: 60).")
 
     def get_api_key(self) -> str:
         """

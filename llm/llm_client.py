@@ -4,6 +4,7 @@ from openai import OpenAI
 from typing import Generator, List, Dict, Any, Literal, Optional, Union
 import os
 from loguru import logger
+from .rpm_limiter import GlobalRPMLimiter, RPMLimiter
 
 @dataclass
 class StreamChunk:
@@ -23,21 +24,25 @@ class LLMResponse:
 class LLMClient:
     """LLM客户端，处理与OpenAI API的交互"""
     
-    def __init__(self, api_key: str, base_url: str, logger=None):
+    def __init__(self, api_key: str, base_url: str, rpm_limit: Optional[int] = None, logger=None):
         """初始化LLM客户端
-        
+
         Args:
             api_key: API密钥
             base_url: API基础URL
+            rpm_limit: RPM限制（每分钟请求数），None表示不限流
             logger: 日志记录器
         """
         if not api_key:
             raise ValueError("API key must be provided.")
         if not base_url:
             raise ValueError("Base URL must be provided.")
-        
+
         self.client = OpenAI(api_key=api_key, base_url=base_url)
         self.logger = logger
+
+        # 获取或创建 RPM 限流器
+        self.limiter: Optional[RPMLimiter] = GlobalRPMLimiter.get_limiter(base_url, rpm_limit) if rpm_limit else None
 
     def _log_request(self, conversation_history: List[Dict[str, str]], model: str):
         """Helper method to log the request payload."""
@@ -57,16 +62,16 @@ class LLMClient:
             logger.warning(f"Failed to log LLM request: {e}")
             
     def generate_response(
-        self, 
+        self,
         conversation_history: List[Dict[str, str]],
         model: Optional[str] = None,
         log_requests: bool = False
     ) ->  Generator[StreamChunk, None, LLMResponse]:
         """从LLM获取响应
-        
+
         Args:
             conversation_history: 对话历史
-            
+
         Returns:
             LLMResponse: llm原始返回
         """
@@ -76,9 +81,13 @@ class LLMClient:
 
             target_model = model
 
+            # RPM 限流检查（如果配置了限流器，会自动等待）
+            if self.limiter:
+                self.limiter.acquire()
+
             if log_requests:
                 self._log_request(conversation_history, target_model)
-            
+
             stream = self.client.chat.completions.create(
                 model=target_model,
                 messages=conversation_history,
@@ -131,13 +140,14 @@ class LLMClientManager:
     _clients: Dict[str, LLMClient] = {}
 
     @classmethod
-    def get_client(cls, api_key: Optional[str] = None, base_url: Optional[str] = None, logger=None) -> LLMClient:
+    def get_client(cls, api_key: Optional[str] = None, base_url: Optional[str] = None, rpm_limit: Optional[int] = None, logger=None) -> LLMClient:
         """
         获取一个LLMClient实例。如果已存在相同配置的实例，则从缓存返回。
 
         Args:
             api_key: API密钥（必需，从 models.json 配置中获取）。
             base_url: API基础URL（必需，从 models.json 配置中获取）。
+            rpm_limit: RPM限制（每分钟请求数），None表示不限流。
             logger: 日志记录器。
 
         Returns:
@@ -150,10 +160,11 @@ class LLMClientManager:
         cache_key = base_url
 
         if cache_key not in cls._clients:
-            print(f"Creating new LLMClient for: {base_url}")
+            print(f"Creating new LLMClient for: {base_url} (RPM limit: {rpm_limit or 'None'})")
             cls._clients[cache_key] = LLMClient(
                 api_key=api_key,
                 base_url=base_url,
+                rpm_limit=rpm_limit,
                 logger=logger
             )
 
