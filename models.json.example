@@ -1,0 +1,31 @@
+[
+  {
+    "name": "deepseek",
+    "model_name": "deepseek-chat",
+    "base_url": "https://api.deepseek.com",
+    "api_key_env_var": "DEEPSEEK_API_KEY",
+    "description": "DeepSeek Chat Model",
+    "max_context_tokens": 64000,
+    "log_requests": false,
+    "rpm_limit": 30
+  },
+  {
+    "name": "openai-gpt4",
+    "model_name": "gpt-4",
+    "base_url": "https://api.openai.com/v1",
+    "api_key_env_var": "OPENAI_API_KEY",
+    "description": "OpenAI GPT-4",
+    "max_context_tokens": 128000,
+    "log_requests": false,
+    "rpm_limit": 60
+  },
+  {
+    "name": "local-model",
+    "model_name": "qwen2.5-14b",
+    "base_url": "http://localhost:11434/v1",
+    "api_key": "not-needed",
+    "description": "Local Ollama Model (no RPM limit)",
+    "max_context_tokens": 32000,
+    "log_requests": false
+  }
+]

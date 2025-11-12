@@ -13,5 +13,6 @@ project_path = os.getenv("PROJECT_PATH", ".")
 index_file = ".ddb_agent/file_index.json"
 
 index_manager = TextIndexManager(project_path=project_path, index_file=index_file)
-index_manager.build_index(file_extensions=".md", max_workers=20)
+# max_workers 从环境变量 BUILD_INDEX_WORKER 读取，默认为 4
+index_manager.build_index(file_extensions=".md")
 
