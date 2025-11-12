@@ -44,8 +44,6 @@ class BaseIndexManager(ABC):
     #     """
     #     pass
 
-    from typing import List, Union
-
     def _add_or_update_and_save(self, new_item: Union[BaseIndexModel, List[BaseIndexModel]]):
         """
         A thread-safe template method to add/update an item or a list of items in the index and save.
@@ -119,7 +117,6 @@ class BaseIndexManager(ABC):
         """
         A common utility to discover files, shared by subclasses.
         """
-        import os
         discovered_files = []
         ignore_dirs = {'.git', 'node_modules', 'dist', 'build', '__pycache__', '.idea', '.vscode', '.ddb_agent'}
         
@@ -191,7 +188,7 @@ class BaseIndexManager(ABC):
                         # --- 核心修改在这里 ---
                         # 调用线程安全的更新和保存方法
                         self._add_or_update_and_save(result_index)
-                        print(f"[{processed_count}/{len(file_paths_to_index)}] Indexed and saved: {file_path}")
+                        print(f"[{processed_count}/{len(file_paths_to_index)}] Successfully indexed and saved: {file_path}")
                     else:
                         print(f"[{processed_count}/{len(file_paths_to_index)}] Failed to index (skipped): {file_path}")
                 except Exception as exc:
